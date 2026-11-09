@@ -276,9 +276,15 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       }
       await AndroidHosting.start((reason) => stop(reason: reason));
       hostLease = true;
-      if (!_alive || lifecycle != _lifecycle) { await AndroidHosting.stop(); return; }
+      if (!_alive || lifecycle != _lifecycle) {
+        await AndroidHosting.stop();
+        return;
+      }
       final token = await readAccessToken();
-      if (!_alive || lifecycle != _lifecycle) { await AndroidHosting.stop(); return; }
+      if (!_alive || lifecycle != _lifecycle) {
+        await AndroidHosting.stop();
+        return;
+      }
       final pairCode = lan ? PairingCode.generate() : null;
       final manager = ref.read(modelManagerProvider.notifier);
       final pool = DesktopHost.active ? _newPool(model, lifecycle) : null;
@@ -293,7 +299,10 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       }
       final server = DeviceModelServer(
         onWork: AndroidHosting.work,
-        groundMessages: (messages) async => ZimGrounding.prepare(messages, await ref.read(zimWikipediaProvider.future)),
+        groundMessages: (messages) async => ZimGrounding.prepare(
+          messages,
+          await ref.read(zimWikipediaProvider.future),
+        ),
         engine: engine,
         settings: () => manager.servedSettings(model),
         modelId: model.id,
@@ -619,9 +628,11 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
         /* Server stop must proceed. */
       }
     }
-    await _closeRuntimes(server, pool);
-    await AndroidHosting.work(false);
-    await AndroidHosting.stop();
+    try {
+      await _closeRuntimes(server, pool);
+    } finally {
+      try { await AndroidHosting.work(false); } finally { await AndroidHosting.stop(); }
+    }
     if (server != null) unawaited(DevicePower.keepScreenOn(false));
     // The served model's own copy is only there for the server. A cancelled
     // answer keeps the engine busy for a moment, and unload refuses a busy

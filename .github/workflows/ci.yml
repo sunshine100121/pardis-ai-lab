@@ -31,7 +31,7 @@ jobs:
           git diff --binary > /tmp/pala-format.patch
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Test new behavior and affected regressions
-        run: flutter test test/pala_knowledge_sources_test.dart test/pala_hosting_integration_test.dart test/zim_test.dart test/archive_regressions_test.dart test/device_model_server_test.dart
+        run: flutter test test/pala_knowledge_sources_test.dart test/pala_hosting_integration_test.dart test/pala_sources_ui_test.dart test/zim_test.dart test/archive_regressions_test.dart test/device_model_server_test.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

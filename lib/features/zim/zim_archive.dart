@@ -196,7 +196,8 @@ class ZimArchive {
     }
   }
 
-  static Future<Uint8List> _readAt(ZimSource f, int pos, int n) => f.readAt(pos, n);
+  static Future<Uint8List> _readAt(ZimSource f, int pos, int n) =>
+      f.readAt(pos, n);
 
   Future<int> _u64At(int pos) async {
     final bytes = await _readAt(_file, pos, 8);

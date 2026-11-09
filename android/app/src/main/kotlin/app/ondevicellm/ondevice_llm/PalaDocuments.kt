@@ -35,6 +35,7 @@ class PalaDocuments(private val context: Context, messenger: BinaryMessenger) {
                             type = "*/*"
                             addCategory(Intent.CATEGORY_OPENABLE)
                             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                            putExtra(Intent.EXTRA_LOCAL_ONLY, true)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                         }, REQUEST)
                     } catch (e: Exception) { picking = null; result.error("picker", e.message, null) }

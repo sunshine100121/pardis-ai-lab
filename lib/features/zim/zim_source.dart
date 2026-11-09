@@ -9,8 +9,8 @@ abstract interface class ZimSource {
   Future<void> close();
   static Future<ZimSource> open(String location) async =>
       location.startsWith('content:')
-          ? AndroidZimSource.open(location)
-          : FileZimSource(await File(location).open(mode: FileMode.read));
+      ? AndroidZimSource.open(location)
+      : FileZimSource(await File(location).open(mode: FileMode.read));
 }
 
 class FileZimSource implements ZimSource {
@@ -21,10 +21,13 @@ class FileZimSource implements ZimSource {
     await file.setPosition(offset);
     return file.read(count);
   }
+
   @override
   Future<int> length() => file.length();
   @override
-  Future<void> close() async { await file.close(); }
+  Future<void> close() async {
+    await file.close();
+  }
 }
 
 class AndroidZimSource implements ZimSource {
@@ -34,8 +37,12 @@ class AndroidZimSource implements ZimSource {
   AndroidZimSource._(this.handle, this.size);
   static Future<AndroidZimSource> open(String uri) async {
     final m = (await channel.invokeMapMethod<String, Object?>('open', uri))!;
-    return AndroidZimSource._((m['handle'] as num).toInt(), (m['size'] as num).toInt());
+    return AndroidZimSource._(
+      (m['handle'] as num).toInt(),
+      (m['size'] as num).toInt(),
+    );
   }
+
   @override
   Future<int> length() async => size;
   @override
@@ -48,7 +55,9 @@ class AndroidZimSource implements ZimSource {
     while (left > 0 && at < size) {
       final n = [left, 1024 * 1024, size - at].reduce((a, b) => a < b ? a : b);
       final bytes = (await channel.invokeMethod<Uint8List>('read', {
-        'handle': handle, 'offset': at, 'count': n,
+        'handle': handle,
+        'offset': at,
+        'count': n,
       }))!;
       if (bytes.isEmpty) break;
       builder.add(bytes);
@@ -57,6 +66,7 @@ class AndroidZimSource implements ZimSource {
     }
     return builder.takeBytes();
   }
+
   @override
   Future<void> close() async {
     if (_closed) return;

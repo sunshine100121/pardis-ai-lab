@@ -72,7 +72,8 @@ class ZimWikipedia {
   /// Tower", "Paris". Each run of up to four words is tried as written, in
   /// Title Case and with only its first letter capitalised, which is how
   /// Wikipedia titles are written.
-  static String normalize(String text) => text.replaceAll('ي', 'ی').replaceAll('ك', 'ک').replaceAll('‌', ' ');
+  static String normalize(String text) =>
+      text.replaceAll('ي', 'ی').replaceAll('ك', 'ک').replaceAll('‌', ' ');
 
   static List<String> candidates(String query) {
     final words = [
@@ -126,7 +127,9 @@ class ZimWikipedia {
     for (final title in candidates(query).take(60)) {
       final e = await zim.findByTitle(title);
       if (e == null || !e.isArticle || !tried.add(e.index)) continue;
-      if (WikipediaClient.bestTitle(normalize(query), [normalize(e.title)]) == null) continue;
+      if (WikipediaClient.bestTitle(normalize(query), [normalize(e.title)]) ==
+          null)
+        continue;
       final html = utf8.decode(await zim.content(e), allowMalformed: true);
       final result = toResult(
         e.title,
@@ -166,7 +169,9 @@ class ZimWikipedia {
           orElse: () => text.split('\n').first,
         );
     final encoded = Uri.encodeComponent(title.replaceAll(' ', '_'));
-    final url = archiveId == null ? 'zim://$encoded' : 'zim://$archiveId/$encoded';
+    final url = archiveId == null
+        ? 'zim://$encoded'
+        : 'zim://$archiveId/$encoded';
     return SearchResult(
       title: '$title — $file',
       url: url,

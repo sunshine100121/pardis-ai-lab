@@ -23,8 +23,13 @@ class ZimArticlePage extends ConsumerWidget {
     final wiki = await ref.read(zimWikipediaProvider.future);
     if (wiki == null || archiveId == null) return null;
     final encoded = url.substring(6);
-    final name = Uri.decodeComponent(encoded.contains('/') ? encoded.substring(encoded.indexOf('/') + 1) : encoded).replaceAll('_', ' ');
-    if (wiki is ZimLibrary) return wiki.articleFrom(archiveId!, archiveDate, name);
+    final name = Uri.decodeComponent(
+      encoded.contains('/')
+          ? encoded.substring(encoded.indexOf('/') + 1)
+          : encoded,
+    ).replaceAll('_', ' ');
+    if (wiki is ZimLibrary)
+      return wiki.articleFrom(archiveId!, archiveDate, name);
     if (await wiki.archiveIdentity() != archiveId) return null;
     final date = await wiki.archiveMetadata('Date');
     if (date != archiveDate) return null;

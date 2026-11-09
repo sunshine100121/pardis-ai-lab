@@ -148,7 +148,10 @@ class DeviceModelServer {
   /// Called while an answer streams with the pieces generated so far.
   final void Function(int pieces)? onProgress;
   final Future<void> Function(bool active)? onWork;
-  final Future<({List<Map<String, Object>> messages, String footer})> Function(List<Map<String, Object>> messages)? groundMessages;
+  final Future<({List<Map<String, Object>> messages, String footer})> Function(
+    List<Map<String, Object>> messages,
+  )?
+  groundMessages;
   HttpServer? _server;
   bool _busy = false;
   RequestQueue _queue = RequestQueue();
@@ -1111,7 +1114,7 @@ class DeviceModelServer {
       workHeld = true;
       var evidenceFooter = '';
       if (!raw && groundMessages != null) {
-        final grounded = await groundMessages!(messages);
+        final grounded = await groundMessages!(messages).timeout(const Duration(seconds: 12));
         messages = grounded.messages;
         evidenceFooter = grounded.footer;
       }
@@ -1119,8 +1122,12 @@ class DeviceModelServer {
         yield* input;
         if (evidenceFooter.isNotEmpty) yield evidenceFooter;
       }
+
       if (_server == null || abandoned.isCompleted) {
-        throw const RouteRefusal(499, 'Request stopped during evidence lookup.');
+        throw const RouteRefusal(
+          499,
+          'Request stopped during evidence lookup.',
+        );
       }
       onSessionChange?.call(client);
       if (wantsStream) {
@@ -1175,19 +1182,20 @@ class DeviceModelServer {
           engine.cancel();
         });
         try {
-          await for (final piece
-              in withEvidence(raw
-                  ? (engine as RawCompletionEngine).generateRaw(
-                      prompt: prompt!,
-                      settings: effective,
-                    )
-                  : engine.generate(
-                      messages: messages,
-                      fallbackTemplate: template,
-                      settings: effective,
-                      tools: selectedTools,
-                      toolChoice: bridgeChoice,
-                    ))) {
+          await for (final piece in withEvidence(
+            raw
+                ? (engine as RawCompletionEngine).generateRaw(
+                    prompt: prompt!,
+                    settings: effective,
+                  )
+                : engine.generate(
+                    messages: messages,
+                    fallbackTemplate: template,
+                    settings: effective,
+                    tools: selectedTools,
+                    toolChoice: bridgeChoice,
+                  ),
+          )) {
             if (timedOut) {
               throw TimeoutException('Generation deadline reached.');
             }
@@ -1408,7 +1416,11 @@ class DeviceModelServer {
       }
     } finally {
       if (workHeld) {
-        try { await onWork?.call(false); } catch (_) { /* Cleanup must still release the model and socket. */ }
+        try {
+          await onWork?.call(false);
+        } catch (_) {
+          /* Cleanup must still release the model and socket. */
+        }
       }
       if (streaming && error != null) {
         try {
