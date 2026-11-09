@@ -27,6 +27,7 @@ object PalaRuntime {
     private var channel: MethodChannel? = null
     var service: PalaHostService? = null
     private var starting: MethodChannel.Result? = null
+    private var expectedServiceStop = false
     private var retained = false
     private var appContext: Context? = null
     private val main = Handler(Looper.getMainLooper())
@@ -60,7 +61,11 @@ object PalaRuntime {
                     result.success(mapOf("level" to b.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY), "charging" to b.isCharging,
                         "thermalStatus" to if (Build.VERSION.SDK_INT >= 29) p.currentThermalStatus else -1))
                 }
-                "refreshRate" -> result.success(0f)
+                "refreshRate" -> {
+                    val a = activity
+                    val d = if (Build.VERSION.SDK_INT >= 30) a?.display else @Suppress("DEPRECATION") a?.windowManager?.defaultDisplay
+                    result.success(d?.refreshRate ?: 0f)
+                }
                 // Hosting never asks the window to remain lit.
                 "keepScreenOn" -> result.success(null)
                 else -> result.notImplemented()
@@ -70,7 +75,8 @@ object PalaRuntime {
             c.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "start" -> {
-                        if (service != null) result.success(null)
+                        if (service != null && expectedServiceStop) result.error("host", "توقف سرور در حال تکمیل است؛ دوباره تلاش کنید", null)
+                        else if (service != null) result.success(null)
                         else if (starting != null || activity == null) result.error("host", "سرور را از صفحه برنامه راه‌اندازی کنید", null)
                         else {
                             retained = true
@@ -81,7 +87,7 @@ object PalaRuntime {
 
                         }
                     }
-                    "stop" -> { starting?.let { failStart("راه‌اندازی لغو شد") }; service?.stopSelf(); retained = false; result.success(null); releaseIfIdle() }
+                    "stop" -> { starting?.let { failStart("راه‌اندازی لغو شد") }; expectedServiceStop = true; service?.stopSelf(); retained = false; result.success(null); releaseIfIdle() }
                     "work" -> {
                         try {
                             if (call.arguments == true && service == null) error("سرویس سرور فعال نیست")
@@ -108,7 +114,12 @@ object PalaRuntime {
         if (granted && activity != null) launchService()
         else failStart("برای وضعیت و توقف سرور، اعلان‌ها را در تنظیمات برنامه فعال کنید")
     }
-    fun ready(s: PalaHostService) { service = s; starting?.success(null); starting = null }
+    fun ready(s: PalaHostService): Boolean {
+        if (!retained || engine == null) return false
+        expectedServiceStop = false
+        service = s; starting?.success(null); starting = null
+        return true
+    }
     fun failStart(message: String) {
         starting?.error("host", message, null); starting = null; retained = false; releaseIfIdle()
     }
@@ -124,7 +135,8 @@ object PalaRuntime {
             service = null
             retained = false
             // Also cancels the Dart server if Android destroys the service.
-            requestStop("سرویس اندروید متوقف شد")
+            if (!expectedServiceStop) requestStop("سرویس اندروید متوقف شد")
+            expectedServiceStop = false
             releaseIfIdle()
         }
     }

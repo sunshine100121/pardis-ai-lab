@@ -46,7 +46,7 @@ class PalaHostService : Service() {
             else startForeground(7401, n)
             val p = getSystemService(PowerManager::class.java)
             wake = p.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:inference").apply { setReferenceCounted(false) }
-            PalaRuntime.ready(this)
+            if (!PalaRuntime.ready(this)) { stopSelf(); return }
             registerReceiver(battery, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             registered = true
             if (Build.VERSION.SDK_INT >= 29) {
@@ -60,17 +60,19 @@ class PalaHostService : Service() {
         if (intent?.action == "stop") PalaRuntime.requestStop("سرور با فرمان کاربر متوقف شد")
         return START_NOT_STICKY
     }
-    private fun checkPower() {
+    private fun powerReason(): String? {
         val b = getSystemService(BatteryManager::class.java)
         val p = getSystemService(PowerManager::class.java)
         val level = b.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        if (!b.isCharging && level in 0..19) PalaRuntime.requestStop("باتری کمتر از ۲۰٪ و بدون شارژ")
+        if (!b.isCharging && level in 0..19) return "باتری کمتر از ۲۰٪ و بدون شارژ"
         if (Build.VERSION.SDK_INT >= 29 && p.currentThermalStatus >= PowerManager.THERMAL_STATUS_SEVERE)
-            PalaRuntime.requestStop("توقف ایمن به دلیل دمای بالا")
+            return "توقف ایمن به دلیل دمای بالا"
+        return null
     }
+    private fun checkPower() { powerReason()?.let(PalaRuntime::requestStop) }
     fun work(active: Boolean) {
         if (active) {
-            checkPower()
+            powerReason()?.let { PalaRuntime.requestStop(it); error(it) }
             // Bounded to the server generation deadline, never held while idle.
             wake?.acquire(11 * 60 * 1000L)
         } else if (wake?.isHeld == true) wake?.release()

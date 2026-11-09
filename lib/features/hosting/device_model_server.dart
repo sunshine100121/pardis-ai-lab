@@ -1376,7 +1376,7 @@ class DeviceModelServer {
         }
       } finally {
         generating = false;
-        release();
+        // Hold the engine lease until the outer finally releases its wake lock.
         onSessionChange?.call(null);
       }
     } on RouteRefusal catch (e) {
