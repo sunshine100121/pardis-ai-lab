@@ -1,3 +1,5 @@
+import '../android_hosting.dart';
+import '../../zim/zim_grounding.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -219,7 +221,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       _server = null;
       final pool = _pool;
       _pool = null;
-      unawaited(_closeRuntimes(server, pool));
+      unawaited(_closeRuntimes(server, pool).whenComplete(AndroidHosting.stop));
       if (server != null) {
         if (HostDiscovery.canAdvertise) {
           unawaited(HostDiscovery.stop().catchError((Object _) {}));
@@ -257,6 +259,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
     if (_server != null || state.starting) return;
     final lifecycle = ++_lifecycle;
     DeviceModelServer? startingServer;
+    var hostLease = false;
     state = const DeviceHostingState(starting: true);
     try {
       if (port < 1 || port > 65535) {
@@ -267,6 +270,13 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       if (model == null || !engine.isLoaded || engine.isBusy) {
         throw StateError('Load a local model and wait for it to become idle.');
       }
+      final power = await DevicePower.read();
+      if (power != null && stopReason(power, guards) != null) {
+        throw StateError(stopReason(power, guards)!);
+      }
+      await AndroidHosting.start((reason) => stop(reason: reason));
+      hostLease = true;
+      if (!_alive || lifecycle != _lifecycle) { await AndroidHosting.stop(); return; }
       final token = await readAccessToken();
       if (!_alive || lifecycle != _lifecycle) return;
       final pairCode = lan ? PairingCode.generate() : null;
@@ -282,6 +292,8 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
         if (await file.exists()) vectorFiles[entry.key] = file.path;
       }
       final server = DeviceModelServer(
+        onWork: AndroidHosting.work,
+        augmentMessages: (messages) async => ZimGrounding.augment(messages, await ref.read(zimWikipediaProvider.future)),
         engine: engine,
         settings: () => manager.servedSettings(model),
         modelId: model.id,
@@ -339,6 +351,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       );
       if (!_alive || lifecycle != _lifecycle) {
         await server.stop();
+        await AndroidHosting.stop();
         return;
       }
       _server = server;
@@ -352,6 +365,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       }
       if (!_alive || lifecycle != _lifecycle) {
         await server.stop();
+        await AndroidHosting.stop();
         return;
       }
       state = DeviceHostingState(
@@ -388,11 +402,12 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
         ref.read(engineHandoffProvider.notifier).state = (next) =>
             _handoff(next, lifecycle);
       }
-      unawaited(DevicePower.keepScreenOn(true));
+      if (!Platform.isAndroid) unawaited(DevicePower.keepScreenOn(true));
       _powerTimer = Timer.periodic(powerInterval, (_) => checkPower());
       unawaited(checkPower());
     } catch (error) {
       await startingServer?.stop();
+      if (hostLease) await AndroidHosting.stop();
       if (_alive && lifecycle == _lifecycle) {
         _server = null;
         final pool = _pool;
@@ -605,6 +620,8 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       }
     }
     await _closeRuntimes(server, pool);
+    await AndroidHosting.work(false);
+    await AndroidHosting.stop();
     if (server != null) unawaited(DevicePower.keepScreenOn(false));
     // The served model's own copy is only there for the server. A cancelled
     // answer keeps the engine busy for a moment, and unload refuses a busy

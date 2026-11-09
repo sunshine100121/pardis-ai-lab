@@ -147,6 +147,8 @@ class DeviceModelServer {
 
   /// Called while an answer streams with the pieces generated so far.
   final void Function(int pieces)? onProgress;
+  final Future<void> Function(bool active)? onWork;
+  final Future<List<Map<String, Object>>> Function(List<Map<String, Object>> messages)? augmentMessages;
   HttpServer? _server;
   bool _busy = false;
   RequestQueue _queue = RequestQueue();
@@ -168,6 +170,8 @@ class DeviceModelServer {
     this.onSessionChange,
     this.onServed,
     this.onProgress,
+    this.onWork,
+    this.augmentMessages,
     this.bodyTimeout = const Duration(seconds: 15),
     this.generationTimeout = const Duration(minutes: 10),
   }) // A named parameter cannot be private, so no initializing formal.
@@ -854,6 +858,7 @@ class DeviceModelServer {
     var streaming = false, wantsStream = false, completion = false;
     // Whether this request holds an engine (released in the outer finally).
     var claimed = false;
+    var workHeld = false;
     TextEngine? active;
     void disconnected() {
       if (!abandoned.isCompleted) abandoned.complete();
@@ -1064,7 +1069,7 @@ class DeviceModelServer {
       }
       final engine = active;
       final prompt = raw ? _prompt(body['prompt']) : null;
-      final messages = raw
+      var messages = raw
           ? <Map<String, Object>>[]
           : _messages(
               body['messages'],
@@ -1102,6 +1107,11 @@ class DeviceModelServer {
         if (generating) engine.cancel();
       }
 
+      await onWork?.call(true);
+      workHeld = true;
+      if (!raw && augmentMessages != null) {
+        messages = await augmentMessages!(messages);
+      }
       onSessionChange?.call(client);
       if (wantsStream) {
         writeHeaders(HttpStatus.ok, 'text/event-stream; charset=utf-8');
@@ -1387,6 +1397,7 @@ class DeviceModelServer {
         error = 'Stream interrupted.';
       }
     } finally {
+      if (workHeld) await onWork?.call(false);
       if (streaming && error != null) {
         try {
           final failure = {

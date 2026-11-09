@@ -109,7 +109,7 @@ void main() {
     final wiki = ZimWikipedia(path);
     addTearDown(wiki.close);
     final r = await wiki.lookup('How tall is the Eiffel Tower?');
-    expect(r?.title, 'Eiffel Tower — Wikipedia (offline)');
+    expect(r?.title, 'Eiffel Tower — Wikipedia test');
     expect(r?.pageText, contains('330 metres'));
     expect(r?.pageText, isNot(contains('<p>')));
     expect(r?.source, 'Wikipedia test');

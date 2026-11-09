@@ -1,19 +1,10 @@
 import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
-
-import '../../core/l10n/l10n.dart';
 import '../../core/providers/shared_providers.dart';
-import 'zim_wikipedia.dart';
-import 'zim_archive.dart';
-import '../../core/island/status_island.dart';
+import 'knowledge_sources.dart';
+import 'zim_source.dart';
 
-/// Settings > Web search: import or remove an offline Wikipedia (a Kiwix
-/// .zim file the tester downloaded). The file is copied into the app, read
-/// in place, and never sent anywhere.
 class ZimTile extends ConsumerStatefulWidget {
   const ZimTile({super.key});
   @override
@@ -21,91 +12,72 @@ class ZimTile extends ConsumerStatefulWidget {
 }
 
 class _ZimTileState extends ConsumerState<ZimTile> {
-  String? _progress;
-
-  Future<String> _target() async =>
-      ZimWikipedia.fileIn((await getApplicationSupportDirectory()).path);
-
-  Future<void> _import() async {
-    final container = ProviderScope.containerOf(context, listen: false);
-    final toast = islandToastFor(context);
-    final notZim = context.l10n.zimNotAZim;
-    final files = await FilePicker.pickFiles(type: FileType.any);
-    if (files.isEmpty || !mounted) return;
-    final f = files.first;
-    final target = await _target();
-    final part = File('$target.part');
-    try {
-      await part.parent.create(recursive: true);
-      final total = await f.length() ?? 0;
-      var done = 0;
-      final sink = part.openWrite();
-      try {
-        await for (final chunk in f.readAsByteStream()) {
-          sink.add(chunk);
-          done += chunk.length;
-          final shown = total > 0 ? '${(100 * done / total).floor()} %' : null;
-          if (mounted && shown != null && shown != _progress) {
-            setState(() => _progress = shown);
-          }
-        }
-      } finally {
-        await sink.close();
-      }
-      if (!await ZimWikipedia.isZim(part.path)) {
-        await part.delete();
-        toast(notZim, tone: IslandTone.warning);
-        return;
-      }
-      // Validate tables and modern/legacy listings before replacing a
-      // working archive. Magic bytes alone do not establish readability.
-      final checked = await ZimArchive.open(part.path);
-      try {
-        await checked.metadata('Date');
-      } finally {
-        await checked.close();
-      }
-      await (await container.read(zimWikipediaProvider.future))?.close();
-      await part.rename(target);
-      container.invalidate(zimWikipediaProvider);
-    } catch (e) {
-      if (await part.exists()) await part.delete();
-      toast(notZim, tone: IslandTone.error);
-    } finally {
-      if (mounted) setState(() => _progress = null);
-    }
-  }
-
-  Future<void> _remove() async {
-    await (await ref.read(zimWikipediaProvider.future))?.close();
-    final f = File(await _target());
-    if (await f.exists()) await f.delete();
-    ref.invalidate(zimWikipediaProvider);
-  }
-
+  List<KnowledgeSource> _sources = [];
+  final _availability = <String, bool>{};
+  bool _busy = true;
+  String? _error;
   @override
-  Widget build(BuildContext context) {
-    final zim = ref.watch(zimWikipediaProvider).value;
-    return ListTile(
-      key: const Key('zim-wikipedia'),
-      title: Text(context.l10n.zimSetting),
-      subtitle: _progress != null
-          ? Text(context.l10n.zimImporting(_progress!))
-          : zim == null
-          ? Text(context.l10n.zimHint)
-          : FutureBuilder<String>(
-              future: zim.name(),
-              builder: (_, s) => Text(s.data ?? '…'),
-            ),
-      trailing: _progress != null
-          ? null
-          : TextButton(
-              key: const Key('zim-action'),
-              onPressed: zim == null ? _import : _remove,
-              child: Text(
-                zim == null ? context.l10n.zimImport : context.l10n.zimRemove,
-              ),
-            ),
-    );
+  void initState() { super.initState(); _reload(); }
+  Future<void> _reload() async {
+    try {
+      _sources = await KnowledgeSources.load();
+      for (final s in _sources) {
+        try { await KnowledgeSources.inspect(s.uri, s.name); _availability[s.uri] = true; }
+        catch (_) { _availability[s.uri] = false; }
+      }
+    } catch (_) { _error = 'فهرست منابع خوانده نشد؛ دوباره تلاش کنید.'; }
+    if (mounted) setState(() => _busy = false);
   }
+  Future<void> _run(Future<void> Function() operation) async {
+    if (_busy) return;
+    setState(() { _busy = true; _error = null; });
+    try { await operation(); ref.invalidate(zimWikipediaProvider); }
+    catch (_) { _error = 'منبع در دسترس نیست یا خواندن تصادفی پشتیبانی نمی‌شود. هیچ کپی ساخته نشد؛ فایل محلی را دوباره انتخاب کنید.'; }
+    if (mounted) await _reload();
+  }
+  Future<void> _add() => _run(() async {
+    if (!Platform.isAndroid) throw UnsupportedError('Android SAF required');
+    final chosen = await AndroidZimSource.channel.invokeListMethod<dynamic>('pick') ?? [];
+    for (final item in chosen) {
+      final m = Map<String, dynamic>.from(item as Map);
+      final uri = m['uri'] as String;
+      if (_sources.any((s) => s.uri == uri)) continue;
+      try {
+        final source = await KnowledgeSources.inspect(uri, m['name'] as String);
+        await KnowledgeSources.save([..._sources, source]);
+        _sources = [..._sources, source];
+      } catch (_) {
+        await AndroidZimSource.channel.invokeMethod<void>('forget', uri);
+        rethrow;
+      }
+    }
+  });
+  Future<void> _toggle(KnowledgeSource source, bool enabled) => _run(() async {
+    await KnowledgeSources.save([for (final s in _sources) s.uri == source.uri ? s.withEnabled(enabled) : s]);
+  });
+  Future<void> _detach(KnowledgeSource source) => _run(() async {
+    await KnowledgeSources.save(_sources.where((s) => s.uri != source.uri).toList());
+    // References only: no deleteDocument and no File.delete.
+    if (source.uri.startsWith('content:')) {
+      try { await AndroidZimSource.channel.invokeMethod<void>('forget', source.uri); } catch (_) {}
+    }
+  });
+  @override
+  Widget build(BuildContext context) => Column(
+    key: const Key('zim-wikipedia'), crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ListTile(title: const Text('منابع دانش'),
+        subtitle: const Text('خواندن مستقیم؛ جداسازی فقط از فهرست برنامه'),
+        trailing: TextButton(key: const Key('zim-action'), onPressed: _busy ? null : _add,
+          child: const Text('افزودن دانشنامه'))),
+      if (_busy) const LinearProgressIndicator(),
+      if (_error != null) Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
+      for (final s in _sources) ListTile(
+        title: Text(s.name),
+        subtitle: Text('${s.language} · ${s.date} · ${(s.size / 1048576).toStringAsFixed(1)} MB\n${s.subject}\n${_availability[s.uri] == true ? 'در دسترس' : 'در دسترس نیست؛ فایل را دوباره انتخاب کنید'}'),
+        leading: Switch(value: s.enabled, onChanged: _busy ? null : (v) => _toggle(s, v)),
+        trailing: TextButton(onPressed: _busy ? null : () => _detach(s), child: const Text('جداسازی')),
+      ),
+    ],
+  );
 }

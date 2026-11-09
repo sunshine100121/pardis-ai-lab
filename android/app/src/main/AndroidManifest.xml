@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- Voice (FX-01): dictation through the platform recognizer, on-device by default. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Daily prompts and bounded background goal checks; alarms are restored
@@ -10,9 +13,14 @@
     <!-- Alarms and timers the user confirms in the Clock app (PhoneActions). -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
 <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false"
-        android:label="OnDevice LLM"
+        android:label="پالا | PALA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <service android:name=".PalaHostService" android:exported="false"
+            android:stopWithTask="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started offline LAN inference server for paired personal devices. Retains Qwen runtime with screen off, visible stop notification, no microphone; no data synchronization."/>
+        </service>
         <activity
             android:name=".MainActivity"
             android:exported="true"

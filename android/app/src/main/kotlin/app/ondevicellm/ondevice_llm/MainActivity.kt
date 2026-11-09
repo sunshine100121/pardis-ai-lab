@@ -19,7 +19,6 @@ class MainActivity : FlutterActivity() {
     private var offlineDictation: OfflineDictation? = null
     private var shareInbox: ShareInbox? = null
     private var scheduledPrompts: ScheduledPrompts? = null
-    private var hostDiscovery: HostDiscovery? = null
     private var voiceAudio: VoiceAudio? = null
     private var displayManager: DisplayManager? = null
     private val displayListener = object : DisplayManager.DisplayListener {
@@ -27,8 +26,14 @@ class MainActivity : FlutterActivity() {
         override fun onDisplayRemoved(displayId: Int) = Unit
         override fun onDisplayChanged(displayId: Int) = refreshDisplay(displayId)
     }
-    // Tags the models this window loads; they are freed when it is destroyed.
-    private val nativeOwner = NativeBridge.newOwner()
+    override fun provideFlutterEngine(context: Context): FlutterEngine = PalaRuntime.obtain(this)
+    override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    @Deprecated("Activity result bridge for SAF")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (PalaRuntime.documents?.onResult(requestCode, resultCode, data) == true) return
+        super.onActivityResult(requestCode, resultCode, data)
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -64,14 +69,10 @@ class MainActivity : FlutterActivity() {
         displayManager?.unregisterDisplayListener(displayListener)
         offlineDictation?.close()
         offlineDictation = null
-        hostDiscovery?.close()
-        hostDiscovery = null
         voiceAudio?.close()
         voiceAudio = null
         super.onDestroy()
-        // The engine and its isolates are gone; the process and its native
-        // memory may stay, so the model this window loaded is freed now.
-        NativeBridge.release(nativeOwner)
+        PalaRuntime.detach(this)
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,67 +129,5 @@ class MainActivity : FlutterActivity() {
         PhoneActions(this, flutterEngine.dartExecutor.binaryMessenger)
         voiceAudio?.close()
         voiceAudio = VoiceAudio(this, flutterEngine.dartExecutor.binaryMessenger)
-        hostDiscovery?.close()
-        hostDiscovery = HostDiscovery(this, flutterEngine.dartExecutor.binaryMessenger)
-        // Read-only device facts used to size models and defaults. Nothing leaves the device.
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ondevice_llm/device")
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "memoryInfo" -> {
-                        val info = ActivityManager.MemoryInfo()
-                        (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(info)
-                        result.success(
-                            mapOf(
-                                "totalBytes" to info.totalMem,
-                                "availableBytes" to info.availMem,
-                                "lowMemory" to info.lowMemory,
-                            )
-                        )
-                    }
-                    "storageInfo" -> {
-                        val storage = StatFs((getExternalFilesDir(null) ?: filesDir).absolutePath)
-                        result.success(mapOf(
-                            "totalBytes" to storage.totalBytes,
-                            "availableBytes" to storage.availableBytes,
-                        ))
-                    }
-                    "refreshRate" -> {
-                        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display
-                            else @Suppress("DEPRECATION") windowManager.defaultDisplay
-                        result.success(d?.refreshRate ?: 0f)
-                    }
-                    // Battery level/charging and the OS thermal status (0 none
-                    // … 6 shutdown, -1 unknown) for the device-server page.
-                    "powerInfo" -> {
-                        val battery = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-                        val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-                            (getSystemService(Context.POWER_SERVICE) as PowerManager).currentThermalStatus
-                            else -1
-                        result.success(mapOf(
-                            "level" to battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY),
-                            "charging" to battery.isCharging,
-                            "thermalStatus" to thermal,
-                        ))
-                    }
-                    // Which window the native runtimes belong to, and which
-                    // bridge library Dart opened (NativeBridge frees them).
-                    "nativeOwner" -> result.success(nativeOwner)
-                    "nativeLibrary" -> {
-                        (call.arguments as? String)?.let(NativeBridge::opened)
-                        result.success(null)
-                    }
-                    // While this device serves a model the screen stays on, so
-                    // the OS does not suspend the app mid-request.
-                    "keepScreenOn" -> {
-                        if (call.arguments == true) {
-                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                        } else {
-                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                        }
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
-                }
-            }
     }
 }

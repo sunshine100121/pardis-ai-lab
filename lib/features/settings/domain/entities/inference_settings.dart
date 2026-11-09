@@ -598,7 +598,7 @@ class InferenceSettings {
     this.readingSpeed = 1.0,
     this.conversationModelId = '',
     this.listeningModel = '',
-    this.localeCode = '',
+    this.localeCode = 'fa',
     this.searchRegion = '',
     this.knowledgeCollection = '',
     this.systemPrompt = '',
@@ -1572,7 +1572,7 @@ class InferenceSettings {
       listeningModel: text('listeningModel', 32) == 'parakeet-v3'
           ? 'parakeet-v3'
           : '',
-      localeCode: const {'en', 'fr', 'es'}.contains(text('localeCode', 8))
+      localeCode: const {'fa', 'en', 'fr', 'es'}.contains(text('localeCode', 8))
           ? text('localeCode', 8)
           : '',
       searchRegion: searchRegions.contains(text('searchRegion', 8))

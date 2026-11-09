@@ -1,3 +1,4 @@
+import 'knowledge_sources.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/l10n/l10n.dart';
@@ -21,10 +22,12 @@ class ZimArticlePage extends ConsumerWidget {
   Future<SearchResult?> _article(WidgetRef ref) async {
     final wiki = await ref.read(zimWikipediaProvider.future);
     if (wiki == null || archiveId == null) return null;
+    final encoded = url.substring(6);
+    final name = Uri.decodeComponent(encoded.contains('/') ? encoded.substring(encoded.indexOf('/') + 1) : encoded).replaceAll('_', ' ');
+    if (wiki is ZimLibrary) return wiki.articleFrom(archiveId!, archiveDate, name);
     if (await wiki.archiveIdentity() != archiveId) return null;
     final date = await wiki.archiveMetadata('Date');
     if (date != archiveDate) return null;
-    final name = Uri.decodeComponent(url.substring(6)).replaceAll('_', ' ');
     return wiki.article(name);
   }
 

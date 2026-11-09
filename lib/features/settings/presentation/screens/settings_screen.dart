@@ -351,6 +351,7 @@ class SettingsScreen extends ConsumerWidget {
                                 'en' => context.l10n.languageEnglish,
                                 'fr' => context.l10n.languageFrench,
                                 'es' => context.l10n.languageSpanish,
+                                'fa' => 'فارسی',
                                 _ => context.byFormFactor(
                                   context.l10n.languageSystem,
                                   context.l10n.desktopLanguageSystem,

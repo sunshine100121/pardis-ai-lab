@@ -82,7 +82,7 @@ class OnDeviceLlmApp extends ConsumerWidget {
       AppTheme.overlayFor(AppTheme.palette(accent, dark: dark)),
     );
     return MaterialApp(
-      title: 'OnDevice LLM',
+      title: 'پالا | PALA',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

@@ -27,7 +27,7 @@ class ChatTitle extends StatelessWidget {
               text: context.l10n.appTitle,
               children: [
                 TextSpan(
-                  text: ' LLM',
+                  text: ' | PALA',
                   style: TextStyle(color: c.accent),
                 ),
               ],
