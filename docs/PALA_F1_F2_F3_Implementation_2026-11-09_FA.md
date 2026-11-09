@@ -87,3 +87,4 @@ Doze در حالت بدون شارژ می‌تواند شبکه را محدود 
 - libzim-modern.zim: `5ce75d0ac511dce286418d81216ea8cfce20280248200aaa737b8f2c73730aaa`
 - kiwix-wikibooks.zim: `99465e14effc7f951e9c017b4b3cee91967eb49c556d9f4f0d674adbe80d78c2`
 
+اجرای 42600105209 در مرحله آزمون UI متوقف شد: ۵۳ PASS و یک timeout در pumpAndSettle آزمون رابط. مرحله android کاملاً SKIPPED بود و APK ساخته نشد. خواندن فایل و isolate در آزمون باید از real async zone شروع شوند؛ harness آزمون اصلاح شد، بدون حذف assertionهای کنترل منابع و حفظ فایل اصلی.

@@ -1114,7 +1114,9 @@ class DeviceModelServer {
       workHeld = true;
       var evidenceFooter = '';
       if (!raw && groundMessages != null) {
-        final grounded = await groundMessages!(messages).timeout(const Duration(seconds: 12));
+        final grounded = await groundMessages!(
+          messages,
+        ).timeout(const Duration(seconds: 12));
         messages = grounded.messages;
         evidenceFooter = grounded.footer;
       }

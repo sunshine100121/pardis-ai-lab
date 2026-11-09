@@ -43,9 +43,9 @@ void main() {
           sha256.convert(await File(path).readAsBytes()).toString(),
       ];
       expect(after, before);
-    await KnowledgeSources.save([]);
-    expect(await KnowledgeSources.configured(), isTrue);
-    expect(await KnowledgeSources.load(), isEmpty);
+      await KnowledgeSources.save([]);
+      expect(await KnowledgeSources.configured(), isTrue);
+      expect(await KnowledgeSources.load(), isEmpty);
     },
   );
   test(

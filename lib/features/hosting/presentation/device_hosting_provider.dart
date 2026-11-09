@@ -631,7 +631,11 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
     try {
       await _closeRuntimes(server, pool);
     } finally {
-      try { await AndroidHosting.work(false); } finally { await AndroidHosting.stop(); }
+      try {
+        await AndroidHosting.work(false);
+      } finally {
+        await AndroidHosting.stop();
+      }
     }
     if (server != null) unawaited(DevicePower.keepScreenOn(false));
     // The served model's own copy is only there for the server. A cancelled

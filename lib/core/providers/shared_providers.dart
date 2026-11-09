@@ -151,7 +151,8 @@ final wikipediaClientProvider = Provider<WikipediaClient>((ref) {
 /// null. Invalidate after an import or a removal.
 final zimWikipediaProvider = FutureProvider<ZimWikipedia?>((ref) async {
   final sources = await KnowledgeSources.load();
-  if (sources.isNotEmpty || await KnowledgeSources.configured()) return ZimLibrary(sources);
+  if (sources.isNotEmpty || await KnowledgeSources.configured())
+    return ZimLibrary(sources);
   // Existing private archives remain readable; never delete or migrate bytes.
   final path = ZimWikipedia.fileIn(
     (await getApplicationSupportDirectory()).path,

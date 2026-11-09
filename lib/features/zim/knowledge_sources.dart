@@ -46,7 +46,8 @@ class KnowledgeSource {
 /// Stores metadata and references only. Source bytes never enter app storage.
 abstract final class KnowledgeSources {
   static const key = 'pala.knowledge.sources.v1';
-  static Future<bool> configured() async => (await SharedPreferences.getInstance()).containsKey(key);
+  static Future<bool> configured() async =>
+      (await SharedPreferences.getInstance()).containsKey(key);
   static Future<List<KnowledgeSource>> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(key);
