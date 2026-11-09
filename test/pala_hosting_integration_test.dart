@@ -16,7 +16,7 @@ void main() {
     final server = DeviceModelServer(engine: engine, settings: () => const InferenceSettings(),
       modelId: 'test', fallbackTemplate: 'chatml', accessToken: 'a' * 32,
       onWork: (v) async { work.add(v); },
-      augmentMessages: (m) => ZimGrounding.augment(m, wiki));
+      groundMessages: (m) => ZimGrounding.prepare(m, wiki));
     await server.start();
     addTearDown(server.stop);
     final client = HttpClient();

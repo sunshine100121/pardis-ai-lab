@@ -43,6 +43,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 7404) PalaRuntime.notificationPermission(grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED)
         if (requestCode == OfflineDictation.PERMISSION_REQUEST) {
             offlineDictation?.onPermissionResult(
                 grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED)

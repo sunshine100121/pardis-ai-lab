@@ -278,7 +278,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       hostLease = true;
       if (!_alive || lifecycle != _lifecycle) { await AndroidHosting.stop(); return; }
       final token = await readAccessToken();
-      if (!_alive || lifecycle != _lifecycle) return;
+      if (!_alive || lifecycle != _lifecycle) { await AndroidHosting.stop(); return; }
       final pairCode = lan ? PairingCode.generate() : null;
       final manager = ref.read(modelManagerProvider.notifier);
       final pool = DesktopHost.active ? _newPool(model, lifecycle) : null;
@@ -293,7 +293,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
       }
       final server = DeviceModelServer(
         onWork: AndroidHosting.work,
-        augmentMessages: (messages) async => ZimGrounding.augment(messages, await ref.read(zimWikipediaProvider.future)),
+        groundMessages: (messages) async => ZimGrounding.prepare(messages, await ref.read(zimWikipediaProvider.future)),
         engine: engine,
         settings: () => manager.servedSettings(model),
         modelId: model.id,

@@ -148,7 +148,7 @@ class DeviceModelServer {
   /// Called while an answer streams with the pieces generated so far.
   final void Function(int pieces)? onProgress;
   final Future<void> Function(bool active)? onWork;
-  final Future<List<Map<String, Object>>> Function(List<Map<String, Object>> messages)? augmentMessages;
+  final Future<({List<Map<String, Object>> messages, String footer})> Function(List<Map<String, Object>> messages)? groundMessages;
   HttpServer? _server;
   bool _busy = false;
   RequestQueue _queue = RequestQueue();
@@ -171,7 +171,7 @@ class DeviceModelServer {
     this.onServed,
     this.onProgress,
     this.onWork,
-    this.augmentMessages,
+    this.groundMessages,
     this.bodyTimeout = const Duration(seconds: 15),
     this.generationTimeout = const Duration(minutes: 10),
   }) // A named parameter cannot be private, so no initializing formal.
@@ -1109,8 +1109,18 @@ class DeviceModelServer {
 
       await onWork?.call(true);
       workHeld = true;
-      if (!raw && augmentMessages != null) {
-        messages = await augmentMessages!(messages);
+      var evidenceFooter = '';
+      if (!raw && groundMessages != null) {
+        final grounded = await groundMessages!(messages);
+        messages = grounded.messages;
+        evidenceFooter = grounded.footer;
+      }
+      Stream<String> withEvidence(Stream<String> input) async* {
+        yield* input;
+        if (evidenceFooter.isNotEmpty) yield evidenceFooter;
+      }
+      if (_server == null || abandoned.isCompleted) {
+        throw const RouteRefusal(499, 'Request stopped during evidence lookup.');
       }
       onSessionChange?.call(client);
       if (wantsStream) {
@@ -1166,7 +1176,7 @@ class DeviceModelServer {
         });
         try {
           await for (final piece
-              in raw
+              in withEvidence(raw
                   ? (engine as RawCompletionEngine).generateRaw(
                       prompt: prompt!,
                       settings: effective,
@@ -1177,7 +1187,7 @@ class DeviceModelServer {
                       settings: effective,
                       tools: selectedTools,
                       toolChoice: bridgeChoice,
-                    )) {
+                    ))) {
             if (timedOut) {
               throw TimeoutException('Generation deadline reached.');
             }
@@ -1397,7 +1407,9 @@ class DeviceModelServer {
         error = 'Stream interrupted.';
       }
     } finally {
-      if (workHeld) await onWork?.call(false);
+      if (workHeld) {
+        try { await onWork?.call(false); } catch (_) { /* Cleanup must still release the model and socket. */ }
+      }
       if (streaming && error != null) {
         try {
           final failure = {

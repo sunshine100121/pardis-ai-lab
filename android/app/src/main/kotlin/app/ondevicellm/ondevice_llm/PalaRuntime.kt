@@ -1,5 +1,7 @@
 package app.ondevicellm.ondevice_llm
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
@@ -26,12 +28,14 @@ object PalaRuntime {
     var service: PalaHostService? = null
     private var starting: MethodChannel.Result? = null
     private var retained = false
+    private var appContext: Context? = null
     private val main = Handler(Looper.getMainLooper())
 
     fun obtain(a: MainActivity): FlutterEngine {
         activity = a
         engine?.let { documents?.activity = a; return it }
         val context = a.applicationContext
+        appContext = context
         val e = FlutterEngine(context)
         owner = NativeBridge.newOwner()
         engine = e
@@ -71,20 +75,38 @@ object PalaRuntime {
                         else {
                             retained = true
                             starting = result
-                            try {
-                                context.startForegroundService(Intent(context, PalaHostService::class.java))
-                                main.postDelayed({ starting?.let { failStart("اعلان سرویس راه‌اندازی نشد") } }, 10000)
-                            } catch (e: Exception) { failStart("راه‌اندازی سرویس مجاز نبود") }
+                            if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                activity?.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7404)
+                            } else launchService()
+
                         }
                     }
-                    "stop" -> { service?.stopSelf(); retained = false; result.success(null); releaseIfIdle() }
-                    "work" -> { service?.work(call.arguments == true); result.success(null) }
+                    "stop" -> { starting?.let { failStart("راه‌اندازی لغو شد") }; service?.stopSelf(); retained = false; result.success(null); releaseIfIdle() }
+                    "work" -> {
+                        try {
+                            if (call.arguments == true && service == null) error("سرویس سرور فعال نیست")
+                            service?.work(call.arguments == true)
+                            result.success(null)
+                        } catch (e: Exception) { result.error("power", e.message, null) }
+                    }
                     else -> result.notImplemented()
                 }
             }
         }
         e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
         return e
+    }
+    private fun launchService() {
+        val pending = starting ?: return
+        try {
+            val context = appContext ?: error("Application unavailable")
+            context.startForegroundService(Intent(context, PalaHostService::class.java))
+            main.postDelayed({ if (starting === pending) failStart("اعلان سرویس راه‌اندازی نشد") }, 10000)
+        } catch (e: Exception) { failStart("راه‌اندازی سرویس مجاز نبود") }
+    }
+    fun notificationPermission(granted: Boolean) {
+        if (granted && activity != null) launchService()
+        else failStart("برای وضعیت و توقف سرور، اعلان‌ها را در تنظیمات برنامه فعال کنید")
     }
     fun ready(s: PalaHostService) { service = s; starting?.success(null); starting = null }
     fun failStart(message: String) {
@@ -107,7 +129,7 @@ object PalaRuntime {
         }
     }
     fun detach(a: MainActivity) {
-        if (activity === a) { activity = null; documents?.detached(); releaseIfIdle() }
+        if (activity === a) { activity = null; documents?.detached(); if (starting != null && service == null) failStart("راه‌اندازی از صفحه برنامه لغو شد"); releaseIfIdle() }
     }
     private fun releaseIfIdle() {
         main.postDelayed({
