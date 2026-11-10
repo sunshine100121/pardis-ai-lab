@@ -6,11 +6,16 @@ abstract final class HostingDiagnostics {
   static final Stopwatch _clock = Stopwatch()..start();
 
   static Future<void> record(String event) async {
-    final prefs = await SharedPreferences.getInstance();
-    final rows = prefs.getStringList(_key) ?? <String>[];
-    rows.add('${_clock.elapsedMilliseconds}ms $event');
-    if (rows.length > 300) rows.removeRange(0, rows.length - 300);
-    await prefs.setStringList(_key, rows);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rows = prefs.getStringList(_key) ?? <String>[];
+      rows.add('${_clock.elapsedMilliseconds}ms $event');
+      if (rows.length > 300) rows.removeRange(0, rows.length - 300);
+      await prefs.setStringList(_key, rows);
+    } catch (_) {
+      // Standalone server tests have no platform binding; diagnostics must
+      // never alter request behavior when persistent storage is unavailable.
+    }
   }
 
   static Future<String> read() async {

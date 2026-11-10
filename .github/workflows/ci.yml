@@ -3,6 +3,7 @@ on:
   push:
     branches: [pala/f1-f2-f3-2026-11-09]
     paths: [.github/workflows/ci.yml]
+    # This scoped push trigger builds one APK after the test job passes.
   workflow_dispatch:
     inputs:
       build_apk:
