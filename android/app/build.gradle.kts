@@ -31,6 +31,7 @@ fun signingValue(property: String, environment: String): String? =
     signingProps.getProperty(property)?.takeIf { it.isNotBlank() }
         ?: System.getenv(environment)?.takeIf { it.isNotBlank() }
 val releaseStoreFile = signingValue("storeFile", "ODLLM_ANDROID_KEYSTORE_PATH")
+val releaseStoreType = signingValue("storeType", "ODLLM_ANDROID_STORE_TYPE") ?: "PKCS12"
 val releaseStorePassword = signingValue("storePassword", "ODLLM_ANDROID_STORE_PASSWORD")
 val releaseKeyAlias = signingValue("keyAlias", "ODLLM_ANDROID_KEY_ALIAS")
 val releaseKeyPassword = signingValue("keyPassword", "ODLLM_ANDROID_KEY_PASSWORD")
@@ -52,6 +53,9 @@ if (hasPartialReleaseSigning) {
 }
 if (requireReleaseSigning && !hasReleaseSigning) {
     throw GradleException("Production signing is required but no complete signing configuration was provided.")
+}
+if (palaDiagnostic && !hasReleaseSigning) {
+    throw GradleException("PALA F1 diagnostic APKs require the persistent owner-managed signing key.")
 }
 
 android {
@@ -98,6 +102,7 @@ android {
                     throw GradleException("Android release keystore does not exist: $configuredStore")
                 }
                 storeFile = configuredStore
+                storeType = releaseStoreType
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword

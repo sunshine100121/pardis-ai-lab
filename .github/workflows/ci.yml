@@ -48,7 +48,7 @@ jobs:
           name: pala-validation-format
           path: /tmp/pala-format.patch
   android:
-    if: inputs.build_apk || github.event_name == 'push'
+    if: inputs.build_apk == true
     needs: test
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -62,6 +62,30 @@ jobs:
         with:
           flutter-version: '3.47.5'
           cache: true
+      - name: Configure persistent diagnostic signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo "Missing PALA_F1_KEYSTORE_BASE64 secret" >&2; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "Missing PALA_F1_KEYSTORE_PASSWORD secret" >&2; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing PALA_F1_KEY_ALIAS secret" >&2; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing PALA_F1_KEY_PASSWORD secret" >&2; exit 1; }
+          keystore="$RUNNER_TEMP/pala-f1diag-release.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          chmod 600 "$keystore"
+          {
+            printf 'ODLLM_ANDROID_KEYSTORE_PATH=%s\n' "$keystore"
+            printf 'ODLLM_ANDROID_STORE_TYPE=PKCS12\n'
+            printf 'ODLLM_ANDROID_STORE_PASSWORD=%s\n' "$STORE_PASSWORD"
+            printf 'ODLLM_ANDROID_KEY_ALIAS=%s\n' "$KEY_ALIAS"
+            printf 'ODLLM_ANDROID_KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
+            printf 'ODLLM_REQUIRE_RELEASE_SIGNING=true\n'
+          } >> "$GITHUB_ENV"
       - name: Select independent diagnostic package
         run: printf 'diagnostic=true\n' > native/build.properties
       - run: bash scripts/build_android.sh
@@ -82,3 +106,6 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/flutter-apk/app-release.sha256
             build/app/outputs/flutter-apk/app-release-signing.txt
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/pala-f1diag-release.p12"
