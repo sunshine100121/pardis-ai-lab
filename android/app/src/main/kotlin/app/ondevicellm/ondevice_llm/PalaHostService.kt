@@ -29,6 +29,7 @@ class PalaHostService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onCreate() {
         super.onCreate()
+        PalaDiagnostics.add(this, "service.created")
         try {
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 error("برای وضعیت و توقف سرور، اعلان‌ها را در تنظیمات برنامه فعال کنید")
@@ -57,6 +58,7 @@ class PalaHostService : Service() {
         } catch (e: Exception) { PalaRuntime.failStart(e.message ?: "سرویس راه‌اندازی نشد"); stopSelf() }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        PalaDiagnostics.add(this, "service.startCommand")
         if (intent?.action == "stop") PalaRuntime.requestStop("سرور با فرمان کاربر متوقف شد")
         return START_NOT_STICKY
     }
@@ -78,6 +80,7 @@ class PalaHostService : Service() {
         } else if (wake?.isHeld == true) wake?.release()
     }
     override fun onDestroy() {
+        PalaDiagnostics.add(this, "service.destroyed")
         if (registered) unregisterReceiver(battery)
         if (Build.VERSION.SDK_INT >= 29) thermal?.let { getSystemService(PowerManager::class.java).removeThermalStatusListener(it) }
         work(false)

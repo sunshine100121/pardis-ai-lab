@@ -8,6 +8,7 @@ import '../tools/domain/tool_spec.dart';
 import '../settings/domain/entities/inference_settings.dart';
 import 'pairing_code.dart';
 import 'request_queue.dart';
+import 'hosting_diagnostics.dart';
 
 /// One request the device server answered (or refused), for the live
 /// dashboard on the hosting page.
@@ -215,12 +216,14 @@ class DeviceModelServer {
     );
     _queue = RequestQueue();
     _server = server;
+    unawaited(HostingDiagnostics.record('http.bound'));
     unawaited(_serve(server));
   }
 
   Future<void> _serve(HttpServer server) async {
     try {
       await for (final request in server) {
+        unawaited(HostingDiagnostics.record('http.request.received'));
         unawaited(_handle(request));
       }
     } catch (_) {
@@ -234,6 +237,7 @@ class DeviceModelServer {
     final server = _server;
     _server = null;
     _queue.close();
+    unawaited(HostingDiagnostics.record('http.close.requested'));
     await server?.close(force: true);
     if (_busy) engine.cancel();
     router?.cancelAll();

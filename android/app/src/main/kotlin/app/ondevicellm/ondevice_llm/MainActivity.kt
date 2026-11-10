@@ -59,6 +59,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onStop() {
+        PalaDiagnostics.add(this, "activity.stop")
         offlineDictation?.cancel()
         // Not seen any more: the conversation's microphone and voice stop
         // (audit C7); the screen listens again when it comes back.
@@ -66,7 +67,11 @@ class MainActivity : FlutterActivity() {
         super.onStop()
     }
 
+    override fun onPause() { PalaDiagnostics.add(this, "activity.pause"); super.onPause() }
+    override fun onStart() { super.onStart(); PalaDiagnostics.add(this, "activity.start") }
+
     override fun onDestroy() {
+        PalaDiagnostics.add(this, "activity.destroy")
         displayManager?.unregisterDisplayListener(displayListener)
         offlineDictation?.close()
         offlineDictation = null
@@ -84,6 +89,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        PalaDiagnostics.add(this, "activity.resume")
         // Some OEM power modes reset the preference while the app is backgrounded.
         requestHighestRefreshRate()
         window.decorView.post { requestHighestRefreshRate() }

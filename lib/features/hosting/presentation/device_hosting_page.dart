@@ -13,6 +13,7 @@ import '../../../core/motion/motion.dart';
 import '../../models/presentation/providers/model_manager_provider.dart';
 import '../../settings/presentation/widgets/settings_widgets.dart';
 import '../device_model_server.dart';
+import '../android_hosting.dart';
 import 'device_hosting_provider.dart';
 import 'qr_view.dart';
 import '../../../core/island/status_island.dart';
@@ -519,6 +520,25 @@ class _DeviceHostingPageState extends ConsumerState<DeviceHostingPage> {
         Text(context.l10n.hostNoneYet, style: context.text.bodyMuted)
       else
         SettingsGroup(children: [for (final r in state.log) _RequestRow(r)]),
+      const SizedBox(height: AppDesign.md),
+      ExpansionTile(
+        key: const Key('hosting-diagnostics'),
+        title: const Text('پیشرفته · گزارش تشخیصی'),
+        subtitle: const Text('رویدادهای چرخه‌عمر؛ بدون متن درخواست یا کلید اتصال'),
+        children: [
+          FutureBuilder<String>(
+            future: AndroidHosting.diagnostics(),
+            builder: (context, snapshot) => Padding(
+              padding: const EdgeInsets.all(AppDesign.md),
+              child: SelectableText(snapshot.data ?? 'در حال خواندن گزارش…'),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () async => Clipboard.setData(ClipboardData(text: await AndroidHosting.diagnostics())),
+            icon: const Icon(Icons.copy), label: const Text('کپی گزارش'),
+          ),
+        ],
+      ),
     ];
   }
 

@@ -33,11 +33,13 @@ object PalaRuntime {
     private val main = Handler(Looper.getMainLooper())
 
     fun obtain(a: MainActivity): FlutterEngine {
+        PalaDiagnostics.add(a, "engine.obtain")
         activity = a
         engine?.let { documents?.activity = a; return it }
         val context = a.applicationContext
         appContext = context
         val e = FlutterEngine(context)
+        PalaDiagnostics.add(context, "dart.engine.created")
         owner = NativeBridge.newOwner()
         engine = e
         documents = PalaDocuments(context, e.dartExecutor.binaryMessenger).also { it.activity = a }
@@ -74,6 +76,9 @@ object PalaRuntime {
         channel = MethodChannel(e.dartExecutor.binaryMessenger, "pala/hosting").also { c ->
             c.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "diagnosticEvent" -> { PalaDiagnostics.add(context, call.arguments as? String ?: "invalid.event"); result.success(null) }
+                    "diagnosticRead" -> result.success(PalaDiagnostics.read(context))
+                    "diagnosticRead" -> result.success(PalaDiagnostics.read(context))
                     "start" -> {
                         if (service != null && expectedServiceStop) result.error("host", "توقف سرور در حال تکمیل است؛ دوباره تلاش کنید", null)
                         else if (service != null) result.success(null)
@@ -115,6 +120,7 @@ object PalaRuntime {
         else failStart("برای وضعیت و توقف سرور، اعلان‌ها را در تنظیمات برنامه فعال کنید")
     }
     fun ready(s: PalaHostService): Boolean {
+        PalaDiagnostics.add(s, "service.foreground.ready")
         if (!retained || engine == null) return false
         expectedServiceStop = false
         service = s; starting?.success(null); starting = null
@@ -131,6 +137,7 @@ object PalaRuntime {
         })
     }
     fun serviceDestroyed(s: PalaHostService) {
+        PalaDiagnostics.add(s, "service.runtime.destroyed")
         if (service === s) {
             service = null
             retained = false
@@ -141,6 +148,7 @@ object PalaRuntime {
         }
     }
     fun detach(a: MainActivity) {
+        PalaDiagnostics.add(a, "activity.detached")
         if (activity === a) { activity = null; documents?.detached(); if (starting != null && service == null) failStart("راه‌اندازی از صفحه برنامه لغو شد"); releaseIfIdle() }
     }
     private fun releaseIfIdle() {
@@ -152,6 +160,7 @@ object PalaRuntime {
                 discovery?.close(); discovery = null
                 channel = null
                 old?.destroy()
+                appContext?.let { PalaDiagnostics.add(it, "dart.engine.destroyed") }
                 if (old != null) NativeBridge.release(owner)
             }
         }, 1500)

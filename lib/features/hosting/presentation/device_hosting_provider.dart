@@ -212,7 +212,9 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
 
   @override
   DeviceHostingState build() {
+    unawaited(AndroidHosting.event('provider.created'));
     ref.onDispose(() {
+      unawaited(AndroidHosting.event('provider.disposed'));
       _alive = false;
       _lifecycle++;
       _powerTimer?.cancel();
@@ -256,6 +258,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
 
   /// [lan] false listens on this computer only (the desktop's default).
   Future<void> start({required int port, bool lan = true}) async {
+    unawaited(AndroidHosting.event('provider.start.requested'));
     if (_server != null || state.starting) return;
     final lifecycle = ++_lifecycle;
     DeviceModelServer? startingServer;
@@ -607,6 +610,7 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
   static Duration moveWait = const Duration(minutes: 2);
 
   Future<void> stop({String? reason}) async {
+    unawaited(AndroidHosting.event(reason == null ? 'provider.stop.user' : 'provider.stop.system'));
     final lifecycle = ++_lifecycle;
     _powerTimer?.cancel();
     _powerTimer = null;
