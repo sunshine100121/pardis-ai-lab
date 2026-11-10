@@ -302,6 +302,25 @@ class _DeviceHostingPageState extends ConsumerState<DeviceHostingPage> {
           ),
         ],
       ),
+      const SizedBox(height: AppDesign.md),
+      ExpansionTile(
+        key: const Key('hosting-diagnostics'),
+        title: const Text('پیشرفته · گزارش تشخیصی'),
+        subtitle: const Text('رویدادهای چرخه‌عمر؛ بدون متن درخواست یا کلید اتصال'),
+        children: [
+          FutureBuilder<String>(
+            future: AndroidHosting.diagnostics(),
+            builder: (context, snapshot) => Padding(
+              padding: const EdgeInsets.all(AppDesign.md),
+              child: SelectableText(snapshot.data ?? 'در حال خواندن گزارش…'),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () async => Clipboard.setData(ClipboardData(text: await AndroidHosting.diagnostics())),
+            icon: const Icon(Icons.copy), label: const Text('کپی گزارش'),
+          ),
+        ],
+      ),
     ];
   }
 
@@ -515,11 +534,6 @@ class _DeviceHostingPageState extends ConsumerState<DeviceHostingPage> {
           textAlign: TextAlign.center,
         ),
       ],
-      SettingsSection(label: context.l10n.hostRecent),
-      if (state.log.isEmpty)
-        Text(context.l10n.hostNoneYet, style: context.text.bodyMuted)
-      else
-        SettingsGroup(children: [for (final r in state.log) _RequestRow(r)]),
       const SizedBox(height: AppDesign.md),
       ExpansionTile(
         key: const Key('hosting-diagnostics'),
@@ -539,6 +553,12 @@ class _DeviceHostingPageState extends ConsumerState<DeviceHostingPage> {
           ),
         ],
       ),
+      SettingsSection(label: context.l10n.hostRecent),
+      if (state.log.isEmpty)
+        Text(context.l10n.hostNoneYet, style: context.text.bodyMuted)
+      else
+        SettingsGroup(children: [for (final r in state.log) _RequestRow(r)]),
+
     ];
   }
 

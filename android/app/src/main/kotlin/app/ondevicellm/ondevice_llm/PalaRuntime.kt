@@ -78,7 +78,6 @@ object PalaRuntime {
                 when (call.method) {
                     "diagnosticEvent" -> { PalaDiagnostics.add(context, call.arguments as? String ?: "invalid.event"); result.success(null) }
                     "diagnosticRead" -> result.success(PalaDiagnostics.read(context))
-                    "diagnosticRead" -> result.success(PalaDiagnostics.read(context))
                     "start" -> {
                         if (service != null && expectedServiceStop) result.error("host", "توقف سرور در حال تکمیل است؛ دوباره تلاش کنید", null)
                         else if (service != null) result.success(null)

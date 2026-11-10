@@ -1,5 +1,8 @@
 name: PALA validation and optional single APK
 on:
+  push:
+    branches: [pala/f1-f2-f3-2026-11-09]
+    paths: [.github/workflows/ci.yml]
   workflow_dispatch:
     inputs:
       build_apk:
@@ -44,7 +47,7 @@ jobs:
           name: pala-validation-format
           path: /tmp/pala-format.patch
   android:
-    if: inputs.build_apk
+    if: inputs.build_apk || github.event_name == 'push'
     needs: test
     runs-on: ubuntu-24.04
     timeout-minutes: 120
