@@ -13,9 +13,9 @@
     <!-- Alarms and timers the user confirms in the Clock app (PhoneActions). -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
 <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false"
-        android:label="پالا آزمایشی F1/F2/F3"
+        android:label="${palaAppLabel}"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="${palaAppIcon}">
         <service android:name=".PalaHostService" android:exported="false"
             android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"

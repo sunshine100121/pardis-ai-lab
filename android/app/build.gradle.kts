@@ -18,6 +18,7 @@ val odllmKleidiAI: String = (project.findProperty("odllmKleidiAI") as String?) ?
 // CPU -march for the bridge; empty keeps the CMake default (portable armv8-a, see native/CMakeLists.txt).
 val odllmArch: String = (project.findProperty("odllmArch") as String?) ?: nativeProps.getProperty("arch", "")
 val odllmAbis: List<String> = ((project.findProperty("odllmAbis") as String?) ?: nativeProps.getProperty("abis", "arm64-v8a")).split(",")
+val palaDiagnostic: Boolean = nativeProps.getProperty("diagnostic", "false") == "true"
 
 // Release credentials may come from an ignored android/key.properties file or
 // CI environment variables. A partial configuration is rejected so a typo
@@ -65,7 +66,13 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = if (nativeProps.getProperty("smoke", "false") == "true") "ir.pardis.ai.pala.f123test.smoke" else "ir.pardis.ai.pala.f123test"
+        applicationId = when {
+            nativeProps.getProperty("smoke", "false") == "true" -> "ir.pardis.ai.pala.f123test.smoke"
+            palaDiagnostic -> "ir.pardis.ai.pala.f1diag"
+            else -> "ir.pardis.ai.pala.f123test"
+        }
+        manifestPlaceholders["palaAppLabel"] = if (palaDiagnostic) "PALA F1 تشخیصی" else "پالا آزمایشی F1/F2/F3"
+        manifestPlaceholders["palaAppIcon"] = if (palaDiagnostic) "@mipmap/ic_launcher_f1diag" else "@mipmap/ic_launcher"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 28

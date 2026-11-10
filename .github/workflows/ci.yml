@@ -62,16 +62,23 @@ jobs:
         with:
           flutter-version: '3.47.5'
           cache: true
+      - name: Select independent diagnostic package
+        run: printf 'diagnostic=true\n' > native/build.properties
       - run: bash scripts/build_android.sh
-      - name: Verify isolated package
+      - name: Verify independent diagnostic APK
         run: |
           apk=build/app/outputs/flutter-apk/app-release.apk
           aapt=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
-          "$aapt" dump badging "$apk" | grep -F "package: name='ir.pardis.ai.pala.f123test'"
+          "$aapt" dump badging "$apk" | grep -F "package: name='ir.pardis.ai.pala.f1diag'"
+          "$aapt" dump badging "$apk" | grep -F "application-label:'PALA F1 تشخیصی'"
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$apksigner" verify --verbose "$apk"
+          "$apksigner" verify --print-certs "$apk" > build/app/outputs/flutter-apk/app-release-signing.txt
           sha256sum "$apk" > build/app/outputs/flutter-apk/app-release.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: PALA-F123-0.3.0-isolated-test
+          name: PALA-F1-independent-diagnostic
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/flutter-apk/app-release.sha256
+            build/app/outputs/flutter-apk/app-release-signing.txt
