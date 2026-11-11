@@ -52,7 +52,7 @@ jobs:
           name: pala-validation-format
           path: /tmp/pala-format.patch
   android:
-    if: inputs.build_apk == true
+    if: inputs.build_apk == true || (github.event_name == 'push' && contains(github.event.head_commit.message, 'PALA-F1DIAG2-SINGLE-APK-20261111'))
     needs: test
     runs-on: ubuntu-24.04
     timeout-minutes: 120
