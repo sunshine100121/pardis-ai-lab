@@ -128,7 +128,11 @@ class _FailingEngine extends FakeEngine {
 class _TwoPartEngine extends FakeEngine {
   final Completer<void> continueGeneration;
   final Completer<void> firstPart = Completer<void>();
+  bool cancelRequested = false;
   _TwoPartEngine(this.continueGeneration);
+
+  @override
+  void cancel() => cancelRequested = true;
 
   @override
   Stream<String> generate({
@@ -143,6 +147,27 @@ class _TwoPartEngine extends FakeEngine {
     yield 'first';
     await continueGeneration.future;
     yield 'second';
+  }
+}
+
+class _HalfCloseEngine extends FakeEngine {
+  bool cancelRequested = false;
+
+  @override
+  void cancel() => cancelRequested = true;
+
+  @override
+  Stream<String> generate({
+    required List<Map<String, Object>> messages,
+    required String fallbackTemplate,
+    required InferenceSettings settings,
+    String assistantPrefix = '',
+    List<ToolSpec> tools = const [],
+    String toolChoice = 'auto',
+  }) async* {
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    if (cancelRequested) return;
+    yield 'half-close-answer';
   }
 }
 
@@ -1100,6 +1125,53 @@ void main() {
     expect(trace.join('\n'), isNot(contains('private test content')));
   });
 
+  test('request half-close does not cancel inference or suppress response', () async {
+    final trace = <String>[];
+    final engine = _HalfCloseEngine();
+    final server = DeviceModelServer(
+      engine: engine,
+      settings: () => const InferenceSettings(),
+      modelId: 'trace-test',
+      fallbackTemplate: '',
+      accessToken: token,
+      onDiagnostic: (event) async => trace.add(event),
+    );
+    await server.start();
+    addTearDown(server.stop);
+
+    final body = jsonEncode({
+      'messages': [
+        {'role': 'user', 'content': 'private half-close request'},
+      ],
+    });
+    final socket = await Socket.connect('127.0.0.1', server.port);
+    addTearDown(() => socket.destroy());
+    socket.write(
+      'POST ${DeviceModelServer.completionsPath} HTTP/1.1\r\n'
+      'Host: 127.0.0.1:${server.port}\r\n'
+      'Authorization: Bearer $token\r\n'
+      'Content-Type: application/json\r\n'
+      'Content-Length: ${utf8.encode(body).length}\r\n'
+      'Connection: close\r\n\r\n'
+      '$body',
+    );
+    await socket.flush();
+    await socket.shutdown(SocketDirection.send);
+    final reply = await socket
+        .transform(utf8.decoder)
+        .join()
+        .timeout(const Duration(seconds: 5));
+
+    final id = _traceRequestId(trace);
+    expect(reply, contains('HTTP/1.1 200'));
+    expect(reply, contains('half-close-answer'));
+    expect(trace, contains('http.client.request.half_closed:$id'));
+    expect(trace, contains('http.inference.completed:$id'));
+    expect(trace, isNot(contains('http.inference.cancelled:$id:read-error')));
+    expect(trace.join('\n'), isNot(contains('private half-close request')));
+    expect(engine.cancelRequested, isFalse);
+  });
+
   test('HTTP trace records processing failure without exception text', () async {
     final trace = <String>[];
     final server = DeviceModelServer(
@@ -1150,7 +1222,8 @@ void main() {
       accessToken: token,
       onDiagnostic: (event) async {
         trace.add(event);
-        if (event.startsWith('http.client.closed:') && !disconnected.isCompleted) {
+        if (event.startsWith('http.client.disconnected:') &&
+            !disconnected.isCompleted) {
           disconnected.complete();
         }
       },
@@ -1179,11 +1252,13 @@ void main() {
     await firstChunk.future.timeout(const Duration(seconds: 5));
     await subscription.cancel();
     streamingClient.close(force: true);
-    await disconnected.future.timeout(const Duration(seconds: 5));
     final id = _traceRequestId(trace);
     continueGeneration.complete();
+    await disconnected.future.timeout(const Duration(seconds: 5));
     await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(trace, contains('http.client.closed:$id'));
+    expect(trace, contains('http.client.disconnected:$id:response-error'));
+    expect(trace, contains('http.inference.cancelled:$id:response-error'));
+    expect(engine.cancelRequested, isTrue);
     expect(trace.join('\n'), isNot(contains('private test content')));
   });
 

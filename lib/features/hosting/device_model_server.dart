@@ -906,18 +906,30 @@ class DeviceModelServer {
         request.connectionInfo?.remoteAddress.address ?? 'Unknown client';
     var streaming = false, wantsStream = false, completion = false;
     var phase = 'request';
-    var peerClosed = false;
+    var peerClosed = false, inferenceStarted = false;
+    String? inferenceCancelReason;
     // Whether this request holds an engine (released in the outer finally).
     var claimed = false;
     var workHeld = false;
     TextEngine? active;
-    void disconnected() {
+    void cancelActive(String reason) {
+      if (!claimed) return;
+      if (inferenceStarted && inferenceCancelReason == null) {
+        inferenceCancelReason = reason;
+        unawaited(
+          _diagnostic('http.inference.cancelled:$diagnosticId:$reason'),
+        );
+      }
+      active?.cancel();
+    }
+
+    void disconnected(String reason) {
       if (!peerClosed) {
         peerClosed = true;
-        unawaited(_diagnostic('http.client.closed:$diagnosticId'));
+        unawaited(_diagnostic('http.client.disconnected:$diagnosticId:$reason'));
       }
       if (!abandoned.isCompleted) abandoned.complete();
-      if (claimed) active?.cancel();
+      cancelActive(reason);
     }
 
     // The routed model this request holds, when not the primary one.
@@ -1088,8 +1100,19 @@ class DeviceModelServer {
       output = detached;
       detached.listen(
         (_) {},
-        onDone: disconnected,
-        onError: (Object _) => disconnected(),
+        // This is the peer's request/write half only. A normal HTTP client
+        // may finish sending its request while still waiting to read our reply.
+        onDone: () => unawaited(
+          _diagnostic('http.client.request.half_closed:$diagnosticId'),
+        ),
+        onError: (Object error) {
+          unawaited(
+            _diagnostic(
+              'http.client.read.error:$diagnosticId:${_diagnosticType(error)}',
+            ),
+          );
+          disconnected('read-error');
+        },
         cancelOnError: true,
       );
       await queue.acquire(model, abandoned: abandoned.future);
@@ -1160,8 +1183,8 @@ class DeviceModelServer {
       }
       completion = true;
       var generating = true;
-      void cancelIfGenerating() {
-        if (generating) engine.cancel();
+      void cancelIfGenerating(String reason) {
+        if (generating) cancelActive(reason);
       }
 
       await onWork?.call(true);
@@ -1191,8 +1214,15 @@ class DeviceModelServer {
       }
       unawaited(
         output.done.then<void>(
-          (_) => cancelIfGenerating(),
-          onError: (Object _, StackTrace _) => cancelIfGenerating(),
+          (_) => cancelIfGenerating('response-closed'),
+          onError: (Object error, StackTrace _) {
+            unawaited(
+              _diagnostic(
+                'http.client.response.error:$diagnosticId:${_diagnosticType(error)}',
+              ),
+            );
+            disconnected('response-error');
+          },
         ),
       );
       streaming = wantsStream;
@@ -1235,10 +1265,11 @@ class DeviceModelServer {
         var timedOut = false;
         final timer = Timer(generationTimeout, () {
           timedOut = true;
-          engine.cancel();
+          cancelActive('timeout');
         });
         try {
           phase = 'inference';
+          inferenceStarted = true;
           unawaited(_diagnostic('http.inference.started:$diagnosticId'));
           await for (final piece in withEvidence(
             raw
@@ -1289,6 +1320,9 @@ class DeviceModelServer {
             }
           }
           if (timedOut) throw TimeoutException('Generation deadline reached.');
+          if (inferenceCancelReason != null) {
+            throw const RouteRefusal(499, 'Client disconnected.');
+          }
           phase = 'response';
           unawaited(_diagnostic('http.inference.completed:$diagnosticId'));
         } finally {
@@ -1460,7 +1494,7 @@ class DeviceModelServer {
       }
     } on TimeoutException catch (e) {
       unawaited(_diagnostic('http.request.failed:$diagnosticId:timeout'));
-      if (claimed) active?.cancel();
+      cancelActive('timeout');
       if (!streaming) {
         refuse(HttpStatus.requestTimeout, e.message ?? 'Request timed out.');
       } else {
@@ -1472,7 +1506,7 @@ class DeviceModelServer {
         refuse(HttpStatus.badRequest, e.message);
       } else {
         error = e.message;
-        active?.cancel();
+        if (!inferenceStarted) active?.cancel();
       }
     } catch (exception) {
       unawaited(
@@ -1480,7 +1514,9 @@ class DeviceModelServer {
           'http.request.failed:$diagnosticId:$phase:${_diagnosticType(exception)}',
         ),
       );
-      if (claimed) active?.cancel();
+      // An inference stream that throws has failed naturally; do not report
+      // that failure as a cancellation. Cancel only work that had not started.
+      if (!inferenceStarted) active?.cancel();
       if (!streaming) {
         refuse(HttpStatus.internalServerError, 'Request failed.');
       } else {
