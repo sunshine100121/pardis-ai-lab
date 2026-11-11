@@ -1144,11 +1144,12 @@ void main() {
         {'role': 'user', 'content': 'private half-close request'},
       ],
     });
-    final socket = await Socket.connect('127.0.0.1', server.port);
+    final port = server.port!;
+    final socket = await Socket.connect('127.0.0.1', port);
     addTearDown(() => socket.destroy());
     socket.write(
       'POST ${DeviceModelServer.completionsPath} HTTP/1.1\r\n'
-      'Host: 127.0.0.1:${server.port}\r\n'
+      'Host: 127.0.0.1:$port\r\n'
       'Authorization: Bearer $token\r\n'
       'Content-Type: application/json\r\n'
       'Content-Length: ${utf8.encode(body).length}\r\n'
@@ -1156,8 +1157,9 @@ void main() {
       '$body',
     );
     await socket.flush();
-    await socket.shutdown(SocketDirection.send);
+    await socket.close();
     final reply = await socket
+        .cast<List<int>>()
         .transform(utf8.decoder)
         .join()
         .timeout(const Duration(seconds: 5));
