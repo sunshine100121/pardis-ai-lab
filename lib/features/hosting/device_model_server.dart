@@ -1468,10 +1468,10 @@ class DeviceModelServer {
         error = e.message;
         active?.cancel();
       }
-    } catch (error) {
+    } catch (exception) {
       unawaited(
         _diagnostic(
-          'http.request.failed:$diagnosticId:$phase:${_diagnosticType(error)}',
+          'http.request.failed:$diagnosticId:$phase:${_diagnosticType(exception)}',
         ),
       );
       if (claimed) active?.cancel();
