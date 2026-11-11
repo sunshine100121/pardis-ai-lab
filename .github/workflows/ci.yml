@@ -66,7 +66,7 @@ jobs:
         with:
           flutter-version: '3.47.5'
           cache: true
-      - name: Configure persistent diagnostic signing
+      - name: Configure optional diagnostic signing
         env:
           KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
@@ -74,42 +74,46 @@ jobs:
           KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$KEYSTORE_BASE64" || { echo "Missing PALA_F1_KEYSTORE_BASE64 secret" >&2; exit 1; }
-          test -n "$STORE_PASSWORD" || { echo "Missing PALA_F1_KEYSTORE_PASSWORD secret" >&2; exit 1; }
-          test -n "$KEY_ALIAS" || { echo "Missing PALA_F1_KEY_ALIAS secret" >&2; exit 1; }
-          test -n "$KEY_PASSWORD" || { echo "Missing PALA_F1_KEY_PASSWORD secret" >&2; exit 1; }
-          keystore="$RUNNER_TEMP/pala-f1diag-release.p12"
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
-          test -s "$keystore"
-          chmod 600 "$keystore"
-          {
-            printf 'ODLLM_ANDROID_KEYSTORE_PATH=%s\n' "$keystore"
-            printf 'ODLLM_ANDROID_STORE_TYPE=PKCS12\n'
-            printf 'ODLLM_ANDROID_STORE_PASSWORD=%s\n' "$STORE_PASSWORD"
-            printf 'ODLLM_ANDROID_KEY_ALIAS=%s\n' "$KEY_ALIAS"
-            printf 'ODLLM_ANDROID_KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
-            printf 'ODLLM_REQUIRE_RELEASE_SIGNING=true\n'
-          } >> "$GITHUB_ENV"
+          if [[ -n "$KEYSTORE_BASE64$STORE_PASSWORD$KEY_ALIAS$KEY_PASSWORD" ]]; then
+            test -n "$KEYSTORE_BASE64" || { echo "Incomplete PALA_F1 signing secrets" >&2; exit 1; }
+            test -n "$STORE_PASSWORD" || { echo "Incomplete PALA_F1 signing secrets" >&2; exit 1; }
+            test -n "$KEY_ALIAS" || { echo "Incomplete PALA_F1 signing secrets" >&2; exit 1; }
+            test -n "$KEY_PASSWORD" || { echo "Incomplete PALA_F1 signing secrets" >&2; exit 1; }
+            keystore="$RUNNER_TEMP/pala-f1diag2-release.p12"
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+            test -s "$keystore"
+            chmod 600 "$keystore"
+            {
+              printf 'ODLLM_ANDROID_KEYSTORE_PATH=%s\n' "$keystore"
+              printf 'ODLLM_ANDROID_STORE_TYPE=PKCS12\n'
+              printf 'ODLLM_ANDROID_STORE_PASSWORD=%s\n' "$STORE_PASSWORD"
+              printf 'ODLLM_ANDROID_KEY_ALIAS=%s\n' "$KEY_ALIAS"
+              printf 'ODLLM_ANDROID_KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
+              printf 'ODLLM_REQUIRE_RELEASE_SIGNING=true\n'
+            } >> "$GITHUB_ENV"
+          else
+            echo "No persistent key configured; using a temporary Android Debug signer for f1diag2."
+          fi
       - name: Select independent diagnostic package
-        run: printf 'diagnostic=true\n' > native/build.properties
+        run: printf 'diagnostic2=true\n' > native/build.properties
       - run: bash scripts/build_android.sh
       - name: Verify independent diagnostic APK
         run: |
           apk=build/app/outputs/flutter-apk/app-release.apk
           aapt=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
-          "$aapt" dump badging "$apk" | grep -F "package: name='ir.pardis.ai.pala.f1diag'"
-          "$aapt" dump badging "$apk" | grep -F "application-label:'PALA F1 تشخیصی'"
+          "$aapt" dump badging "$apk" | grep -F "package: name='ir.pardis.ai.pala.f1diag2'"
+          "$aapt" dump badging "$apk" | grep -F "application-label:'PALA F1 تشخیصی ۲'"
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$apksigner" verify --verbose "$apk"
           "$apksigner" verify --print-certs "$apk" > build/app/outputs/flutter-apk/app-release-signing.txt
           sha256sum "$apk" > build/app/outputs/flutter-apk/app-release.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: PALA-F1-independent-diagnostic
+          name: PALA-F1-independent-diagnostic2
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/flutter-apk/app-release.sha256
             build/app/outputs/flutter-apk/app-release-signing.txt
       - name: Remove temporary signing key
         if: always()
-        run: rm -f "$RUNNER_TEMP/pala-f1diag-release.p12"
+        run: rm -f "$RUNNER_TEMP/pala-f1diag2-release.p12"

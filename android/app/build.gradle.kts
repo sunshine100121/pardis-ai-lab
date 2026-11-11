@@ -18,7 +18,9 @@ val odllmKleidiAI: String = (project.findProperty("odllmKleidiAI") as String?) ?
 // CPU -march for the bridge; empty keeps the CMake default (portable armv8-a, see native/CMakeLists.txt).
 val odllmArch: String = (project.findProperty("odllmArch") as String?) ?: nativeProps.getProperty("arch", "")
 val odllmAbis: List<String> = ((project.findProperty("odllmAbis") as String?) ?: nativeProps.getProperty("abis", "arm64-v8a")).split(",")
-val palaDiagnostic: Boolean = nativeProps.getProperty("diagnostic", "false") == "true"
+val palaDiagnostic2: Boolean = nativeProps.getProperty("diagnostic2", "false") == "true"
+val palaDiagnostic: Boolean =
+    nativeProps.getProperty("diagnostic", "false") == "true" || palaDiagnostic2
 
 // Release credentials may come from an ignored android/key.properties file or
 // CI environment variables. A partial configuration is rejected so a typo
@@ -54,7 +56,7 @@ if (hasPartialReleaseSigning) {
 if (requireReleaseSigning && !hasReleaseSigning) {
     throw GradleException("Production signing is required but no complete signing configuration was provided.")
 }
-if (palaDiagnostic && !hasReleaseSigning) {
+if (palaDiagnostic && !palaDiagnostic2 && !hasReleaseSigning) {
     throw GradleException("PALA F1 diagnostic APKs require the persistent owner-managed signing key.")
 }
 
@@ -72,10 +74,15 @@ android {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = when {
             nativeProps.getProperty("smoke", "false") == "true" -> "ir.pardis.ai.pala.f123test.smoke"
+            palaDiagnostic2 -> "ir.pardis.ai.pala.f1diag2"
             palaDiagnostic -> "ir.pardis.ai.pala.f1diag"
             else -> "ir.pardis.ai.pala.f123test"
         }
-        manifestPlaceholders["palaAppLabel"] = if (palaDiagnostic) "PALA F1 تشخیصی" else "پالا آزمایشی F1/F2/F3"
+        manifestPlaceholders["palaAppLabel"] = when {
+            palaDiagnostic2 -> "PALA F1 تشخیصی ۲"
+            palaDiagnostic -> "PALA F1 تشخیصی"
+            else -> "پالا آزمایشی F1/F2/F3"
+        }
         manifestPlaceholders["palaAppIcon"] = if (palaDiagnostic) "@mipmap/ic_launcher_f1diag" else "@mipmap/ic_launcher"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
