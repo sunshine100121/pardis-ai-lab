@@ -151,6 +151,7 @@ class DeviceModelServer {
   final void Function(int pieces)? onProgress;
   final Future<void> Function(bool active)? onWork;
   final Future<void> Function(String event)? onDiagnostic;
+  final Future<void> Function(IOSink output)? flushResponse;
   final Future<void> Function(IOSink output)? closeResponse;
   final Future<({List<Map<String, Object>> messages, String footer})> Function(
     List<Map<String, Object>> messages,
@@ -179,6 +180,7 @@ class DeviceModelServer {
     this.onProgress,
     this.onWork,
     this.onDiagnostic,
+    this.flushResponse,
     this.closeResponse,
     this.groundMessages,
     this.bodyTimeout = const Duration(seconds: 15),
@@ -226,6 +228,10 @@ class DeviceModelServer {
     );
     if (type.isEmpty) return 'Unknown';
     return type.substring(0, type.length > 24 ? 24 : type.length);
+  }
+
+  Future<void> _flushResponse(IOSink output) async {
+    await (flushResponse ?? (sink) => sink.flush())(output);
   }
 
   /// Plain HTTP on the local network only: every request from an address
@@ -1276,7 +1282,7 @@ class DeviceModelServer {
                   'data: ${jsonEncode(chunk({'content': piece}))}\n\n',
                 );
               }
-              await output.flush();
+              await _flushResponse(output);
               phase = 'inference';
             } else {
               result.write(piece);
@@ -1499,7 +1505,7 @@ class DeviceModelServer {
           } else {
             output.write('data: ${jsonEncode(failure)}\n\ndata: [DONE]\n\n');
           }
-          await output.flush();
+          await _flushResponse(output);
         } catch (_) {
           /* Peer already disconnected. */
         }

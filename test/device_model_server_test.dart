@@ -1137,7 +1137,7 @@ void main() {
     expect(trace.join('\n'), isNot(contains('private test content')));
   });
 
-  test('HTTP trace distinguishes client disconnect and response sink failure', () async {
+  test('HTTP trace records client disconnect without request content', () async {
     final trace = <String>[];
     final disconnected = Completer<void>();
     final continueGeneration = Completer<void>();
@@ -1184,12 +1184,58 @@ void main() {
     continueGeneration.complete();
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(trace, contains('http.client.closed:$id'));
-    expect(
-      trace.any((e) => e.startsWith('http.request.failed:$id:response-write:')),
-      isTrue,
-    );
     expect(trace.join('\n'), isNot(contains('private test content')));
+  });
 
+  test('HTTP trace records response flush failure without exception text', () async {
+    final trace = <String>[];
+    final failed = Completer<String>();
+    final server = DeviceModelServer(
+      engine: FakeEngine(),
+      settings: () => const InferenceSettings(),
+      modelId: 'trace-test',
+      fallbackTemplate: '',
+      accessToken: token,
+      onDiagnostic: (event) async {
+        trace.add(event);
+        if (event.startsWith('http.request.failed:') && !failed.isCompleted) {
+          failed.complete(event);
+        }
+      },
+      flushResponse: (_) async => throw const SocketException('private write text'),
+    );
+    await server.start();
+    addTearDown(server.stop);
+    final writeClient = HttpClient();
+    addTearDown(() => writeClient.close(force: true));
+    final writeRequest = await writeClient.postUrl(
+      Uri.parse('http://127.0.0.1:${server.port}${DeviceModelServer.completionsPath}'),
+    );
+    writeRequest.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    writeRequest.headers.contentType = ContentType.json;
+    writeRequest.write(jsonEncode({
+      'stream': true,
+      'messages': [
+        {'role': 'user', 'content': 'private test content'},
+      ],
+    }));
+    try {
+      final response = await writeRequest.close().timeout(const Duration(seconds: 5));
+      await response.drain<void>();
+    } on HttpException {
+      // The injected write failure can close the peer before its body is read.
+    } on SocketException {
+      // Expected if the failed flush aborts the response socket.
+    } on TimeoutException {
+      // Event assertion below determines whether the handler saw the injected fault.
+    }
+    final failure = await failed.future.timeout(const Duration(seconds: 5));
+    expect(failure, matches(RegExp(r'^http\.request\.failed:\d+:response-write:SocketException$')));
+    expect(trace.join('\n'), isNot(contains('private write text')));
+    expect(trace.join('\n'), isNot(contains('private test content')));
+  });
+
+  test('HTTP trace distinguishes response sink close failure', () async {
     final closeTrace = <String>[];
     final closeServer = DeviceModelServer(
       engine: FakeEngine(),
