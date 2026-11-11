@@ -2,8 +2,12 @@ name: PALA validation and optional single APK
 on:
   push:
     branches: [pala/f1-f2-f3-2026-11-09]
-    paths: [.github/workflows/ci.yml]
-    # This scoped push trigger builds one APK after the test job passes.
+    paths:
+      - .github/workflows/ci.yml
+      - lib/features/hosting/**
+      - android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/PalaDiagnostics.kt
+      - test/device_model_server_test.dart
+    # Pushes run validation only; an APK requires explicit workflow_dispatch.
   workflow_dispatch:
     inputs:
       build_apk:

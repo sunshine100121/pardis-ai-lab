@@ -111,6 +111,46 @@ class _GatedEngine extends FakeEngine {
   }
 }
 
+class _FailingEngine extends FakeEngine {
+  @override
+  Stream<String> generate({
+    required List<Map<String, Object>> messages,
+    required String fallbackTemplate,
+    required InferenceSettings settings,
+    String assistantPrefix = '',
+    List<ToolSpec> tools = const [],
+    String toolChoice = 'auto',
+  }) async* {
+    throw StateError('private test payload must not be logged');
+  }
+}
+
+class _TwoPartEngine extends FakeEngine {
+  final Completer<void> continueGeneration;
+  final Completer<void> firstPart = Completer<void>();
+  _TwoPartEngine(this.continueGeneration);
+
+  @override
+  Stream<String> generate({
+    required List<Map<String, Object>> messages,
+    required String fallbackTemplate,
+    required InferenceSettings settings,
+    String assistantPrefix = '',
+    List<ToolSpec> tools = const [],
+    String toolChoice = 'auto',
+  }) async* {
+    firstPart.complete();
+    yield 'first';
+    await continueGeneration.future;
+    yield 'second';
+  }
+}
+
+String _traceRequestId(List<String> trace) => trace
+    .firstWhere((event) => event.startsWith('http.request.received:'))
+    .split(':')
+    .last;
+
 class _FakeVectors extends ServedVectorEngine {
   @override
   Map<String, String> get models => {'vector': 'embedding'};
@@ -1010,5 +1050,171 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('HTTP trace records handler, inference and successful response only', () async {
+    final trace = <String>[];
+    final done = Completer<void>();
+    final server = DeviceModelServer(
+      engine: FakeEngine(),
+      settings: () => const InferenceSettings(),
+      modelId: 'trace-test',
+      fallbackTemplate: '',
+      accessToken: token,
+      onDiagnostic: (event) async {
+        trace.add(event);
+        if (event.startsWith('http.response.closed:') &&
+            event.endsWith(':200') &&
+            !done.isCompleted) {
+          done.complete();
+        }
+      },
+    );
+    await server.start();
+    addTearDown(server.stop);
+    Future<HttpClientResponse> send() async {
+      final c = HttpClient();
+      addTearDown(() => c.close(force: true));
+      final req = await c.postUrl(
+        Uri.parse('http://127.0.0.1:${server.port}${DeviceModelServer.completionsPath}'),
+      );
+      req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      req.headers.contentType = ContentType.json;
+      req.write(jsonEncode({
+        'messages': [
+          {'role': 'user', 'content': 'private test content'},
+        ],
+      }));
+      return req.close();
+    }
+    final response = await send();
+    expect(response.statusCode, HttpStatus.ok);
+    await response.drain<void>();
+    await done.future.timeout(const Duration(seconds: 5));
+    final id = _traceRequestId(trace);
+    expect(trace, contains('http.handler.started:$id'));
+    expect(trace, contains('http.inference.started:$id'));
+    expect(trace, contains('http.inference.completed:$id'));
+    expect(trace, contains('http.response.write.started:$id'));
+    expect(trace, contains('http.response.closed:$id:200'));
+    expect(trace.join('\n'), isNot(contains('private test content')));
+  });
+
+  test('HTTP trace records processing failure without exception text', () async {
+    final trace = <String>[];
+    final server = DeviceModelServer(
+      engine: _FailingEngine(),
+      settings: () => const InferenceSettings(),
+      modelId: 'trace-test',
+      fallbackTemplate: '',
+      accessToken: token,
+      onDiagnostic: (event) async => trace.add(event),
+    );
+    await server.start();
+    addTearDown(server.stop);
+    final failureClient = HttpClient();
+    addTearDown(() => failureClient.close(force: true));
+    final failureRequest = await failureClient.postUrl(
+      Uri.parse('http://127.0.0.1:${server.port}${DeviceModelServer.completionsPath}'),
+    );
+    failureRequest.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    failureRequest.headers.contentType = ContentType.json;
+    failureRequest.write(jsonEncode({
+        'messages': [
+          {'role': 'user', 'content': 'private test content'},
+        ],
+      }));
+    final response = await failureRequest.close();
+    expect(response.statusCode, HttpStatus.internalServerError);
+    await response.drain<void>();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final id = _traceRequestId(trace);
+    expect(
+      trace,
+      contains('http.request.failed:$id:inference:StateError'),
+    );
+    expect(trace.join('\n'), isNot(contains('private test payload')));
+    expect(trace.join('\n'), isNot(contains('private test content')));
+  });
+
+  test('HTTP trace distinguishes client disconnect and response sink failure', () async {
+    final trace = <String>[];
+    final disconnected = Completer<void>();
+    final continueGeneration = Completer<void>();
+    final engine = _TwoPartEngine(continueGeneration);
+    final server = DeviceModelServer(
+      engine: engine,
+      settings: () => const InferenceSettings(),
+      modelId: 'trace-test',
+      fallbackTemplate: '',
+      accessToken: token,
+      onDiagnostic: (event) async {
+        trace.add(event);
+        if (event.startsWith('http.client.closed:') && !disconnected.isCompleted) {
+          disconnected.complete();
+        }
+      },
+    );
+    await server.start();
+    addTearDown(server.stop);
+    final streamingClient = HttpClient();
+    addTearDown(() => streamingClient.close(force: true));
+    final req = await streamingClient.postUrl(
+      Uri.parse('http://127.0.0.1:${server.port}${DeviceModelServer.completionsPath}'),
+    );
+    req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    req.headers.contentType = ContentType.json;
+    req.write(jsonEncode({
+      'stream': true,
+      'messages': [
+        {'role': 'user', 'content': 'private test content'},
+      ],
+    }));
+    final response = await req.close();
+    final firstChunk = Completer<void>();
+    final subscription = response.listen((_) {
+      if (!firstChunk.isCompleted) firstChunk.complete();
+    });
+    await engine.firstPart.future.timeout(const Duration(seconds: 5));
+    await firstChunk.future.timeout(const Duration(seconds: 5));
+    await subscription.cancel();
+    streamingClient.close(force: true);
+    await disconnected.future.timeout(const Duration(seconds: 5));
+    final id = _traceRequestId(trace);
+    continueGeneration.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(trace, contains('http.client.closed:$id'));
+    expect(
+      trace.any((e) => e.startsWith('http.request.failed:$id:response-write:')),
+      isTrue,
+    );
+    expect(trace.join('\n'), isNot(contains('private test content')));
+
+    final closeTrace = <String>[];
+    final closeServer = DeviceModelServer(
+      engine: FakeEngine(),
+      settings: () => const InferenceSettings(),
+      modelId: 'trace-test',
+      fallbackTemplate: '',
+      accessToken: token,
+      onDiagnostic: (event) async => closeTrace.add(event),
+      closeResponse: (_) async => throw const SocketException('private close text'),
+    );
+    await closeServer.start();
+    addTearDown(closeServer.stop);
+    final closeClient = HttpClient();
+    addTearDown(() => closeClient.close(force: true));
+    final closeRequest = await closeClient.postUrl(
+      Uri.parse('http://127.0.0.1:${closeServer.port}${DeviceModelServer.completionsPath}'),
+    );
+    closeRequest.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    closeRequest.headers.contentType = ContentType.json;
+    closeRequest.write(jsonEncode({'messages': [{'role': 'user', 'content': 'hi'}]}));
+    final closeResponse = await closeRequest.close();
+    await closeResponse.drain<void>();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final closeId = _traceRequestId(closeTrace);
+    expect(closeTrace, contains('http.response.close.error:$closeId:SocketException'));
+    expect(closeTrace.join('\n'), isNot(contains('private close text')));
   });
 }

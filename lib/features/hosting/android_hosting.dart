@@ -23,9 +23,6 @@ abstract final class AndroidHosting {
 
   static Future<void> event(String name) async {
     await HostingDiagnostics.record(name);
-    if (Platform.isAndroid) {
-      try { await channel.invokeMethod<void>('diagnosticEvent', name); } catch (_) {}
-    }
   }
 
   static Future<String> diagnostics() async {
@@ -33,7 +30,10 @@ abstract final class AndroidHosting {
     if (!Platform.isAndroid) return dart;
     try {
       final native = await channel.invokeMethod<String>('diagnosticRead') ?? '';
-      return [dart, native].where((s) => s.isNotEmpty).join('\n');
+      return [
+        if (dart.isNotEmpty) 'legacy/local Dart clock:\n$dart',
+        if (native.isNotEmpty) native,
+      ].join('\n');
     } catch (_) { return dart; }
   }
 }

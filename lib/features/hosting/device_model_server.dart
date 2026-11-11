@@ -113,6 +113,7 @@ abstract interface class RawCompletionEngine {
 
 /// Opt-in OpenAI-compatible endpoint for the model loaded on this device.
 class DeviceModelServer {
+  static int _diagnosticRequestSequence = 0;
   static const modelsPath = '/v1/models';
   static const completionsPath = '/v1/chat/completions';
   static const rawCompletionsPath = '/v1/completions';
@@ -149,6 +150,8 @@ class DeviceModelServer {
   /// Called while an answer streams with the pieces generated so far.
   final void Function(int pieces)? onProgress;
   final Future<void> Function(bool active)? onWork;
+  final Future<void> Function(String event)? onDiagnostic;
+  final Future<void> Function(IOSink output)? closeResponse;
   final Future<({List<Map<String, Object>> messages, String footer})> Function(
     List<Map<String, Object>> messages,
   )?
@@ -175,6 +178,8 @@ class DeviceModelServer {
     this.onServed,
     this.onProgress,
     this.onWork,
+    this.onDiagnostic,
+    this.closeResponse,
     this.groundMessages,
     this.bodyTimeout = const Duration(seconds: 15),
     this.generationTimeout = const Duration(minutes: 10),
@@ -206,6 +211,23 @@ class DeviceModelServer {
   int? get port => _server?.port;
   InternetAddress? get address => _server?.address;
 
+  Future<void> _diagnostic(String event) async {
+    try {
+      await (onDiagnostic ?? HostingDiagnostics.record)(event);
+    } catch (_) {
+      // Diagnostics must never change HTTP behavior.
+    }
+  }
+
+  static String _diagnosticType(Object error) {
+    final type = error.runtimeType.toString().replaceAll(
+      RegExp(r'[^a-zA-Z0-9]'),
+      '',
+    );
+    if (type.isEmpty) return 'Unknown';
+    return type.substring(0, type.length > 24 ? 24 : type.length);
+  }
+
   /// Plain HTTP on the local network only: every request from an address
   /// outside [allowedClient] is refused before the token is even checked.
   Future<void> start({InternetAddress? address, int port = 0}) async {
@@ -216,20 +238,34 @@ class DeviceModelServer {
     );
     _queue = RequestQueue();
     _server = server;
-    unawaited(HostingDiagnostics.record('http.bound'));
+    unawaited(_diagnostic('http.bound'));
     unawaited(_serve(server));
   }
 
   Future<void> _serve(HttpServer server) async {
+    unawaited(_diagnostic('http.loop.started'));
     try {
       await for (final request in server) {
-        unawaited(HostingDiagnostics.record('http.request.received'));
-        unawaited(_handle(request));
+        final id = ++_diagnosticRequestSequence;
+        unawaited(_diagnostic('http.request.received:$id'));
+        unawaited(_handleObserved(request, id));
       }
-    } catch (_) {
-      // Socket shutdown ends the server loop.
+    } catch (error) {
+      unawaited(_diagnostic('http.loop.error:${_diagnosticType(error)}'));
     } finally {
+      unawaited(_diagnostic('http.loop.ended'));
       if (identical(_server, server)) _server = null;
+    }
+  }
+
+  Future<void> _handleObserved(HttpRequest request, int id) async {
+    unawaited(_diagnostic('http.handler.started:$id'));
+    try {
+      await _handle(request, id);
+    } catch (error) {
+      unawaited(_diagnostic('http.handler.error:$id:${_diagnosticType(error)}'));
+    } finally {
+      unawaited(_diagnostic('http.handler.ended:$id'));
     }
   }
 
@@ -237,7 +273,7 @@ class DeviceModelServer {
     final server = _server;
     _server = null;
     _queue.close();
-    unawaited(HostingDiagnostics.record('http.close.requested'));
+    unawaited(_diagnostic('http.close.requested'));
     await server?.close(force: true);
     if (_busy) engine.cancel();
     router?.cancelAll();
@@ -834,7 +870,7 @@ class DeviceModelServer {
     };
   }
 
-  Future<void> _handle(HttpRequest request) async {
+  Future<void> _handle(HttpRequest request, int diagnosticId) async {
     final queue = _queue;
     final response = request.response;
     IOSink output = response;
@@ -863,11 +899,17 @@ class DeviceModelServer {
     final client =
         request.connectionInfo?.remoteAddress.address ?? 'Unknown client';
     var streaming = false, wantsStream = false, completion = false;
+    var phase = 'request';
+    var peerClosed = false;
     // Whether this request holds an engine (released in the outer finally).
     var claimed = false;
     var workHeld = false;
     TextEngine? active;
     void disconnected() {
+      if (!peerClosed) {
+        peerClosed = true;
+        unawaited(_diagnostic('http.client.closed:$diagnosticId'));
+      }
       if (!abandoned.isCompleted) abandoned.complete();
       if (claimed) active?.cancel();
     }
@@ -1003,7 +1045,9 @@ class DeviceModelServer {
       recent.add(now);
       // Slow request bodies cannot monopolize the model. Claim only after
       // the bounded read, and recheck availability after that await.
+      phase = 'body';
       final bodyText = await readBody(request, bodyTimeout);
+      unawaited(_diagnostic('http.body.completed:$diagnosticId'));
       final decoded = jsonDecode(bodyText);
       final body = decoded is Map
           ? anthropic
@@ -1188,6 +1232,8 @@ class DeviceModelServer {
           engine.cancel();
         });
         try {
+          phase = 'inference';
+          unawaited(_diagnostic('http.inference.started:$diagnosticId'));
           await for (final piece in withEvidence(
             raw
                 ? (engine as RawCompletionEngine).generateRaw(
@@ -1208,6 +1254,7 @@ class DeviceModelServer {
             pieces++;
             onProgress?.call(pieces);
             if (wantsStream) {
+              phase = 'response-write';
               if (responses) {
                 result.write(piece);
                 _event(output, 'response.output_text.delta', {
@@ -1230,11 +1277,14 @@ class DeviceModelServer {
                 );
               }
               await output.flush();
+              phase = 'inference';
             } else {
               result.write(piece);
             }
           }
           if (timedOut) throw TimeoutException('Generation deadline reached.');
+          phase = 'response';
+          unawaited(_diagnostic('http.inference.completed:$diagnosticId'));
         } finally {
           timer.cancel();
         }
@@ -1243,6 +1293,8 @@ class DeviceModelServer {
         }
         usage = _Usage.from(engine.metrics);
         final calls = TextEngine.toolCallsOf(engine.metrics);
+        phase = 'response-write';
+        unawaited(_diagnostic('http.response.write.started:$diagnosticId'));
         final finish = engine.metrics['finishReason'] == 'length'
             ? 'length'
             : calls.isNotEmpty
@@ -1394,12 +1446,14 @@ class DeviceModelServer {
         onSessionChange?.call(null);
       }
     } on RouteRefusal catch (e) {
+      unawaited(_diagnostic('http.request.refused:$diagnosticId:${e.status}'));
       if (streaming) {
         error = e.message;
       } else {
         refuse(e.status, e.message);
       }
     } on TimeoutException catch (e) {
+      unawaited(_diagnostic('http.request.failed:$diagnosticId:timeout'));
       if (claimed) active?.cancel();
       if (!streaming) {
         refuse(HttpStatus.requestTimeout, e.message ?? 'Request timed out.');
@@ -1407,13 +1461,19 @@ class DeviceModelServer {
         error = 'Request timed out.';
       }
     } on FormatException catch (e) {
+      unawaited(_diagnostic('http.request.failed:$diagnosticId:format'));
       if (!streaming) {
         refuse(HttpStatus.badRequest, e.message);
       } else {
         error = e.message;
         active?.cancel();
       }
-    } catch (_) {
+    } catch (error) {
+      unawaited(
+        _diagnostic(
+          'http.request.failed:$diagnosticId:$phase:${_diagnosticType(error)}',
+        ),
+      );
       if (claimed) active?.cancel();
       if (!streaming) {
         refuse(HttpStatus.internalServerError, 'Request failed.');
@@ -1452,11 +1512,19 @@ class DeviceModelServer {
         } catch (_) {}
       }
       try {
-        await output.close();
-      } catch (_) {}
+        await (closeResponse ?? (sink) => sink.close())(output);
+        unawaited(_diagnostic('http.response.closed:$diagnosticId:$status'));
+      } catch (error) {
+        unawaited(
+          _diagnostic(
+            'http.response.close.error:$diagnosticId:${_diagnosticType(error)}',
+          ),
+        );
+      }
       socket?.destroy();
-      onServed?.call(
-        ServedRequest(
+      try {
+        onServed?.call(
+          ServedRequest(
           at: started,
           method: request.method,
           path: request.uri.path,
@@ -1470,8 +1538,15 @@ class DeviceModelServer {
           tokensPerSecond: usage.tokensPerSecond,
           took: clock.elapsed,
           error: error,
-        ),
-      );
+          ),
+        );
+      } catch (error) {
+        unawaited(
+          _diagnostic(
+            'http.served.callback.error:$diagnosticId:${_diagnosticType(error)}',
+          ),
+        );
+      }
     }
   }
 
