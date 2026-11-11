@@ -1554,6 +1554,11 @@ class DeviceModelServer {
           /* Peer already disconnected. */
         }
       }
+      if (inferenceCancelReason != null && active != null) {
+        // Preserve partial usage when a response transport failure cancels
+        // generation before the normal completion metrics are collected.
+        usage = _Usage.from(active.metrics);
+      }
       release();
       if (queueKey != null) queue.release(queueKey);
       for (final file in images) {

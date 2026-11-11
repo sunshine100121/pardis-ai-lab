@@ -54,6 +54,7 @@ class _SlowEngine extends FakeEngine implements RawCompletionEngine {
 
   @override
   void cancel() {
+    reportedMetrics = {'tokens': 1};
     if (!cancelled.isCompleted) cancelled.complete();
   }
 
@@ -374,17 +375,27 @@ void main() {
     '/v1/messages',
   ]) {
     test(
-      'cancels generation when the streaming peer disconnects: $path',
+      'cancels generation when streaming response sending fails: $path',
       () async {
         await server.stop();
         final engine = _SlowEngine();
         final finished = Completer<void>();
+        final trace = <String>[];
+        var failNextResponseFlush = false;
         server = DeviceModelServer(
           engine: engine,
           settings: () => const InferenceSettings(),
           modelId: 'test-model',
           fallbackTemplate: '',
           accessToken: token,
+          onDiagnostic: (event) async => trace.add(event),
+          flushResponse: (sink) async {
+            if (failNextResponseFlush) {
+              failNextResponseFlush = false;
+              throw const SocketException('private simulated write failure');
+            }
+            await sink.flush();
+          },
           onServed: (entry) {
             served.add(entry);
             if (!finished.isCompleted) finished.complete();
@@ -426,12 +437,18 @@ void main() {
         );
         await socket.flush();
         await firstDelta.future.timeout(const Duration(seconds: 2));
-        socket.destroy();
+        // Inject the observable transport failure after one real chunk has
+        // reached this peer; a peer close alone may not fail a buffered write.
+        failNextResponseFlush = true;
         await engine.cancelled.future.timeout(const Duration(seconds: 2));
         await finished.future.timeout(const Duration(seconds: 2));
+        final id = _traceRequestId(trace);
+        expect(trace, contains('http.client.disconnected:$id:response-error'));
+        expect(trace, contains('http.inference.cancelled:$id:response-error'));
         expect(served.single.stream, true);
         expect(served.single.completion, true);
         expect(served.single.completionTokens, 1);
+        expect(server.busy, false);
 
         final next = await request(
           'POST',
@@ -1212,18 +1229,26 @@ void main() {
     expect(trace.join('\n'), isNot(contains('private test content')));
   });
 
-  test('HTTP trace records client disconnect without request content', () async {
+  test('HTTP trace records response send failure without request content', () async {
     final trace = <String>[];
     final disconnected = Completer<String>();
     final handlerEnded = Completer<void>();
     final continueGeneration = Completer<void>();
     final engine = _TwoPartEngine(continueGeneration);
+    var failNextResponseFlush = false;
     final server = DeviceModelServer(
       engine: engine,
       settings: () => const InferenceSettings(),
       modelId: 'trace-test',
       fallbackTemplate: '',
       accessToken: token,
+      flushResponse: (sink) async {
+        if (failNextResponseFlush) {
+          failNextResponseFlush = false;
+          throw const SocketException('private simulated write failure');
+        }
+        await sink.flush();
+      },
       onDiagnostic: (event) async {
         trace.add(event);
         if (event.startsWith('http.client.disconnected:') &&
@@ -1258,18 +1283,17 @@ void main() {
     });
     await engine.firstPart.future.timeout(const Duration(seconds: 5));
     await firstChunk.future.timeout(const Duration(seconds: 5));
-    await subscription.cancel();
-    streamingClient.close(force: true);
+    failNextResponseFlush = true;
+    continueGeneration.complete();
     final id = _traceRequestId(trace);
     final disconnectEvent = await disconnected.future.timeout(
       const Duration(seconds: 5),
     );
-    expect(disconnectEvent, 'http.client.disconnected:$id:read-error');
-    expect(trace, contains('http.client.read.error:$id:SocketException'));
-    expect(trace, contains('http.inference.cancelled:$id:read-error'));
+    expect(disconnectEvent, 'http.client.disconnected:$id:response-error');
+    expect(trace, contains('http.inference.cancelled:$id:response-error'));
     expect(engine.cancelRequested, isTrue);
-    continueGeneration.complete();
     await handlerEnded.future.timeout(const Duration(seconds: 5));
+    await subscription.cancel();
     expect(trace, isNot(contains('http.inference.completed:$id')));
     expect(trace.join('\n'), isNot(contains('private test content')));
   });
