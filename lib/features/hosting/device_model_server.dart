@@ -1292,28 +1292,36 @@ class DeviceModelServer {
             onProgress?.call(pieces);
             if (wantsStream) {
               phase = 'response-write';
-              if (responses) {
-                result.write(piece);
-                _event(output, 'response.output_text.delta', {
-                  'type': 'response.output_text.delta',
-                  'response_id': id,
-                  'item_id': '$id-message',
-                  'output_index': 0,
-                  'content_index': 0,
-                  'delta': piece,
-                });
-              } else if (anthropic) {
-                _event(output, 'content_block_delta', {
-                  'type': 'content_block_delta',
-                  'index': 0,
-                  'delta': {'type': 'text_delta', 'text': piece},
-                });
-              } else {
-                output.write(
-                  'data: ${jsonEncode(chunk({'content': piece}))}\n\n',
-                );
+              try {
+                if (responses) {
+                  result.write(piece);
+                  _event(output, 'response.output_text.delta', {
+                    'type': 'response.output_text.delta',
+                    'response_id': id,
+                    'item_id': '$id-message',
+                    'output_index': 0,
+                    'content_index': 0,
+                    'delta': piece,
+                  });
+                } else if (anthropic) {
+                  _event(output, 'content_block_delta', {
+                    'type': 'content_block_delta',
+                    'index': 0,
+                    'delta': {'type': 'text_delta', 'text': piece},
+                  });
+                } else {
+                  output.write(
+                    'data: ${jsonEncode(chunk({'content': piece}))}\n\n',
+                  );
+                }
+                await _flushResponse(output);
+              } catch (_) {
+                // A stream can accept a small write into the OS buffer after
+                // the peer has gone away. A failed write/flush is the signal
+                // that confirms the response side is no longer usable.
+                disconnected('response-error');
+                rethrow;
               }
-              await _flushResponse(output);
               phase = 'inference';
             } else {
               result.write(piece);

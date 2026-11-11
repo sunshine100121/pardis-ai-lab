@@ -146,6 +146,7 @@ class _TwoPartEngine extends FakeEngine {
     firstPart.complete();
     yield 'first';
     await continueGeneration.future;
+    if (cancelRequested) return;
     yield 'second';
   }
 }
@@ -1213,7 +1214,8 @@ void main() {
 
   test('HTTP trace records client disconnect without request content', () async {
     final trace = <String>[];
-    final disconnected = Completer<void>();
+    final disconnected = Completer<String>();
+    final handlerEnded = Completer<void>();
     final continueGeneration = Completer<void>();
     final engine = _TwoPartEngine(continueGeneration);
     final server = DeviceModelServer(
@@ -1226,7 +1228,11 @@ void main() {
         trace.add(event);
         if (event.startsWith('http.client.disconnected:') &&
             !disconnected.isCompleted) {
-          disconnected.complete();
+          disconnected.complete(event);
+        }
+        if (event.startsWith('http.handler.ended:') &&
+            !handlerEnded.isCompleted) {
+          handlerEnded.complete();
         }
       },
     );
@@ -1255,12 +1261,16 @@ void main() {
     await subscription.cancel();
     streamingClient.close(force: true);
     final id = _traceRequestId(trace);
-    continueGeneration.complete();
-    await disconnected.future.timeout(const Duration(seconds: 5));
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(trace, contains('http.client.disconnected:$id:response-error'));
-    expect(trace, contains('http.inference.cancelled:$id:response-error'));
+    final disconnectEvent = await disconnected.future.timeout(
+      const Duration(seconds: 5),
+    );
+    expect(disconnectEvent, 'http.client.disconnected:$id:read-error');
+    expect(trace, contains('http.client.read.error:$id:SocketException'));
+    expect(trace, contains('http.inference.cancelled:$id:read-error'));
     expect(engine.cancelRequested, isTrue);
+    continueGeneration.complete();
+    await handlerEnded.future.timeout(const Duration(seconds: 5));
+    expect(trace, isNot(contains('http.inference.completed:$id')));
     expect(trace.join('\n'), isNot(contains('private test content')));
   });
 
