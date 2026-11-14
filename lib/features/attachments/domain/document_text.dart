@@ -264,10 +264,10 @@ class DocumentText {
       if (pages.isNotEmpty) {
         final out = StringBuffer();
         for (final f in pages) {
-          final (_, text) = WebPageReader.extract(
+          final (chapterTitle, text) = WebPageReader.extract(
             _decode(f.content as List<int>),
           );
-          if (text.isNotEmpty) out.writeln(text);
+          if (text.isNotEmpty) out.writeln('--- فصل: ${chapterTitle.isEmpty ? f.name : chapterTitle} ---\n$text');
           if (out.length > maxChars) break;
         }
         return ExtractedDocument(_bounded(out.toString()), 'EPUB book');

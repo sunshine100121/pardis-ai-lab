@@ -26,6 +26,7 @@ import '../../../attachments/data/attachment_store.dart';
 import '../../../attachments/domain/attachment.dart';
 import '../../../knowledge/knowledge_embedder.dart';
 import '../../../knowledge/knowledge_store.dart';
+import '../../../knowledge/offline_knowledge.dart';
 import '../../../retrieval/claim_check_runner.dart';
 import '../../../retrieval/domain/claim_check.dart';
 import '../../../retrieval/domain/date_check.dart';
@@ -1482,6 +1483,12 @@ class ChatNotifier extends _ChatBase
         );
       }
     }
+    if (documents && !settings.usesRemote && t.resume == null &&
+        t.reuseSourcesJson == null && t.promptOverride == null && input.isNotEmpty) {
+      final local = await ref.read(offlineKnowledgeProvider).search(input);
+      if (_cancelled || !_alive) return null;
+      t.sources = [...local, ...t.sources];
+    }
     // Reused or recalled sources may carry Knowledge passages from a
     // local turn: none reach a Remote profile without document sharing.
     if (!documents) {
@@ -1489,6 +1496,9 @@ class ChatNotifier extends _ChatBase
         for (final s in t.sources)
           if (!KnowledgeStore.isKnowledgeUrl(s.url)) s,
       ];
+    }
+    if (settings.usesRemote) {
+      t.sources = t.sources.where((s) => !s.url.startsWith('pala-') && !s.url.startsWith('zim://')).toList();
     }
     final fitted = await _fitEvidence(
       input,

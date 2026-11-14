@@ -19,7 +19,7 @@ import 'advanced_pages.dart';
 import 'advanced_pages_2.dart';
 import 'effective_settings_page.dart';
 import 'inference_contract_page.dart';
-import 'knowledge_page.dart';
+import 'folder_knowledge_page.dart';
 import 'memory_page.dart';
 import 'model_profile_page.dart';
 import 'settings_search_page.dart';
@@ -148,7 +148,7 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => const KnowledgePage(),
+                          builder: (_) => const FolderKnowledgePage(),
                         ),
                       ),
                     ),

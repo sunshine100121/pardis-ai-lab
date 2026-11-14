@@ -16,6 +16,12 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var knowledgeDocuments: KnowledgeDocuments? = null
+    @Deprecated("SAF result bridge")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (knowledgeDocuments?.onResult(requestCode,resultCode,data) == true) return
+        super.onActivityResult(requestCode,resultCode,data)
+    }
     private var offlineDictation: OfflineDictation? = null
     private var shareInbox: ShareInbox? = null
     private var scheduledPrompts: ScheduledPrompts? = null
@@ -61,6 +67,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        knowledgeDocuments?.close()
+        knowledgeDocuments = null
         displayManager?.unregisterDisplayListener(displayListener)
         offlineDictation?.close()
         offlineDictation = null
@@ -115,6 +123,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        knowledgeDocuments?.close()
+        knowledgeDocuments = KnowledgeDocuments(this, flutterEngine.dartExecutor.binaryMessenger)
         offlineDictation?.close()
         offlineDictation = OfflineDictation(this, flutterEngine.dartExecutor.binaryMessenger)
         shareInbox = ShareInbox(this, flutterEngine.dartExecutor.binaryMessenger).also {

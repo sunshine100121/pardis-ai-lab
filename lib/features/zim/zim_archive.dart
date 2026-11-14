@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'zim_source.dart';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -41,7 +41,7 @@ class ZimArchive {
   static const maxClusterBytes = 64 * 1024 * 1024;
   static const maxCachedClusterBytes = 64 * 1024 * 1024;
 
-  final RandomAccessFile _file;
+  final ZimSource _file;
   final String identity;
   final int clusterByteLimit, cacheByteLimit;
   int get cachedClusterBytes =>
@@ -85,7 +85,7 @@ class ZimArchive {
         cacheByteLimit > maxCachedClusterBytes) {
       throw ArgumentError('Invalid ZIM byte limits');
     }
-    final file = await File(path).open();
+    final file = await ZimSource.open(path);
     try {
       final header = await _readAt(file, 0, 80);
       if (header.length != 80) {
@@ -196,10 +196,8 @@ class ZimArchive {
     }
   }
 
-  static Future<Uint8List> _readAt(RandomAccessFile f, int pos, int n) async {
-    await f.setPosition(pos);
-    return f.read(n);
-  }
+  static Future<Uint8List> _readAt(ZimSource f, int pos, int n) =>
+      f.readAt(pos, n);
 
   Future<int> _u64At(int pos) async {
     final bytes = await _readAt(_file, pos, 8);

@@ -72,6 +72,9 @@ class ZimWikipedia {
   /// Tower", "Paris". Each run of up to four words is tried as written, in
   /// Title Case and with only its first letter capitalised, which is how
   /// Wikipedia titles are written.
+  static String normalize(String text) =>
+      text.replaceAll('ي', 'ی').replaceAll('ك', 'ک').replaceAll('‌', ' ');
+
   static List<String> candidates(String query) {
     final words = [
       for (final w in query.split(RegExp(r'\s+')))
@@ -109,6 +112,10 @@ class ZimWikipedia {
         add(cap(lower));
       }
     }
+    for (final title in List<String>.of(out)) {
+      add(normalize(title));
+      add(title.replaceAll('ی', 'ي').replaceAll('ک', 'ك'));
+    }
     return out;
   }
 
@@ -120,7 +127,9 @@ class ZimWikipedia {
     for (final title in candidates(query).take(60)) {
       final e = await zim.findByTitle(title);
       if (e == null || !e.isArticle || !tried.add(e.index)) continue;
-      if (WikipediaClient.bestTitle(query, [e.title]) == null) continue;
+      if (WikipediaClient.bestTitle(normalize(query), [normalize(e.title)]) ==
+          null)
+        continue;
       final html = utf8.decode(await zim.content(e), allowMalformed: true);
       final result = toResult(
         e.title,
@@ -159,9 +168,12 @@ class ZimWikipedia {
           (l) => l.trim().length > 40,
           orElse: () => text.split('\n').first,
         );
-    final url = 'zim://${Uri.encodeComponent(title.replaceAll(' ', '_'))}';
+    final encoded = Uri.encodeComponent(title.replaceAll(' ', '_'));
+    final url = archiveId == null
+        ? 'zim://$encoded'
+        : 'zim://$archiveId/$encoded';
     return SearchResult(
-      title: '$title — Wikipedia (offline)',
+      title: '$title — $file',
       url: url,
       snippet: lead.length > 300 ? '${lead.substring(0, 300)}…' : lead,
       source: file,
@@ -169,7 +181,7 @@ class ZimWikipedia {
       pageText: text,
       finalUrl: url,
       fetchedAt: DateTime.now(),
-      outlet: 'Wikipedia (offline)',
+      outlet: file,
       archiveDate: archiveDate,
       archiveId: archiveId,
       archiveLanguage: language,

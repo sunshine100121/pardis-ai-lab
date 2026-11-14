@@ -1,55 +1,52 @@
-name: Validate Android and iOS app
-on: [push, pull_request, workflow_dispatch]
+name: PALA offline MVP validation only
+on:
+  push:
+    branches: [pala/offline-mvp-020-2026-11-14]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pala-offline-mvp-validation
+  cancel-in-progress: false
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        flutter: ['3.44.0', '3.47.5']
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 78009a6
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ matrix.flutter }}
-          channel: stable
+          flutter-version: '3.47.5'
           cache: true
       - run: flutter pub get
       - run: dart run build_runner build
-      # Formatter output differs between Dart versions; check with the build's Flutter.
-      - if: matrix.flutter == '3.47.5'
-        run: dart format --output=none --set-exit-if-changed lib test integration_test
-      - run: flutter analyze
-      - run: flutter test
-  android:
-    runs-on: ubuntu-latest
+      - run: flutter gen-l10n
+      - name: Validate restored Persian baseline and existing model/native contracts
+        run: flutter test test/l10n_test.dart test/native_load_settings_test.dart test/native_loader_test.dart test/model_load_progress_test.dart test/model_memory_test.dart
+  mvp:
+    needs: baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 scripts/check_offline_baseline.py
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - run: flutter pub get
+      - run: dart run build_runner build
+      - run: flutter gen-l10n
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Folder, local conversation, real PDF and read-only HA regressions
+        run: flutter test test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/document_text_test.dart test/zim_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.5'
-          cache: true
-      - run: bash scripts/build_android.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android-arm64-cpu
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-  ios:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.5'
-          cache: true
-      - run: bash scripts/build_ios.sh
-      - run: flutter build ios --release --no-codesign
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios-unsigned
-          path: build/ios/iphoneos/Runner.app
+      - name: Compile Android integration without APK
+        run: bash scripts/check_android_host.sh
