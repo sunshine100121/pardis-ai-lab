@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 78009a6
+          ref: 78009a6f2d91ef56942bd929b3f2f289da1d212e
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.5'
