@@ -20,6 +20,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_test.dart' show TestEngine, TestModels, TestSettings;
 import 'widget_test.dart' show Onboarded;
 
+class SystemLocaleSettings extends TestSettings {
+  @override
+  InferenceSettings build() => super.build().copyWith(localeCode: '');
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -72,7 +77,7 @@ void main() {
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(TestEngine()),
-          settingsProvider.overrideWith(TestSettings.new),
+          settingsProvider.overrideWith(SystemLocaleSettings.new),
           modelManagerProvider.overrideWith(TestModels.new),
           onboardingDoneProvider.overrideWith(() => Onboarded(true)),
         ],
