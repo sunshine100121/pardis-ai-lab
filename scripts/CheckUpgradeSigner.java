@@ -44,7 +44,7 @@ class CheckUpgradeSigner {
             verifier.initVerify(certificate);
             verifier.update(challenge);
             if (!verifier.verify(signed)) throw new IllegalStateException("PRIVATE_KEY_PROOF_FAILED");
-            System.out.println("{\"status\":\"PASS\",\"owner_key_usable\":true,\"certificate_sha256\":\"" + fingerprint + "\",\"reference_package\":\"ir.pardis.ai.pala.f1diag2\",\"reference_version_code\":3,\"reference_apk_sha256\":\"29001825fd85cb4bf2a7615b8a362fdfd781e6db76c4bbc28cd3d8f10db9942b\",\"live_device_certificate\":\"NOT_VERIFIED_DEVICE_NOT_CONNECTED\"}");
+            System.out.println("{\"status\":\"PASS\",\"owner_key_usable\":true,\"certificate_sha256\":\"" + fingerprint + "\",\"reference_package\":\"ir.pardis.ai.pala.f1diag2\",\"reference_version_code\":4,\"reference_apk_sha256\":\"a5af49e8094bebd2f00e37eb20d8bd32f3f87415fc39cd4c24e5c73b8d6b1749\",\"live_device_certificate\":\"NOT_VERIFIED_DEVICE_NOT_CONNECTED\"}");
         } catch (Exception error) {
             // Fixed validation reasons only; never print a provider/keystore exception.
             String reason = error instanceof IllegalStateException ? error.getMessage() : error.getClass().getSimpleName();

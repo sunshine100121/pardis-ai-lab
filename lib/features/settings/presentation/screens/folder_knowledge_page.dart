@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../knowledge/folder_library.dart';
 import '../../../knowledge/ha_read_client.dart';
 import '../../../knowledge/offline_knowledge.dart';
+import '../../../knowledge/knowledge_read_status.dart';
 
 class FolderKnowledgePage extends ConsumerStatefulWidget {
   const FolderKnowledgePage({super.key});
@@ -16,12 +17,26 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
   int _bytes=0;
   bool _busy=false;
   String? _error;
+  final _probe=TextEditingController(text:'مریخ');
+  List<dynamic> _checks=[];
+  @override
+  void dispose() { _probe.dispose(); super.dispose(); }
   @override
   void initState() { super.initState(); _load(); }
   Future<void> _load() async {
     final library=ref.read(folderLibraryProvider);
     final value=await library.state(); final bytes=await library.indexBytes();
-    if(mounted) setState(() { _data=value; _bytes=bytes; });
+    final raw=(await SharedPreferences.getInstance()).getString(FolderLibrary.diagnosticsKey);
+    if(mounted) setState(() { _data=value; _bytes=bytes; _checks=raw==null?[]:jsonDecode(raw) as List; });
+  }
+  Future<void> _checkArticle() async {
+    if(_probe.text.trim().isEmpty) return;
+    setState(() { _busy=true; _error=null; });
+    try {
+      final report=await ref.read(folderLibraryProvider).searchDetailed(_probe.text.trim());
+      if(mounted) setState(()=>_checks=report.checks);
+    } catch(_) { if(mounted) setState(()=>_checks=[{'file':'پوشه دانش','stage':'access','code':'access'}]); }
+    finally { if(mounted) setState(()=>_busy=false); }
   }
   Future<void> _refresh(bool pick) async {
     setState(() { _busy=true; _error=null; });
@@ -47,6 +62,10 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
         onChanged:_busy?null:(v) async { await ref.read(folderLibraryProvider).setEnabled(f['uri'] as String,v); await _load(); },
       ),
       ExpansionTile(title:const Text('پیشرفته'),children:[
+        const Text('بررسی فقط‌خواندنی ZIM: فقط عنوان و مقالهٔ انتخاب‌شده خوانده می‌شوند؛ فایل کپی یا تغییر نمی‌کند و مدل اجرا نمی‌شود.'),
+        TextField(controller:_probe,decoration:const InputDecoration(labelText:'عنوان یا پرسش برای بررسی دانشنامه')),
+        TextButton(onPressed:_busy?null:_checkArticle,child:const Text('بررسی خواندن مقاله')),
+        KnowledgeReadStatus(report:{'checks':_checks},showSummary:false),
         SelectableText(_data['tree']?.toString() ?? 'هنوز پوشه انتخاب نشده است'),
         const Text('یک مجوز فقط‌خواندنی پوشه؛ در صورت جابه‌جایی فایل یا لغو مجوز دوباره بازخوانی کنید. سقف سند ۸ MiB، PDF صد صفحه، نمایه ۲ MiB است. برای ZIM خواندن انتخابی انجام می‌شود.'),
         ListTile(title:const Text('Home Assistant · فقط خواندن'),trailing:const Icon(Icons.chevron_right),

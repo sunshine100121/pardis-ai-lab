@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import '../../data/network/web_search/search_models.dart';
 import '../attachments/domain/document_text.dart';
 import '../zim/zim_source.dart';
 import '../zim/zim_wikipedia.dart';
+import 'knowledge_read_report.dart';
 
 typedef LibraryFile = ({String uri, String name, int size, int modified});
 
@@ -36,12 +38,15 @@ class AndroidFolderAccess implements FolderAccess {
 /// Original files are never written, removed or copied to app storage.
 class FolderLibrary {
   static const key = 'pala_folder_library_v1';
+  static const diagnosticsKey = 'pala_zim_read_status_v1';
   static const maxDocumentBytes = 8 * 1024 * 1024;
   static const maxIndexBytes = 2 * 1024 * 1024;
   static const extensions = {'zim','pdf','epub','docx','txt','md','markdown','rtf'};
   final FolderAccess access;
   final Future<String> Function(Uint8List) pdfText;
-  FolderLibrary({FolderAccess? access, Future<String> Function(Uint8List)? pdfText})
+  final Duration lookupTimeout;
+  FolderLibrary({FolderAccess? access, Future<String> Function(Uint8List)? pdfText,
+    this.lookupTimeout = const Duration(seconds:8)})
     : access=access ?? AndroidFolderAccess(), pdfText=pdfText ?? readPdf;
   bool _refreshing = false;
 
@@ -97,7 +102,7 @@ class FolderLibrary {
           'enabled':enabled,'status':'آمادهٔ جست‌وجو','passages':<dynamic>[]};
         files.add(row);
         if(file.name.toLowerCase().endsWith('.zim')) {
-          row['status']='خواندن مستقیم هنگام پرسش؛ اعتبار هر نتیجه جدا بررسی می‌شود';
+          row['status']='شناسایی شده؛ بازشدن و بازیابی مقاله هنوز تأیید نشده است';
           continue;
         }
         try {
@@ -146,24 +151,49 @@ class FolderLibrary {
     } }
     return out;
   }
-  Future<List<SearchResult>> search(String question) async {
+  Future<List<SearchResult>> search(String question) async => (await searchDetailed(question)).sources;
+  Future<KnowledgeReadReport> searchDetailed(String question) async {
     final data=await state();
-    if(data['tree']==null) return [];
+    if(data['tree']==null) return const KnowledgeReadReport([],[]);
     final live=await access.list(); // Revoked grants and moved/changed files fail closed.
     final current={for(final f in live.files) f.uri:f};
     final terms=normalize(question).split(RegExp(r'[^\p{L}\p{N}]+',unicode:true)).where((s)=>s.length>2).toSet();
     final found=<(int,SearchResult)>[];
+    final checks=<Map<String,dynamic>>[];
     var archives=0;
     for(final f in data['files'] as List) {
       final now=current[f['uri']];
-      if(f['enabled']!=true || now==null || now.name!=f['name'] || now.size!=f['size'] || now.modified!=f['modified']) continue;
+      if(f['enabled']!=true) continue;
+      if(now==null || now.name!=f['name'] || now.size!=f['size'] || now.modified!=f['modified']) {
+        if((f['name'] as String).toLowerCase().endsWith('.zim')) checks.add({'file':f['name'],'code':'changed'});
+        continue;
+      }
       if((f['name'] as String).toLowerCase().endsWith('.zim')) {
-        if(archives++>=8) continue;
-        final wiki=ZimWikipedia(f['uri'] as String);
-        try { final result=await wiki.lookup(question).timeout(const Duration(seconds:8));
-          if(result!=null) found.add((100,result));
-        } catch(_) { /* One unavailable encyclopedia must not hide other sources. */ }
-        finally { await wiki.close(); }
+        if(archives++>=8) { checks.add({'file':f['name'],'code':'limit'}); continue; }
+        final clock=Stopwatch()..start();
+        final check=<String,dynamic>{'file':f['name'],'stage':'open','code':'not_found',
+          'fileSize':now.size,'readCalls':0,'readBytes':0,'highestOffset':0};
+        checks.add(check);
+        final wiki=ZimWikipedia(f['uri'] as String,
+          openSource:(uri) async => _MeteredZimSource(await access.open(uri),check),
+          onStage:(stage) { if(check['code']!='timeout') check['stage']=stage; });
+        var timedOut=false;
+        try {
+          final result=await wiki.lookup(question).timeout(lookupTimeout);
+          if(result!=null) {
+            found.add((100,result)); check['code']='found';
+            check['article']=result.title; check['archive']=result.source;
+          } else if(check['stage']=='text_unusable') { check['code']='text_unusable'; }
+        } on TimeoutException { timedOut=true; check['code']='timeout'; }
+        on FormatException { check['code']='format'; }
+        catch(_) { check['code']='access'; }
+        finally {
+          check['elapsedMs']=clock.elapsedMilliseconds;
+          // Closing marks the lookup closed immediately; already accepted native
+          // I/O/decompression finishes before the descriptor is released. Do not
+          // turn an expired lookup into an unbounded UI wait for that cleanup.
+          if(timedOut) { unawaited(wiki.close()); } else { await wiki.close(); }
+        }
         continue;
       }
       for(final p in f['passages'] as List) {
@@ -177,7 +207,9 @@ class FolderLibrary {
       }
     }
     found.sort((a,b)=>b.$1.compareTo(a.$1));
-    return found.take(4).map((e)=>e.$2).toList();
+    // Persist status only: no question, article text, URI, token or model output.
+    await (await SharedPreferences.getInstance()).setString(diagnosticsKey,jsonEncode(checks));
+    return KnowledgeReadReport(found.take(4).map((e)=>e.$2).toList(),[for(final c in checks) Map<String,dynamic>.from(c)]);
   }
   Future<SearchResult?> article(String url,String archiveId,String? date) async {
     final uri=Uri.tryParse(url);
@@ -191,7 +223,7 @@ class FolderLibrary {
       if(row['enabled']!=true || file==null || !file.name.toLowerCase().endsWith('.zim') ||
         file.size!=row['size'] || file.modified!=row['modified']) continue;
       if(checked++>=8) break;
-      final wiki=ZimWikipedia(file.uri);
+      final wiki=ZimWikipedia(file.uri,openSource:access.open);
       try {
         if(await wiki.archiveIdentity()!=archiveId || await wiki.archiveMetadata('Date')!=date) continue;
         return await wiki.article(uri.pathSegments.single.replaceAll('_',' '));
@@ -203,3 +235,21 @@ class FolderLibrary {
 }
 
 final folderLibraryProvider=Provider<FolderLibrary>((ref)=>FolderLibrary());
+
+class _MeteredZimSource implements ZimSource {
+  final ZimSource source;
+  final Map<String,dynamic> check;
+  _MeteredZimSource(this.source,this.check);
+  @override
+  Future<int> length()=>source.length();
+  @override
+  Future<Uint8List> readAt(int offset,int count) async {
+    check['readCalls']=(check['readCalls'] as int)+1;
+    if(offset > (check['highestOffset'] as int)) check['highestOffset']=offset;
+    final bytes=await source.readAt(offset,count);
+    check['readBytes']=(check['readBytes'] as int)+bytes.length;
+    return bytes;
+  }
+  @override
+  Future<void> close()=>source.close();
+}

@@ -82,6 +82,8 @@ class _Turn {
   /// The question was saved ([ChatNotifier.send] returns it).
   var accepted = false;
   String? failure;
+  Map<String,dynamic>? offlineRead;
+  String? offlineRefusal;
 
   // The answer as it streams in.
   final answer = StringBuffer(), thinking = StringBuffer();

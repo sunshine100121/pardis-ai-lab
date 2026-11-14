@@ -19,6 +19,7 @@ import '../../../../core/platform/desktop_host.dart';
 import '../../../../core/utils/external_links.dart';
 import '../../../attachments/presentation/attachment_chips.dart';
 import '../../../knowledge/knowledge_store.dart';
+import '../../../knowledge/knowledge_read_status.dart';
 import '../../../zim/zim_article_page.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/turn_run.dart';
@@ -630,6 +631,7 @@ class _AssistantTurn extends StatelessWidget {
     final sources = (jsonDecode(message.sourcesJson) as List)
         .cast<Map<String, dynamic>>();
     final time = message.timestamp.toLocal();
+    final offline=TurnRun.decode(message.runJson)?.metrics['offlineKnowledge'];
     final alternative = message.isAlternative;
     final caption = [
       if (alternative) 'compare',
@@ -658,6 +660,9 @@ class _AssistantTurn extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDesign.sm),
+        if(!streaming && offline is Map<String,dynamic> &&
+          (offline['requiredEncyclopedia']==true || (offline['checks'] as List? ?? []).isNotEmpty))
+          KnowledgeReadStatus(report:offline),
         if (reasoning != null && reasoning.isNotEmpty)
           ReasoningAccordion(
             content: reasoning,
@@ -1027,7 +1032,7 @@ class _SourcesBubble extends StatelessWidget {
     if (KnowledgeStore.isKnowledgeUrl(url)) {
       return context.l10n.uiChatBubbleKnowledgeLibrary;
     }
-    if (url.startsWith('zim://')) return 'Wikipedia';
+    if (url.startsWith('zim://')) return s['title'] as String? ?? 'دانشنامهٔ آفلاین';
     var host = Uri.tryParse(url)?.host ?? '';
     if (host.endsWith('wikipedia.org')) return 'Wikipedia';
     host = host.replaceFirst(RegExp(r'^(www|m|en|fr|es)\.'), '');

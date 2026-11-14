@@ -21,7 +21,10 @@ class TestFolder implements FolderAccess {
     return (tree:'content://test/tree/knowledge',files:files);
   }
   @override
-  Future<ZimSource> open(String uri) async { opens++; return MemorySource(bytes[uri]!); }
+  Future<ZimSource> open(String uri) async {
+    opens++;
+    return bytes.containsKey(uri) ? MemorySource(bytes[uri]!) : ZimSource.open(uri);
+  }
   void add(String name,Uint8List data) {
     bytes[name]=data;
     files.add((uri:name,name:name,size:data.length,modified:1));

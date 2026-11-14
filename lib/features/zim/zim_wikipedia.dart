@@ -8,6 +8,7 @@ import '../../data/network/web_search/web_page_reader.dart';
 import '../../data/network/web_search/wikipedia_client.dart';
 import '../retrieval/domain/evidence.dart';
 import 'zim_archive.dart';
+import 'zim_source.dart';
 
 /// Offline Wikipedia from a Kiwix ZIM file the tester imported (tester
 /// answers 2026-10-07, item 9). It answers the same question as
@@ -18,8 +19,10 @@ class ZimWikipedia {
   Future<ZimArchive>? _opening;
   bool _closed = false;
   String? _name;
+  final Future<ZimSource> Function(String)? openSource;
+  final void Function(String)? onStage;
 
-  ZimWikipedia(this.path);
+  ZimWikipedia(this.path, {this.openSource, this.onStage});
 
   /// Where an imported ZIM lives: one file, replaced on import.
   static String fileIn(String supportDir) =>
@@ -27,7 +30,7 @@ class ZimWikipedia {
 
   Future<ZimArchive> _open() async {
     if (_closed) return Future.error(StateError('Offline Wikipedia is closed'));
-    final opening = _opening ??= ZimArchive.open(path);
+    final opening = _opening ??= ZimArchive.open(path, openSource: openSource);
     try {
       return await opening;
     } catch (_) {
@@ -73,9 +76,30 @@ class ZimWikipedia {
   /// Title Case and with only its first letter capitalised, which is how
   /// Wikipedia titles are written.
   static String normalize(String text) =>
-      text.replaceAll('ي', 'ی').replaceAll('ك', 'ک').replaceAll('‌', ' ');
+      text.replaceAll('ي', 'ی').replaceAll('ك', 'ک').replaceAll('‌', ' ')
+        .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0640]'), '');
+
+  static const _persianQuestionWords = {
+    'کجاست','کجا','چیست','چیه','چی','است','هست','درباره','درمورد','مورد',
+    'توضیح','بده','بگو','لطفا','لطفاً','را','رو','به','از','در','با','و','طبق',
+    'بر','اساس','پاسخ','مستند','استناد','منبع','منابع','دانشنامه','ویکی','پدیا',
+    'ویکیپدیا','کن','کنید','دهید','چیستند',
+  };
+
+  static String subjectQuery(String query) {
+    if (!RegExp(r'[\u0600-\u06FF]').hasMatch(query)) return query;
+    return normalize(query).split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
+        .where((s) => s.isNotEmpty && !_persianQuestionWords.contains(s)).join(' ');
+  }
+
+  static bool requiresEncyclopedia(String question) {
+    final q = normalize(question).toLowerCase();
+    return RegExp(r'ویکی\s*پدیا|دانشنامه|wikipedia|encyclop').hasMatch(q) &&
+      RegExp(r'استناد|مستند|طبق|بر اساس|با توجه|(?:^|\s)از(?:\s|$)|according|source|based on').hasMatch(q);
+  }
 
   static List<String> candidates(String query) {
+    query = subjectQuery(query);
     final words = [
       for (final w in query.split(RegExp(r'\s+')))
         if (w.replaceAll(
@@ -115,6 +139,7 @@ class ZimWikipedia {
     for (final title in List<String>.of(out)) {
       add(normalize(title));
       add(title.replaceAll('ی', 'ي').replaceAll('ک', 'ك'));
+      if(RegExp(r'[\u0600-\u06FF]').hasMatch(title)) add(title.replaceAll(' ', '\u200c'));
     }
     return out;
   }
@@ -122,24 +147,34 @@ class ZimWikipedia {
   /// The article on [query]'s subject as a read source, or null when the
   /// file has none that [WikipediaClient.bestTitle] accepts.
   Future<SearchResult?> lookup(String query) async {
+    onStage?.call('open');
     final zim = await _open();
+    onStage?.call('title');
     final tried = <int>{};
     for (final title in candidates(query).take(60)) {
+      if (_closed) throw StateError('Offline Wikipedia is closed');
+      // Validate the matched alias, not the resolved redirect title. A real
+      // exact redirect can legitimately have a different canonical name.
+      if (WikipediaClient.bestTitle(normalize(subjectQuery(query)), [normalize(title)]) == null) continue;
       final e = await zim.findByTitle(title);
       if (e == null || !e.isArticle || !tried.add(e.index)) continue;
-      if (WikipediaClient.bestTitle(normalize(query), [normalize(e.title)]) ==
-          null)
-        continue;
+      onStage?.call('content');
       final html = utf8.decode(await zim.content(e), allowMalformed: true);
+      onStage?.call('metadata');
+      final archiveName = await name();
+      final date = await zim.metadata('Date');
+      final language = await zim.metadata('Language');
+      onStage?.call('extract');
       final result = toResult(
         e.title,
         html,
-        await name(),
-        archiveDate: await zim.metadata('Date'),
+        archiveName,
+        archiveDate: date,
         archiveId: zim.identity,
-        language: await zim.metadata('Language'),
+        language: language,
       );
-      if (result != null) return result;
+      if (result != null) { onStage?.call('complete'); return result; }
+      onStage?.call('text_unusable');
     }
     return null;
   }

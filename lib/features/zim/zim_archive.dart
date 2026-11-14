@@ -78,6 +78,7 @@ class ZimArchive {
     String path, {
     int clusterByteLimit = maxClusterBytes,
     int cacheByteLimit = maxCachedClusterBytes,
+    Future<ZimSource> Function(String)? openSource,
   }) async {
     if (clusterByteLimit < 1 ||
         clusterByteLimit > maxClusterBytes ||
@@ -85,7 +86,7 @@ class ZimArchive {
         cacheByteLimit > maxCachedClusterBytes) {
       throw ArgumentError('Invalid ZIM byte limits');
     }
-    final file = await ZimSource.open(path);
+    final file = await (openSource ?? ZimSource.open)(path);
     try {
       final header = await _readAt(file, 0, 80);
       if (header.length != 80) {
@@ -176,18 +177,12 @@ class ZimArchive {
       final info = await _readAt(_file, start, 1);
       if (info.isEmpty) throw const FormatException('ZIM: cut title listing');
       if ((info[0] & 15) <= 1) {
-        final (data, extended) = await _cluster(listing.cluster);
-        final size = extended ? 8 : 4;
-        final d = ByteData.sublistView(data);
-        int off(int i) => extended
-            ? d.getUint64(i * size, Endian.little)
-            : d.getUint32(i * size, Endian.little);
-        final payload = await _content(listing);
-        if (payload.length % 4 != 0 || payload.length ~/ 4 > entryCount) {
+        final (offset, length) = (await _storedBlobRange(listing))!;
+        if (length % 4 != 0 || length ~/ 4 > entryCount) {
           throw const FormatException('ZIM: invalid title listing length');
         }
-        _titlePtrPos = start + 1 + off(listing.blob);
-        _titleCount = payload.length ~/ 4;
+        _titlePtrPos = offset;
+        _titleCount = length ~/ 4;
         return;
       }
     }
@@ -320,6 +315,16 @@ class ZimArchive {
   Future<Uint8List> content(ZimEntry e) => _run(() => _content(e));
   Future<Uint8List> _content(ZimEntry e) async {
     if (e.redirect != null) throw ArgumentError('A redirect has no content');
+    final stored = await _storedBlobRange(e);
+    if (stored != null) {
+      final (offset, length) = stored;
+      if (length > clusterByteLimit) {
+        throw const FormatException('ZIM: blob exceeds safety limit');
+      }
+      final bytes = await _readAt(_file, offset, length);
+      if (bytes.length != length) throw const FormatException('ZIM: cut blob');
+      return bytes;
+    }
     final (data, extended) = await _cluster(e.cluster);
     final size = extended ? 8 : 4;
     final d = ByteData.sublistView(data);
@@ -342,6 +347,42 @@ class ZimArchive {
       throw const FormatException('ZIM: invalid blob offset');
     }
     return Uint8List.sublistView(data, off(e.blob), off(e.blob + 1));
+  }
+
+  /// Stored clusters may contain huge unrelated index blobs. Read only the
+  /// requested blob's offsets, as libzim's direct title accessor does.
+  Future<(int, int)?> _storedBlobRange(ZimEntry e) async {
+    if (e.cluster < 0 || e.cluster >= clusterCount) {
+      throw const FormatException('ZIM: no such cluster');
+    }
+    final start = await _u64At(_clusterPtrPos + 8 * e.cluster);
+    final end = e.cluster + 1 < clusterCount
+        ? await _u64At(_clusterPtrPos + 8 * (e.cluster + 1)) : _checksumPos;
+    if (start < 80 || end <= start || end > _checksumPos) {
+      throw const FormatException('ZIM: invalid cluster range');
+    }
+    final info = await _readAt(_file, start, 1);
+    if (info.length != 1) throw const FormatException('ZIM: cut cluster');
+    if ((info[0] & 15) > 1) return null;
+    final size = info[0] & 16 != 0 ? 8 : 4;
+    Future<int> offset(int i) async {
+      final at = start + 1 + i * size;
+      if (at + size > end) throw const FormatException('ZIM: cut blob offsets');
+      final bytes = await _readAt(_file, at, size);
+      if (bytes.length != size) throw const FormatException('ZIM: cut blob offsets');
+      final data = ByteData.sublistView(bytes);
+      return size == 8 ? data.getUint64(0, Endian.little) : data.getUint32(0, Endian.little);
+    }
+    final first = await offset(0);
+    if (first < 2 * size || first % size != 0 || first > end - start - 1 ||
+        e.blob < 0 || e.blob >= first ~/ size - 1) {
+      throw const FormatException('ZIM: invalid blob table');
+    }
+    final lo = await offset(e.blob), hi = await offset(e.blob + 1);
+    if (lo < first || hi < lo || hi > end - start - 1) {
+      throw const FormatException('ZIM: invalid blob offset');
+    }
+    return (start + 1 + lo, hi - lo);
   }
 
   /// A cluster's blob area, decompressed; the last four are cached.

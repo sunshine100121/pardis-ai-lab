@@ -7,6 +7,7 @@ import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/data/network/web_search/search_models.dart';
 import 'package:ondevice_llm/features/knowledge/offline_knowledge.dart';
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
+import 'package:ondevice_llm/features/knowledge/knowledge_read_report.dart';
 import 'package:ondevice_llm/features/chat/presentation/providers/chat_provider.dart';
 import 'package:ondevice_llm/features/models/presentation/providers/model_manager_provider.dart';
 import 'package:ondevice_llm/features/settings/presentation/providers/settings_provider.dart';
@@ -15,9 +16,9 @@ import 'chat_test.dart' show TestEngine,TestSettings,TestModels;
 class EvidenceForLocal extends OfflineKnowledge {
   EvidenceForLocal():super(FolderLibrary());
   @override
-  Future<List<SearchResult>> search(String question) async=>[
+  Future<KnowledgeReadReport> searchDetailed(String question) async=>KnowledgeReadReport([
     SearchResult(title:'small.pdf · صفحه 2',url:'pala-knowledge://fixture',snippet:'',source:'AI Knowledge',rank:1,
-      pageText:'Orchid nutrient concentration is 42 ppm according to this laboratory report.',fetchedAt:DateTime.utc(2026,11,14))];
+      pageText:'Orchid nutrient concentration is 42 ppm according to this laboratory report.',fetchedAt:DateTime.utc(2026,11,14))],[]);
 }
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

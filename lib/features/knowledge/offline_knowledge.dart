@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/network/web_search/search_models.dart';
 import 'folder_library.dart';
 import 'ha_read_client.dart';
+import 'knowledge_read_report.dart';
 
 class OfflineKnowledge {
   static const configKey='pala_ha_read_config_v1';
@@ -12,19 +13,23 @@ class OfflineKnowledge {
   static const secure=FlutterSecureStorage();
   final FolderLibrary library;
   OfflineKnowledge(this.library);
-  Future<List<SearchResult>> search(String question) async {
+  Future<List<SearchResult>> search(String question) async => (await searchDetailed(question)).sources;
+  Future<KnowledgeReadReport> searchDetailed(String question) async {
     final sources=<SearchResult>[];
-    try { sources.addAll(await library.search(question)); }
-    catch(_) { sources.add(_failure('پوشه دانش','منابع محلی در دسترس نیستند؛ مجوز یا بازخوانی پوشه را بررسی کنید.')); }
+    final checks=<Map<String,dynamic>>[];
+    try {
+      final report=await library.searchDetailed(question);
+      sources.addAll(report.sources); checks.addAll(report.checks);
+    } catch(_) { checks.add({'file':'پوشه دانش','stage':'access','code':'access'}); }
     final raw=(await SharedPreferences.getInstance()).getString(configKey);
-    if(raw==null) return sources;
+    if(raw==null) return KnowledgeReadReport(sources,checks);
     final config=jsonDecode(raw) as Map<String,dynamic>;
-    if(config['enabled']!=true) return sources;
+    if(config['enabled']!=true) return KnowledgeReadReport(sources,checks);
     final allowed=Map<String,dynamic>.from(config['entities'] as Map);
     final normalized=FolderLibrary.normalize(question);
     final matches=allowed.entries.where((e)=>normalized.contains(FolderLibrary.normalize(e.value as String))).toList();
-    if(matches.isEmpty) return sources;
-    if(matches.length>1) { sources.add(_failure('Home Assistant','پرسش چند حسگر دارد؛ برای جلوگیری از حدس، نام یک حسگر مجاز را بپرسید.')); return sources; }
+    if(matches.isEmpty) return KnowledgeReadReport(sources,checks);
+    if(matches.length>1) { sources.add(_failure('Home Assistant','پرسش چند حسگر دارد؛ برای جلوگیری از حدس، نام یک حسگر مجاز را بپرسید.')); return KnowledgeReadReport(sources,checks); }
     final selected=matches.single;
     try {
       final token=await secure.read(key:tokenKey);
@@ -36,7 +41,7 @@ class OfflineKnowledge {
       final data=history ? await client.history(selected.key,end.subtract(const Duration(hours:1)),end) : await client.state(selected.key);
       sources.add(HaReadClient.evidence(selected.value as String,data));
     } catch(_) { sources.add(_failure('Home Assistant','داده واقعی دریافت نشد؛ اتصال یا مجوز را بررسی کنید. مقدار را حدس نزنید.')); }
-    return sources;
+    return KnowledgeReadReport(sources,checks);
   }
   static SearchResult _failure(String title,String text) => SearchResult(title:title,url:'pala-status://unavailable',snippet:'',
     source:'وضعیت خواندن',rank:0,pageText:text,fetchedAt:DateTime.now().toUtc());

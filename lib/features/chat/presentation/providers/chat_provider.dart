@@ -27,6 +27,7 @@ import '../../../attachments/domain/attachment.dart';
 import '../../../knowledge/knowledge_embedder.dart';
 import '../../../knowledge/knowledge_store.dart';
 import '../../../knowledge/offline_knowledge.dart';
+import '../../../zim/zim_wikipedia.dart';
 import '../../../retrieval/claim_check_runner.dart';
 import '../../../retrieval/domain/claim_check.dart';
 import '../../../retrieval/domain/date_check.dart';
@@ -730,8 +731,13 @@ class ChatNotifier extends _ChatBase
       final prompt = await _assemblePrompt(t, asked.user, planned, found);
       if (prompt == null) return t.accepted;
       await _startAnswer(t, prompt);
-      await _runRounds(t, prompt);
-      await _searchAfterRecall(t, asked, planned);
+      if (t.offlineRefusal != null) {
+        t.appAnswer=t.offlineRefusal;
+        t.replaceAnswer(t.offlineRefusal!);
+      } else {
+        await _runRounds(t, prompt);
+        await _searchAfterRecall(t, asked, planned);
+      }
     } catch (e, stack) {
       t.failure = switch (e) {
         StateError(:final message) => message,
@@ -1485,9 +1491,10 @@ class ChatNotifier extends _ChatBase
     }
     if (documents && !settings.usesRemote && t.resume == null &&
         t.reuseSourcesJson == null && t.promptOverride == null && input.isNotEmpty) {
-      final local = await ref.read(offlineKnowledgeProvider).search(input);
+      final local = await ref.read(offlineKnowledgeProvider).searchDetailed(input);
       if (_cancelled || !_alive) return null;
-      t.sources = [...local, ...t.sources];
+      t.sources = [...local.sources.where((s)=>!s.url.startsWith('pala-status:')), ...t.sources];
+      t.offlineRead=local.toJson(requiredEncyclopedia:ZimWikipedia.requiresEncyclopedia(input),supplied:false);
     }
     // Reused or recalled sources may carry Knowledge passages from a
     // local turn: none reach a Remote profile without document sharing.
@@ -1524,6 +1531,18 @@ class ChatNotifier extends _ChatBase
     );
     if (fitted == null) return null;
     t.sources = fitted;
+    if(t.offlineRead != null) {
+      final supplied=t.sources.any((s)=>s.url.startsWith('zim://') && s.pageText?.trim().isNotEmpty==true);
+      t.offlineRead!['supplied']=supplied;
+      if(!supplied && (t.offlineRead!['checks'] as List).any((c)=>c['code']=='found')) {
+        t.offlineRead!['delivery']='context_limit';
+      }
+      if(t.offlineRead!['requiredEncyclopedia']==true && !supplied) {
+        t.offlineRefusal='مقالهٔ قابل‌استناد از دانشنامهٔ آفلاین بازیابی و به مدل داده نشد؛ بنابراین پاسخ مستند تولید نمی‌کنم. وضعیت منبع زیر همین پیام را بررسی کنید. هیچ استفاده‌ای از ویکی‌پدیا برای این پاسخ تأیید نشده است.';
+        // No unrelated source or failed-read status is an encyclopedia citation.
+        t.sources=[];
+      }
+    }
     final fittedSystem = messages.first['content'] as String;
     if (carried.isNotEmpty && fittedSystem.startsWith(fitSystem)) {
       messages.first = {
@@ -2465,7 +2484,7 @@ class ChatNotifier extends _ChatBase
             ? grounding
             : null;
         await _saveAnswer(t, warning: warning);
-        final learned = await _learnAndName(t);
+        final learned = t.offlineRefusal == null ? await _learnAndName(t) : <Memory>[];
         _showTurnEnd(t, grounding: grounding, learned: learned);
       }
     } finally {
@@ -2690,6 +2709,7 @@ class ChatNotifier extends _ChatBase
                   metrics: {
                     ...?t.metrics,
                     'lifecycle': t.lease.trace,
+                    if(t.offlineRead != null) 'offlineKnowledge':t.offlineRead,
                     'contextAudit': t.contextAudit(_fittedOmitted),
                     'memoryUsed': [
                       ...t.usedMemoryNotes
