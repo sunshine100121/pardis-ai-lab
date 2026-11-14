@@ -1,0 +1,27 @@
+Feature changes relative to restored PALA 0.2.0 (78009a6):
+.github/workflows/ci.yml
+android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/KnowledgeDocuments.kt
+android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/MainActivity.kt
+lib/features/attachments/domain/document_text.dart
+lib/features/chat/presentation/providers/chat_provider.dart
+lib/features/chat/presentation/widgets/chat_bubble.dart
+lib/features/knowledge/folder_library.dart
+lib/features/knowledge/ha_read_client.dart
+lib/features/knowledge/offline_knowledge.dart
+lib/features/settings/presentation/screens/folder_knowledge_page.dart
+lib/features/settings/presentation/screens/settings_screen.dart
+lib/features/zim/zim_archive.dart
+lib/features/zim/zim_article_page.dart
+lib/features/zim/zim_source.dart
+lib/features/zim/zim_wikipedia.dart
+scripts/check_android_host.sh
+scripts/check_offline_baseline.py
+scripts/prepare_pdfium_assets.dart
+test/folder_knowledge_page_test.dart
+test/ha_read_client_test.dart
+test/l10n_test.dart
+test/offline_folder_library_test.dart
+test/offline_local_chat_test.dart
+test/offline_pdf_native_test.dart
+test/persian_overlay_test.dart
+test/zim_test.dart
