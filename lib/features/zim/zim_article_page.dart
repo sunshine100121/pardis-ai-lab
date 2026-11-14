@@ -4,6 +4,7 @@ import '../../core/l10n/l10n.dart';
 import '../../core/providers/shared_providers.dart';
 import '../../data/network/web_search/search_models.dart';
 import '../../core/design/app_design.dart';
+import '../knowledge/folder_library.dart';
 
 /// Local article links stay inside the imported archive. The saved excerpt
 /// remains available if that archive has since been replaced or removed.
@@ -19,6 +20,12 @@ class ZimArticlePage extends ConsumerWidget {
     this.archiveId,
   });
   Future<SearchResult?> _article(WidgetRef ref) async {
+    if (archiveId != null) {
+      try {
+        final direct = await ref.read(folderLibraryProvider).article(url, archiveId!, archiveDate);
+        if (direct != null) return direct;
+      } catch (_) { /* Retain the saved excerpt when folder access is absent. */ }
+    }
     final wiki = await ref.read(zimWikipediaProvider.future);
     if (wiki == null || archiveId == null) return null;
     if (await wiki.archiveIdentity() != archiveId) return null;

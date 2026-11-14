@@ -1361,6 +1361,7 @@ Future<void> showSourceSheet(
     final t = context.l10n;
     final host = Uri.tryParse(url)?.host ?? '';
     final knowledge = KnowledgeStore.isKnowledgeUrl(url);
+    final localEvidence = url.startsWith('pala-knowledge://') || url.startsWith('pala-ha://') || url.startsWith('pala-status://');
     final zim = url.startsWith('zim://');
     String cap(String v) =>
         v.isEmpty ? v : '${v[0].toUpperCase()}${v.substring(1)}';
@@ -1392,6 +1393,8 @@ Future<void> showSourceSheet(
         (Icons.notes, t.sourceExtractedSection, c.textMuted),
       if (sponsored)
         (Icons.campaign_outlined, t.sourceSponsoredDetail, c.warning)
+      else if (localEvidence)
+        (Icons.offline_pin_outlined, 'منبع محلی · ${s['title']}', c.success)
       else if (knowledge)
         (
           Icons.menu_book_outlined,
@@ -1484,11 +1487,11 @@ Future<void> showSourceSheet(
       builder: (context, scroll) => AppSheet(
         title:
             '${s['title'] ?? (sponsored ? t.sourceSponsored : t.sourceFallbackTitle)}',
-        meta: host.isNotEmpty && !knowledge
+        meta: host.isNotEmpty && !knowledge && !localEvidence
             ? host.replaceFirst(RegExp(r'^www\.'), '')
             : null,
         scrollable: false,
-        primary: knowledge
+        primary: knowledge || localEvidence
             ? null
             : FilledButton.icon(
                 onPressed: () async {
@@ -1520,7 +1523,7 @@ Future<void> showSourceSheet(
                   zim ? t.sourceOpenArchived : t.uiChatBubbleOpenInBrowser,
                 ),
               ),
-        secondary: knowledge || zim
+        secondary: knowledge || zim || localEvidence
             ? null
             : TextButton.icon(
                 onPressed: () {

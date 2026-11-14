@@ -90,7 +90,11 @@ void main() {
     final library=FolderLibrary(access:folder);
     await library.refresh(pick:true);
     expect(folder.opens,0);
-    expect(await library.search('Paris'),hasLength(2));
+    final citations=await library.search('Paris');
+    expect(citations,hasLength(2));
+    expect(citations.map((s)=>s.url).toSet(),hasLength(2));
+    final article=await library.article(citations.last.url,citations.last.archiveId!,citations.last.archiveDate);
+    expect(article?.pageText,contains('2,102,650'));
     await library.setEnabled(paths.first,false);
     expect(await library.search('Paris'),hasLength(1));
     for(var i=0;i<paths.length;i++) { expect(await File(paths[i]).readAsBytes(),before[i]); }

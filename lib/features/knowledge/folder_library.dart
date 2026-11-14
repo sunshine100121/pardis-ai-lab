@@ -179,6 +179,27 @@ class FolderLibrary {
     found.sort((a,b)=>b.$1.compareTo(a.$1));
     return found.take(4).map((e)=>e.$2).toList();
   }
+  Future<SearchResult?> article(String url,String archiveId,String? date) async {
+    final uri=Uri.tryParse(url);
+    if(uri==null || uri.scheme!='zim' || uri.host!=archiveId || uri.pathSegments.length!=1) return null;
+    final listing=await access.list();
+    final live={for(final f in listing.files) f.uri:f};
+    final data=await state();
+    var checked=0;
+    for(final row in data['files'] as List) {
+      final file=live[row['uri']];
+      if(row['enabled']!=true || file==null || !file.name.toLowerCase().endsWith('.zim') ||
+        file.size!=row['size'] || file.modified!=row['modified']) continue;
+      if(checked++>=8) break;
+      final wiki=ZimWikipedia(file.uri);
+      try {
+        if(await wiki.archiveIdentity()!=archiveId || await wiki.archiveMetadata('Date')!=date) continue;
+        return await wiki.article(uri.pathSegments.single.replaceAll('_',' '));
+      } catch(_) { /* Keep the saved excerpt if access was revoked. */ }
+      finally { await wiki.close(); }
+    }
+    return null;
+  }
 }
 
 final folderLibraryProvider=Provider<FolderLibrary>((ref)=>FolderLibrary());
