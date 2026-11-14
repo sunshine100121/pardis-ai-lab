@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
@@ -73,7 +74,16 @@ void main() {
     expect(results.any((s)=>s.title.contains('فصل Orchids') && s.pageText!.contains('73')),true);
   });
   test('two direct ZIM files are independent and remain byte-identical',() async {
-    final paths=['test/fixtures/zim/mini.zim','test/fixtures/zim/libzim-modern.zim'];
+    final dir=await Directory.systemTemp.createTemp('pala-library-two-zim-');
+    addTearDown(()=>dir.delete(recursive:true));
+    // Two valid small archives with the same article and distinct UUIDs.
+    // The unrelated upstream modern fixture does not contain Paris.
+    final second=await File('test/fixtures/zim/mini.zim').readAsBytes();
+    second[8]^=1;
+    final checksum=ByteData.sublistView(second).getUint64(72,Endian.little);
+    second.setRange(checksum,checksum+16,md5.convert(second.sublist(0,checksum)).bytes);
+    final other=await File('${dir.path}/second.zim').writeAsBytes(second);
+    final paths=['test/fixtures/zim/mini.zim',other.path];
     final before=[for(final p in paths) await File(p).readAsBytes()];
     final folder=TestFolder();
     for(final p in paths) { folder.files.add((uri:p,name:p,size:await File(p).length(),modified:1)); }

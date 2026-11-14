@@ -51,7 +51,7 @@ jobs:
       - run: flutter gen-l10n
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Folder, local conversation, real PDF and read-only HA regressions
-        run: flutter test test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/document_text_test.dart test/zim_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
+        run: flutter test test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/folder_knowledge_page_test.dart test/document_text_test.dart test/zim_test.dart test/archive_regressions_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

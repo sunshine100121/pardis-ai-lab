@@ -96,7 +96,10 @@ class FolderLibrary {
         final row=<String,dynamic>{'uri':file.uri,'name':file.name,'size':file.size,'modified':file.modified,
           'enabled':enabled,'status':'آمادهٔ جست‌وجو','passages':<dynamic>[]};
         files.add(row);
-        if(file.name.toLowerCase().endsWith('.zim')) continue;
+        if(file.name.toLowerCase().endsWith('.zim')) {
+          row['status']='خواندن مستقیم هنگام پرسش؛ اعتبار هر نتیجه جدا بررسی می‌شود';
+          continue;
+        }
         try {
           if(!enabled) { row['status']='غیرفعال؛ برای ساخت نمایه بازخوانی کنید'; continue; }
           if(file.size<0 || file.size>maxDocumentBytes) throw const FormatException('اندازه نامعلوم یا بیش از ۸ MiB؛ بدون ساخت کپی رد شد.');
@@ -153,7 +156,7 @@ class FolderLibrary {
     var archives=0;
     for(final f in data['files'] as List) {
       final now=current[f['uri']];
-      if(f['enabled']!=true || now==null || now.size!=f['size'] || now.modified!=f['modified']) continue;
+      if(f['enabled']!=true || now==null || now.name!=f['name'] || now.size!=f['size'] || now.modified!=f['modified']) continue;
       if((f['name'] as String).toLowerCase().endsWith('.zim')) {
         if(archives++>=8) continue;
         final wiki=ZimWikipedia(f['uri'] as String);
