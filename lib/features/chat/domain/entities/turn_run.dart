@@ -90,6 +90,7 @@ class TurnRun {
     'trimmedMessages',
     'contextAudit',
     'evidenceAudit',
+    'offlineKnowledge',
     'memoryUsed',
     'generationRounds',
     'operationTokens',

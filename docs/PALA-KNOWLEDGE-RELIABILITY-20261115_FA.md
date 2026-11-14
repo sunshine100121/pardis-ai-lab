@@ -37,6 +37,8 @@
 
 اجرای Flutter/Analyze/Android و نتیجه ساخت نهایی در ادامه این سند پس از CI ثبت می‌شود. Flutter/Dart/Java محلی نصب نشده‌اند. تلاش اجرای Python از alias پیش‌فرض WindowsApps در محیط محدود قابل اجرا نبود؛ بررسی guard در CI انجام می‌شود و این تلاش محلی PASS گزارش نمی‌شود. `git diff --check` و نبود تغییر در موتور/native/DB/model path به‌صورت محلی بررسی شدند.
 
+اجرای اول [43652917003](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/43652917003) روی `83a6b8e`: baseline و signing PASS؛ Analyze PASS؛ ۵۴ آزمون PASS و ۹ آزمون جدید گفت‌وگو FAIL. خواندن فارسی/redirect/خوشه بزرگ/offset بالای ۴ GiB و رفتار refusal موفق بودند، اما metadata وضعیت از allowlist موجود `TurnRun.capture` عبور نمی‌کرد و در runJson/UI باقی نمی‌ماند. اصلاح محدود، اضافه‌کردن فقط کلید `offlineKnowledge` به allowlist است؛ هیچ Assertion حذف یا سست نشد. job APK در این اجرا SKIPPED بود؛ هیچ APK ساخته نشد.
+
 نسخه هدف فقط پس از موفقیت gateها ۰٫۳٫۲ کد ۵، همان `ir.pardis.ai.pala.f1diag2` و گواهی دائمی مالک C8E89C...D1EB52 است. مرجع امضا اکنون APK واقعی کد ۴ از Artifact `14133316348` / اجرای `43641336444` با SHA256 `a5af49e8094bebd2f00e37eb20d8bd32f3f87415fc39cd4c24e5c73b8d6b1749` است. هیچ نصب خودکاری مجاز نیست.
 
 ## مرز حفظ داده و بازگشت
