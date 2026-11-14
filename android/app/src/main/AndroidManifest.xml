@@ -10,7 +10,7 @@
     <!-- Alarms and timers the user confirms in the Clock app (PhoneActions). -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
 <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false"
-        android:label="OnDevice LLM"
+        android:label="پالا | PALA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

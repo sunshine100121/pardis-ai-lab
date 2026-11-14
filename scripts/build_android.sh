@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 bash scripts/bootstrap.sh
+flutter gen-l10n
 # On Linux, Vulkan builds require a host C++ compiler, Vulkan headers/library,
 # and glslc. Use the Windows PowerShell script for the pinned portable toolchain.
 export ORG_GRADLE_PROJECT_odllmVulkan="${ODLLM_VULKAN:-OFF}"

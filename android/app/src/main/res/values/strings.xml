@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="process_text_label">Ask OnDevice LLM</string>
-    <string name="tile_label">Talk to OnDevice LLM</string>
+    <string name="process_text_label">از پالا بپرس</string>
+    <string name="tile_label">گفت‌وگو با پالا</string>
     <string name="widget_ask">Ask anything…</string>
     <string name="widget_talk">Talk</string>
     <string name="widget_description">Ask your on-device model, or talk to it.</string>

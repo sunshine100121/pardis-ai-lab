@@ -65,7 +65,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = if (nativeProps.getProperty("smoke", "false") == "true") "app.ondevicellm.ondevice_llm.smoke" else "app.ondevicellm.ondevice_llm"
+        applicationId = if (nativeProps.getProperty("smoke", "false") == "true") "ir.pardis.ai.pala.smoke" else "ir.pardis.ai.pala"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 28
