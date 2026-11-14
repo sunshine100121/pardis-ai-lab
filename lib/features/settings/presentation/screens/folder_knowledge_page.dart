@@ -87,9 +87,12 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
         if(at<1 || line.substring(at+1).trim().length<3) throw const FormatException('هر حسگر باید نام فارسی حداقل سه‌حرفی داشته باشد.');
         map[line.substring(0,at).trim()]=line.substring(at+1).trim();
       }
+      final prefs=await SharedPreferences.getInstance();
+      final saved=prefs.getString(OfflineKnowledge.configKey);
+      final base=Uri.parse(_base.text.trim());
+      HaReadClient.checkTokenOrigin(saved==null?null:(jsonDecode(saved) as Map)['base'] as String?,base,_token.text.trim());
       final previous=await OfflineKnowledge.secure.read(key:OfflineKnowledge.tokenKey);
       final token=_token.text.trim().isEmpty ? previous ?? '' : _token.text.trim();
-      final base=Uri.parse(_base.text.trim());
       HaReadClient(base:base,token:token,entities:map.keys.toSet());
       await OfflineKnowledge.secure.write(key:OfflineKnowledge.tokenKey,value:token);
       await (await SharedPreferences.getInstance()).setString(OfflineKnowledge.configKey,jsonEncode({'base':base.toString(),'entities':map,'enabled':_enabled}));

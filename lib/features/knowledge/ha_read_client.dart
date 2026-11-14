@@ -4,6 +4,11 @@ import '../../data/network/web_search/search_models.dart';
 
 /// A closed GET-only API surface. No model-selected URL, method or service call.
 class HaReadClient {
+  static void checkTokenOrigin(String? previousBase,Uri nextBase,String enteredToken) {
+    if(enteredToken.isEmpty && (previousBase==null || Uri.parse(previousBase).origin!=nextBase.origin)) {
+      throw const FormatException('برای نشانی جدید، توکن همان Home Assistant را دوباره وارد کنید؛ توکن قبلی به میزبان دیگری فرستاده نمی‌شود.');
+    }
+  }
   final Uri base;
   final String _token;
   final Set<String> entities;

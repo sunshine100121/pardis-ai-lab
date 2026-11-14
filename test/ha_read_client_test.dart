@@ -4,6 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/features/knowledge/ha_read_client.dart';
 
 void main() {
+  test('stored credential cannot silently follow a changed host, port or scheme',() {
+    const old='http://192.168.1.2:8123';
+    for(final url in ['http://192.168.1.3:8123','http://192.168.1.2:80','https://192.168.1.2:8123']) {
+      expect(()=>HaReadClient.checkTokenOrigin(old,Uri.parse(url),''),throwsFormatException);
+    }
+    expect(()=>HaReadClient.checkTokenOrigin(null,Uri.parse(old),''),throwsFormatException);
+    HaReadClient.checkTokenOrigin(old,Uri.parse('$old/'),'');
+    HaReadClient.checkTokenOrigin(old,Uri.parse('http://192.168.1.3:8123'),'explicit-new-token');
+  });
   test('GET-only state and bounded history against mock; token and private attributes absent from evidence',() async {
     final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);
     addTearDown(()=>server.close(force:true));
