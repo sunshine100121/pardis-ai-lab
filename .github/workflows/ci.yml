@@ -4,6 +4,11 @@ on:
     branches: [pala/offline-mvp-020-2026-11-14]
     paths: ['lib/**', 'test/**', 'android/**', 'scripts/**', 'pubspec*', '.github/workflows/ci.yml']
   workflow_dispatch:
+    inputs:
+      signing_check:
+        description: Verify existing owner key against the installed-reference APK; no APK build
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -11,6 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   baseline:
+    if: inputs.signing_check != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -64,3 +70,49 @@ jobs:
           java-version: '21'
       - name: Compile Android integration without APK
         run: bash scripts/check_android_host.sh
+  signing:
+    if: inputs.signing_check == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify exact installed-reference artifact and package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/sunshine100121/pardis-ai-lab/actions/artifacts/14032081298/zip > "$RUNNER_TEMP/previous.zip"
+          echo "facd07ee6cbc7fcf185b8c49f5bc3c5fa82295eab6d6aa0b5212b089ab23ed35  $RUNNER_TEMP/previous.zip" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/previous-apk"
+          unzip -j "$RUNNER_TEMP/previous.zip" app-release.apk -d "$RUNNER_TEMP/previous-apk"
+          apk="$RUNNER_TEMP/previous-apk/app-release.apk"
+          echo "29001825fd85cb4bf2a7615b8a362fdfd781e6db76c4bbc28cd3d8f10db9942b  $apk" | sha256sum -c -
+          aapt=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
+          "$aapt" dump badging "$apk" > baseline-info.txt
+          grep -F "package: name='ir.pardis.ai.pala.f1diag2' versionCode='3' versionName='0.3.0'" baseline-info.txt
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs "$apk" > baseline-signing.txt
+          grep -F c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52 baseline-signing.txt
+      - name: Prove owner private key and certificate match before version bump
+        env:
+          PALA_F1_KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          PALA_F1_KEYSTORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          PALA_F1_KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          PALA_F1_KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          java scripts/CheckUpgradeSigner.java | tee signing-preflight.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PALA-upgrade-signing-preflight
+          path: |
+            signing-preflight.json
+            baseline-info.txt
+            baseline-signing.txt
