@@ -9,6 +9,10 @@ on:
         description: Verify existing owner key against the installed-reference APK; no APK build
         type: boolean
         default: false
+      build_apk:
+        description: Build one in-place upgrade only after validation and owner signing proof pass
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -63,7 +67,7 @@ jobs:
           test -n "$pdfium"
           echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
       - name: Folder, local conversation, real PDF and read-only HA regressions
-        run: flutter test test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/folder_knowledge_page_test.dart test/document_text_test.dart test/zim_test.dart test/archive_regressions_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
+        run: flutter test test/offline_upgrade_compatibility_test.dart test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/folder_knowledge_page_test.dart test/document_text_test.dart test/zim_test.dart test/archive_regressions_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -71,7 +75,7 @@ jobs:
       - name: Compile Android integration without APK
         run: bash scripts/check_android_host.sh
   signing:
-    if: inputs.signing_check == true
+    if: inputs.signing_check == true || inputs.build_apk == true
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -116,3 +120,66 @@ jobs:
             signing-preflight.json
             baseline-info.txt
             baseline-signing.txt
+  upgrade:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true && inputs.signing_check != true
+    needs: [baseline, mvp, signing]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 scripts/check_offline_baseline.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Configure only the verified permanent owner signer
+        env:
+          PALA_F1_KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          PALA_F1_KEYSTORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          PALA_F1_KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          PALA_F1_KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          java scripts/CheckUpgradeSigner.java
+          keystore="$RUNNER_TEMP/pala-owner-upgrade.p12"
+          umask 077
+          printf '%s' "$PALA_F1_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          {
+            printf 'ODLLM_ANDROID_KEYSTORE_PATH=%s\n' "$keystore"
+            printf 'ODLLM_ANDROID_STORE_PASSWORD=%s\n' "$PALA_F1_KEYSTORE_PASSWORD"
+            printf 'ODLLM_ANDROID_KEY_ALIAS=%s\n' "$PALA_F1_KEY_ALIAS"
+            printf 'ODLLM_ANDROID_KEY_PASSWORD=%s\n' "$PALA_F1_KEY_PASSWORD"
+            printf 'ODLLM_REQUIRE_RELEASE_SIGNING=true\n'
+          } >> "$GITHUB_ENV"
+      - name: Build the single in-place upgrade APK
+        run: bash scripts/build_android.sh
+      - name: Verify APK identity, version and exact owner certificate
+        run: |
+          set -euo pipefail
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          aapt=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
+          "$aapt" dump badging "$apk" > build/app/outputs/flutter-apk/upgrade-package.txt
+          grep -F "package: name='ir.pardis.ai.pala.f1diag2' versionCode='4' versionName='0.3.1'" build/app/outputs/flutter-apk/upgrade-package.txt
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs "$apk" > build/app/outputs/flutter-apk/upgrade-signing.txt
+          grep -F c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52 build/app/outputs/flutter-apk/upgrade-signing.txt
+          if unzip -Z1 "$apk" | grep -Ei '\.(p12|jks|keystore)$'; then echo 'Private signing file must not be packaged' >&2; exit 1; fi
+          sha256sum "$apk" > build/app/outputs/flutter-apk/app-release.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PALA-Offline-MVP-0.3.1-upgrade-v4
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-release.sha256
+            build/app/outputs/flutter-apk/upgrade-package.txt
+            build/app/outputs/flutter-apk/upgrade-signing.txt
+      - name: Remove temporary owner key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/pala-owner-upgrade.p12"

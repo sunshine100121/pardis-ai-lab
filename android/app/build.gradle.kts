@@ -65,7 +65,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = if (nativeProps.getProperty("smoke", "false") == "true") "ir.pardis.ai.pala.smoke" else "ir.pardis.ai.pala"
+        applicationId = "ir.pardis.ai.pala.f1diag2"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 28
@@ -91,6 +91,7 @@ android {
                     throw GradleException("Android release keystore does not exist: $configuredStore")
                 }
                 storeFile = configuredStore
+                storeType = "PKCS12"
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword

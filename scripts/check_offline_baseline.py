@@ -21,9 +21,17 @@ assert all(key in fa for key in en)
 tree=ast.parse((ROOT/'docs/provenance/apply_020_overlay.py').read_text(encoding='utf-8'))
 translations=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='translations' for t in n.targets))
 assert len(translations)==334 and all(fa[k]==v for k,v in translations.items())
-for path in ('lib/data/storage/model_storage.dart','lib/data/local/database/app_database.dart'):
+compatibility_paths=git('ls-tree','-r','--name-only','5663b264afb77026014f81b69e04b1d00ab8a098','--',
+    'lib/data/local/database','lib/data/storage/model_storage.dart','lib/core/storage/app_directories.dart',
+    'lib/features/settings/domain/entities/inference_settings.dart',
+    'lib/features/settings/presentation/providers/settings_provider.dart',
+    'lib/features/settings/data/remote_key_store.dart',
+    'lib/features/models/presentation/providers/model_manager_provider.dart',
+    'lib/features/backup/local_backup_service.dart','pubspec.lock').decode().splitlines()
+assert compatibility_paths
+for path in compatibility_paths:
     installed=git('show','5663b264afb77026014f81b69e04b1d00ab8a098:'+path)
-    assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed.replace(b'\r\n',b'\n'), 'INSTALL_STORAGE_SCHEMA_DIFF'
+    assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed.replace(b'\r\n',b'\n'), 'INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:'+path
 print(json.dumps({'runtime_baseline':'PASS','f1_absent':'PASS','persian_334_keys':'PASS',
                   'installed_model_path_and_database_source_compatibility':'PASS',
                   'device_database_migration':'NOT_VERIFIED'}))
