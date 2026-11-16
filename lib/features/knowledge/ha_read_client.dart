@@ -45,13 +45,42 @@ class HaReadClient {
     finally { client.close(force:true); }
   }
   void _allowed(String id) { if(!entities.contains(id)) throw const FormatException('حسگر خارج از فهرست مجاز است.'); }
+  /// Time with explicit UTC offset, using the Android device's local zone.
+  /// Never label a UTC timestamp as local time without conversion.
+  static String localIso(DateTime timestamp) {
+    final local=timestamp.toLocal();
+    final minutes=local.timeZoneOffset.inMinutes;
+    final sign=minutes<0?'-':'+';
+    final hours=(minutes.abs()~/60).toString().padLeft(2,'0');
+    final rest=(minutes.abs()%60).toString().padLeft(2,'0');
+    return '${local.toIso8601String()}$sign$hours:$rest';
+  }
+
   Future<Map<String,dynamic>> state(String id) async {
     _allowed(id);
     final data=await _get('/api/states/$id');
-    if(data is! Map<String,dynamic> || data['entity_id']!=id || data['state'] is! String ||
-      DateTime.tryParse(data['last_updated']?.toString() ?? '')==null) throw const FormatException('پاسخ حسگر معتبر نیست.');
-    return {'entity_id':id,'state':data['state'],'last_updated':data['last_updated'],
-      'unit':(data['attributes'] is Map ? data['attributes']['unit_of_measurement'] : null)};
+    if(data is! Map<String,dynamic> || data['entity_id']!=id || data['state'] is! String) {
+      throw const FormatException('پاسخ حسگر معتبر نیست.');
+    }
+    final updated=DateTime.tryParse(data['last_updated']?.toString() ?? '');
+    if(updated==null) throw const FormatException('زمان تغییر حسگر معتبر نیست.');
+    // last_updated measures a change in state/attributes, not a fresh report.
+    // last_reported may be absent in some HA API versions: never invent it.
+    final reported=DateTime.tryParse(data['last_reported']?.toString() ?? '');
+    final ageSeconds=reported==null ? null :
+        DateTime.now().toUtc().difference(reported.toUtc()).inSeconds;
+    return {
+      'entity_id':id,'state':data['state'],
+      'last_updated':data['last_updated'],
+      'last_updated_local':localIso(updated),
+      'last_reported':reported?.toUtc().toIso8601String(),
+      'last_reported_local':reported==null?null:localIso(reported),
+      'report_age_seconds':ageSeconds,
+      'freshness':reported==null ? 'unverified' :
+          ageSeconds! < 0 ? 'clock_mismatch' :
+          ageSeconds! > 1800 ? 'check_age' : 'reported',
+      'unit':(data['attributes'] is Map ? data['attributes']['unit_of_measurement'] : null),
+    };
   }
   Future<Map<String,dynamic>> history(String id,DateTime start,DateTime end) async {
     _allowed(id);
@@ -94,6 +123,15 @@ class HaReadClient {
   }
   static SearchResult evidence(String label,Map<String,dynamic> data) => SearchResult(
     title:'Home Assistant · $label',url:'pala-ha://sensor',snippet:'',source:'Home Assistant · خواندن هنگام پرسش',rank:0,
-    pageText:'مشاهده UTC: ${DateTime.now().toUtc().toIso8601String()}\n${jsonEncode(data)}\nHA Doctor فقط تشخیص و پیشنهاد است؛ اجرای تعمیر مجاز نیست. وضعیت unknown/unavailable مقدار واقعی عددی نیست.',
+    pageText:'منشأ: داده واقعی Home Assistant (نه دانشنامه و نه دانش داخلی مدل).\n'
+      'زمان مشاهده UTC: ${DateTime.now().toUtc().toIso8601String()}\n'
+      'زمان محلی دستگاه در last_updated_local و last_reported_local درج شده است. '
+      'last_updated فقط زمان تغییر وضعیت/ویژگی است، نه لزوماً زمان آخرین گزارش. '
+      'اگر last_reported موجود نیست، تازگی داده تأیید نشده است. '
+      'اگر report_age_seconds بیش از ۱۸۰۰ است، سن داده را اعلام کن؛ آن را لحظه‌ای ننام.\n'
+      'سن منفی یعنی ساعت گزارش و دستگاه سازگار نیست؛ تازگی را تأییدشده معرفی نکن.\n'
+      '${jsonEncode(data)}\n'
+      'HA Doctor فقط تشخیص و پیشنهاد است؛ اجرای تعمیر مجاز نیست. '
+      'وضعیت unknown/unavailable مقدار واقعی عددی نیست.',
     fetchedAt:DateTime.now().toUtc());
 }

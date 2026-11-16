@@ -1494,7 +1494,26 @@ class ChatNotifier extends _ChatBase
       final local = await ref.read(offlineKnowledgeProvider).searchDetailed(input);
       if (_cancelled || !_alive) return null;
       t.sources = [...local.sources.where((s)=>!s.url.startsWith('pala-status:')), ...t.sources];
-      t.offlineRead=local.toJson(requiredEncyclopedia:ZimWikipedia.requiresEncyclopedia(input),supplied:false);
+      t.offlineRead = local.toJson(
+        requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
+        supplied: false,
+      );
+      // Application-owned fail-closed result: do not ask Qwen to guess HA values.
+      final haFailure=local.checks.any((c)=>
+          c['code']=='ha_unavailable' || c['code']=='ha_ambiguous' ||
+          c['code']=='ha_insufficient');
+      // Keep an application-side record of whether HA data was retrieved.
+      // A source discarded by the context fitter is NOT grounds for an answer.
+      t.offlineRead!['haExpected'] = local.sources.any((s)=>
+          s.url.startsWith('pala-ha://sensor'));
+      if(haFailure) {
+        final noUniquePeak=local.checks.any((c)=>c['reason']=='non_unique_peak');
+        t.offlineRefusal=noUniquePeak
+          ? 'پوشش دادهٔ ساعتی کافی است، اما ساعت اوج یکتایی مشخص نیست؛ ساعت قطعی اعلام نمی‌کنم.'
+          : 'اطلاعات معتبر Home Assistant برای این پرسش دریافت نشد یا حسگر مبهم است. '
+            'برای جلوگیری از پاسخ ساختگی، عددی اعلام نمی‌کنم. اتصال یا نام حسگر را بررسی کنید.';
+        t.sources=[];
+      }
     }
     // Reused or recalled sources may carry Knowledge passages from a
     // local turn: none reach a Remote profile without document sharing.
@@ -1537,7 +1556,19 @@ class ChatNotifier extends _ChatBase
       if(!supplied && (t.offlineRead!['checks'] as List).any((c)=>c['code']=='found')) {
         t.offlineRead!['delivery']='context_limit';
       }
-      if(t.offlineRead!['requiredEncyclopedia']==true && !supplied) {
+      // A HA answer is only allowed when the actual sensor evidence survives
+      // fitting into the local model context. An app success flag alone is not enough.
+      final haExpected=t.offlineRead!['haExpected']==true;
+      final haSupplied=t.sources.any((s)=>s.url.startsWith('pala-ha://sensor') &&
+          s.pageText?.trim().isNotEmpty==true);
+      t.offlineRead!['haSupplied']=haSupplied;
+      if(haExpected && !haSupplied && t.offlineRefusal==null) {
+        t.offlineRefusal='اطلاعات Home Assistant دریافت شد، اما شاهد واقعی در ظرفیت ورودی مدل قرار نگرفت. '
+            'برای جلوگیری از پاسخ بدون مدرک، نتیجه‌ای اعلام نمی‌کنم.';
+        t.sources=[];
+      }
+      if(!haExpected && t.offlineRefusal==null &&
+          t.offlineRead!['requiredEncyclopedia']==true && !supplied) {
         t.offlineRefusal='مقالهٔ قابل‌استناد از دانشنامهٔ آفلاین بازیابی و به مدل داده نشد؛ بنابراین پاسخ مستند تولید نمی‌کنم. وضعیت منبع زیر همین پیام را بررسی کنید. هیچ استفاده‌ای از ویکی‌پدیا برای این پاسخ تأیید نشده است.';
         // No unrelated source or failed-read status is an encyclopedia citation.
         t.sources=[];

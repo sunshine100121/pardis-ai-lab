@@ -252,7 +252,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
       );
       try {
         await _offline!.listen(
-          localeId: localeId,
+          localeId: dictationLocale(ref.read(settingsProvider).localeCode,localeId),
           onResult: (text, isFinal) {
             if (!_alive || epoch != _listenEpoch) return;
             state = state.copyWith(partial: text, listening: !isFinal);
@@ -316,7 +316,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
           cancelOnError: true,
           listenFor: const Duration(seconds: 60),
           pauseFor: const Duration(seconds: 4),
-          localeId: localeId,
+          localeId: dictationLocale(ref.read(settingsProvider).localeCode,localeId),
         ),
       );
     } catch (e) {
@@ -329,12 +329,14 @@ class VoiceNotifier extends Notifier<VoiceState> {
     installed: ref.read(voiceModelsProvider).canListen,
   );
 
-  bool _naturalSpeaking() => offlineVoiceReady(
-    enabled: ref.read(settingsProvider).naturalVoice,
-    installed: ref
-        .read(voiceModelsProvider)
-        .canSpeakWith(ref.read(settingsProvider).readingVoice),
-  );
+  bool _naturalSpeaking() =>
+      naturalVoiceSpeaks(voiceLanguageForText(ref.read(settingsProvider).localeCode,_spokenText)) &&
+      offlineVoiceReady(
+        enabled: ref.read(settingsProvider).naturalVoice,
+        installed: ref
+            .read(voiceModelsProvider)
+            .canSpeakWith(ref.read(settingsProvider).readingVoice),
+      );
 
   /// The voice for the app language and the chosen speaker.
   KokoroVoice kokoroVoice() {
@@ -502,6 +504,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
     await _stopTts();
     await _kokoro?.stop();
     _rate = rate ?? 0.5 * ref.read(settingsProvider).readingSpeed;
+    _spokenText = text;
     if (_naturalSpeaking()) {
       _spokenText = text;
       _sentences = KokoroSpeaker.sentences(text);
@@ -531,23 +534,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
   /// reports as local ("0"). Windows voices (SAPI/OneCore) are all local.
   Future<bool> _selectOfflineVoice() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
-    final voices = await _tts!.getVoices;
-    if (voices is! List) return false;
-    final lang = voiceLanguage(ref.read(settingsProvider).localeCode);
-    for (final voice in voices) {
-      if (voice is! Map ||
-          !(voice['network_required'] == '0' ||
-              voice['network_required'] == false) ||
-          voice['name'] is! String ||
-          voice['locale'] is! String) {
-        continue;
-      }
-      final locale = voice['locale'] as String;
-      if (locale.split(RegExp('[-_]')).first != lang) continue;
-      await _tts!.setVoice({'name': voice['name'] as String, 'locale': locale});
-      return true;
-    }
-    return false;
+    return selectOfflineVoice(
+      language:voiceLanguageForText(ref.read(settingsProvider).localeCode,_spokenText),
+      voices:()=>_tts!.getVoices,select:(voice)=>_tts!.setVoice(voice),
+    );
   }
 
   Future<void> _read() async {
@@ -573,7 +563,11 @@ class VoiceNotifier extends Notifier<VoiceState> {
         _chunkStart = _position;
         _ttsBusy = true;
         try {
-          await _tts!.speak(chunk);
+          final completed=await _tts!.speak(chunk);
+          if(defaultTargetPlatform==TargetPlatform.android && completed!=1 &&
+              _alive && epoch==_speechEpoch) {
+            throw StateError('خواندن با صدای آفلاین تأیید نشد.');
+          }
         } finally {
           _ttsBusy = false;
         }

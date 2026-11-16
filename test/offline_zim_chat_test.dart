@@ -103,6 +103,16 @@ void main() {
     final status=TurnRun.decode(result.answer.runJson)!.metrics['offlineKnowledge'] as Map;
     expect(status['requiredEncyclopedia'],false); expect(status['supplied'],false);
   });
+  for(final code in ['ha_unavailable','ha_ambiguous','ha_insufficient']) {
+    test('failed HA evidence cannot produce a model-invented number: $code',()async {
+      final result=await run(MissingEncyclopedia(code),'آلودگی باغ در شش ماه چگونه بوده است؟');
+      expect(result.engine.receivedMessages,isNull);
+      expect(jsonDecode(result.answer.sourcesJson),isEmpty);
+      expect(result.answer.content,contains('عددی اعلام نمی‌کنم'));
+      final status=TurnRun.decode(result.answer.runJson)!.metrics['offlineKnowledge'] as Map;
+      expect((status['checks'] as List).single['code'],code);
+    });
+  }
   testWidgets('source status survives reopening and stays separate from model prose and citations',(tester) async {
     final result=(await tester.runAsync(()=>run(MissingEncyclopedia('timeout'),'طبق ویکی‌پدیا مریخ چیست؟')))!;
     await tester.pumpWidget(MaterialApp(locale:const Locale('fa'),

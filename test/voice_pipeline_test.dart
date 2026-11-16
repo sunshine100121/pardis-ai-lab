@@ -344,10 +344,16 @@ void main() {
       expect(back.talkOver, isTrue);
     });
 
-    test('voiceLanguage keeps supported codes only', () {
+    test('voiceLanguage accepts Persian Android locale variants', () {
       expect(voiceLanguage('fr'), 'fr');
       expect(voiceLanguage('es'), 'es');
+      expect(voiceLanguage('fa'), 'fa');
+      expect(voiceLanguage('fa-IR'), 'fa');
+      expect(voiceLanguage('FA_IR'), 'fa');
       expect(voiceLanguage('de'), 'en');
+      // Non-Persian Kokoro packs must never voice Persian as English.
+      expect(naturalVoiceSpeaks('fa'), isFalse);
+      expect(naturalVoiceSpeaks('en'), isTrue);
     });
   });
 

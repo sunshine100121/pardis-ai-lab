@@ -22,7 +22,10 @@ void main() {
       expect(req.headers.value('authorization'),'Bearer private-token');
       req.response.headers.contentType=ContentType.json;
       if(req.uri.path.startsWith('/api/states/')) {
-        req.response.write(jsonEncode({'entity_id':'sensor.garden','state':'19.5','last_updated':'2026-11-13T10:00:00Z','attributes':{'unit_of_measurement':'C','secret':'private-attribute'}}));
+        req.response.write(jsonEncode({'entity_id':'sensor.garden','state':'19.5',
+          'last_updated':'2026-11-13T10:00:00Z',
+          'last_reported':'2026-11-13T10:04:00Z',
+          'attributes':{'unit_of_measurement':'C','secret':'private-attribute'}}));
       } else {
         req.response.write(jsonEncode([[{'entity_id':'sensor.garden','state':'10','last_changed':'2026-11-13T10:00:00Z'},
           {'entity_id':'sensor.garden','state':'20','last_changed':'2026-11-13T10:05:00Z'},
@@ -32,7 +35,11 @@ void main() {
     });
     final client=HaReadClient(base:Uri.parse('http://127.0.0.1:${server.port}'),token:'private-token',entities:{'sensor.garden'});
     final state=await client.state('sensor.garden');
-    expect(state['state'],'19.5');
+    expect(state['state'], '19.5');
+    expect(state['last_updated_local'],HaReadClient.localIso(DateTime.utc(2026,11,13,10)));
+    expect(state['last_reported_local'],HaReadClient.localIso(DateTime.utc(2026,11,13,10,4)));
+    expect(state['report_age_seconds'],isA<int>());
+    expect(state['freshness'],'check_age');
     final start=DateTime.parse('2026-11-13T10:00:00Z'),end=DateTime.parse('2026-11-13T10:20:00Z');
     final history=await client.history('sensor.garden',start,end);
     expect(history['min'],10); expect(history['max'],20); expect(history['sample_mean'],15);
@@ -61,7 +68,11 @@ void main() {
     await expectLater(client.state('sensor.ok'),throwsA(isA<HttpException>()));
     expect(hits,1);
   });
-  test('empty history never fills missing measurements with zero',() {
+  test('local time keeps an explicit offset and missing report is unknown',() {
+    final stamp=HaReadClient.localIso(DateTime.utc(2026,11,13,10));
+    expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(stamp),isTrue);
+  });
+  test('empty history never fills missing measurements with zero', () {
     final start=DateTime.utc(2026),end=DateTime.utc(2026).add(const Duration(hours:1));
     final data=HaReadClient.summarize([],'sensor.garden',start,end);
     expect(data['sample_mean'],isNull); expect(data['min'],isNull); expect(data['gaps_over_5min_seconds'],3600);

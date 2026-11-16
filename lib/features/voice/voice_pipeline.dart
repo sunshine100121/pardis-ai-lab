@@ -13,13 +13,47 @@ import 'voice_models.dart';
 
 final _log = Logger('voice');
 
-/// The language the voice uses: the app language when set, else the
-/// phone's, limited to the three the app speaks.
+/// Language for local dictation. Normalize Android locale forms (fa-IR/fa_IR).
+/// Persian recognition is supported by the multilingual Whisper route or
+/// the on-device Android recognizer when its local language pack is present.
 String voiceLanguage(String localeCode) {
-  final code = localeCode.isNotEmpty
+  final raw = localeCode.isNotEmpty
       ? localeCode
       : PlatformDispatcher.instance.locale.languageCode;
-  return const {'en', 'fr', 'es'}.contains(code) ? code : 'en';
+  final code = raw.split(RegExp(r'[-_]')).first.toLowerCase();
+  return const {'en', 'fr', 'es', 'fa'}.contains(code) ? code : 'en';
+}
+
+/// Kokoro / Supertonic packs supplied by this app are not Persian voices.
+/// Persian read-aloud must use a verified local Android fa voice instead.
+bool naturalVoiceSpeaks(String language) =>
+    const {'en', 'fr', 'es'}.contains(language);
+
+/// Content cannot be routed to an English voice just because the UI is English.
+String voiceLanguageForText(String localeCode, String text) =>
+    RegExp(r'[\u0621-\u063a\u0641-\u064a\u066e-\u06d3\u06fa-\u06fc]').hasMatch(text)
+        ? 'fa' : voiceLanguage(localeCode);
+
+String? dictationLocale(String localeCode, String? explicit) =>
+    explicit ?? (voiceLanguage(localeCode) == 'fa' ? 'fa-IR' : null);
+
+/// No default-language fallback when the selected local voice is unavailable.
+Future<bool> selectOfflineVoice({
+  required String language,
+  required Future<dynamic> Function() voices,
+  required Future<dynamic> Function(Map<String,String>) select,
+}) async {
+  final available = await voices();
+  if (available is! List) return false;
+  for (final voice in available) {
+    if (voice is! Map || voice['name'] is! String || voice['locale'] is! String ||
+        !(voice['network_required'] == '0' || voice['network_required'] == false) ||
+        '${voice['features'] ?? ''}'.contains('notInstalled')) continue;
+    final locale = voice['locale'] as String;
+    if (locale.split(RegExp(r'[-_]')).first.toLowerCase() != language) continue;
+    if (await select({'name':voice['name'] as String,'locale':locale}) == 1) return true;
+  }
+  return false;
 }
 
 /// Microphone → Silero VAD → Whisper. Emits the level for the orb, the

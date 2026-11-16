@@ -16,6 +16,7 @@ class KnowledgeReadReport {
     'content':'خواندن مقاله', 'metadata':'خواندن مشخصات دانشنامه',
     'extract':'استخراج متن', 'complete':'متن مقاله آماده شد',
     'text_unusable':'متن مقاله قابل استفاده نبود', 'access':'دسترسی پوشه',
+    'match':'انتخاب حسگر', 'request':'خواندن دادهٔ حسگر', 'coverage':'بررسی پوشش آمار',
   }[stage] ?? 'بررسی منبع';
 
   static String checkLabel(Map<String, dynamic> check) {
@@ -27,12 +28,22 @@ class KnowledgeReadReport {
       'format' => 'ساختار، فشرده‌سازی یا محدودهٔ ایمنی خواننده با این بخش سازگار نیست',
       'changed' => 'فایل جابه‌جا یا تغییر کرده؛ بازخوانی منابع لازم است',
       'limit' => 'سقف هشت دانشنامهٔ فعال پر شده است',
+      'ha_ambiguous' => 'حسگر یا محل پرسش مبهم است؛ دادهٔ حسگر دیگر جایگزین نشد',
+      'ha_unavailable' => 'دادهٔ معتبر حسگر دریافت نشد؛ عددی حدس زده نشد',
+      'ha_insufficient' => check['reason']=='non_unique_peak'
+        ? 'پوشش کافی است اما ساعت اوج یکتا مشخص نیست؛ ساعت قطعی اعلام نشد'
+        : 'پوشش آمار کافی نیست؛ ساعت اوج قطعی اعلام نشد',
       _ => 'دسترسی یا خواندن منبع ناموفق بود؛ مجوز و خواندن تصادفی را بررسی کنید',
     };
     return '${check['file'] ?? 'پوشه دانش'}: $reason';
   }
 
   static String summary(Map<String,dynamic> report) {
+    if(report['haExpected']==true || (report['checks'] as List? ?? []).any((c)=>'${c['code']}'.startsWith('ha_'))) {
+      return report['haSupplied']==true
+        ? 'وضعیت منبع — دادهٔ واقعی حسگر به مدل داده شد؛ تازگی و پوشش درج‌شده را بررسی کنید.'
+        : 'وضعیت منبع — دادهٔ معتبر حسگر به مدل داده نشد؛ پاسخ عددی تولید نشد.';
+    }
     if(report['delivery']=='context_limit') {
       return 'وضعیت منبع — مقاله بازیابی شد اما متن آن در ظرفیت ورودی جا نشد و به مدل داده نشد؛ پاسخ مستند به این مقاله تأیید نشده است.';
     }

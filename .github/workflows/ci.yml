@@ -60,6 +60,10 @@ jobs:
       - run: dart run build_runner build
       - run: flutter gen-l10n
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Check formatting of the 0.3.3 Dart changes
+        run: |
+          mapfile -t changed < <(git diff --name-only cae3ac12b0719212109c7b0fd6c0fe85c85c19c3 HEAD -- '*.dart')
+          if ((${#changed[@]})); then dart format --output=none --set-exit-if-changed "${changed[@]}"; fi
       - name: Prepare the locked PDFium native asset for the Linux test runner
         run: |
           dart run scripts/prepare_pdfium_assets.dart
@@ -67,7 +71,7 @@ jobs:
           test -n "$pdfium"
           echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
       - name: Folder, local conversation, real PDF and read-only HA regressions
-        run: flutter test test/offline_zim_reliability_test.dart test/offline_zim_chat_test.dart test/offline_upgrade_compatibility_test.dart test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/folder_knowledge_page_test.dart test/document_text_test.dart test/zim_test.dart test/archive_regressions_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
+        run: flutter test test/voice_pipeline_test.dart test/persian_voice_routing_test.dart test/hourly_pattern_test.dart test/ha_hourly_statistics_test.dart test/offline_sensor_reliability_test.dart test/offline_zim_reliability_test.dart test/offline_zim_chat_test.dart test/offline_upgrade_compatibility_test.dart test/offline_folder_library_test.dart test/offline_pdf_native_test.dart test/offline_local_chat_test.dart test/ha_read_client_test.dart test/folder_knowledge_page_test.dart test/document_text_test.dart test/zim_test.dart test/archive_regressions_test.dart test/knowledge_test.dart test/l10n_test.dart test/native_loader_test.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -92,15 +96,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api repos/sunshine100121/pardis-ai-lab/actions/artifacts/14133316348/zip > "$RUNNER_TEMP/previous.zip"
-          echo "ebdd00ead0f7b9a2a2ee3d3a5fe3ca5c3365c8bc8ab30168b9dbb2f2e179b5d3  $RUNNER_TEMP/previous.zip" | sha256sum -c -
+          gh api repos/sunshine100121/pardis-ai-lab/actions/artifacts/14137906490/zip > "$RUNNER_TEMP/previous.zip"
+          echo "870580e1f6f5cec5a9cebfffe779979cdcbc2977db04635cdf404cf2ed293a32  $RUNNER_TEMP/previous.zip" | sha256sum -c -
           mkdir "$RUNNER_TEMP/previous-apk"
           unzip -j "$RUNNER_TEMP/previous.zip" app-release.apk -d "$RUNNER_TEMP/previous-apk"
           apk="$RUNNER_TEMP/previous-apk/app-release.apk"
-          echo "a5af49e8094bebd2f00e37eb20d8bd32f3f87415fc39cd4c24e5c73b8d6b1749  $apk" | sha256sum -c -
+          echo "9f6e58baa4ece1a4883a8ce6c2bd4e96e1aa3ed707fd9038cfc69736c3286b66  $apk" | sha256sum -c -
           aapt=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
           "$aapt" dump badging "$apk" > baseline-info.txt
-          grep -F "package: name='ir.pardis.ai.pala.f1diag2' versionCode='4' versionName='0.3.1'" baseline-info.txt
+          grep -F "package: name='ir.pardis.ai.pala.f1diag2' versionCode='5' versionName='0.3.2'" baseline-info.txt
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$apksigner" verify --verbose --print-certs "$apk" > baseline-signing.txt
           grep -F c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52 baseline-signing.txt
@@ -159,14 +163,16 @@ jobs:
             printf 'ODLLM_REQUIRE_RELEASE_SIGNING=true\n'
           } >> "$GITHUB_ENV"
       - name: Build the single in-place upgrade APK
-        run: bash scripts/build_android.sh
+        run: |
+          grep -Fx 'version: 0.3.3+6' pubspec.yaml
+          bash scripts/build_android.sh
       - name: Verify APK identity, version and exact owner certificate
         run: |
           set -euo pipefail
           apk=build/app/outputs/flutter-apk/app-release.apk
           aapt=$(find "$ANDROID_HOME/build-tools" -name aapt | sort -V | tail -1)
           "$aapt" dump badging "$apk" > build/app/outputs/flutter-apk/upgrade-package.txt
-          grep -F "package: name='ir.pardis.ai.pala.f1diag2' versionCode='5' versionName='0.3.2'" build/app/outputs/flutter-apk/upgrade-package.txt
+          grep -F "package: name='ir.pardis.ai.pala.f1diag2' versionCode='6' versionName='0.3.3'" build/app/outputs/flutter-apk/upgrade-package.txt
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$apksigner" verify --verbose --print-certs "$apk" > build/app/outputs/flutter-apk/upgrade-signing.txt
           grep -F c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52 build/app/outputs/flutter-apk/upgrade-signing.txt
@@ -174,7 +180,7 @@ jobs:
           sha256sum "$apk" > build/app/outputs/flutter-apk/app-release.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: PALA-Offline-MVP-0.3.2-knowledge-v5
+          name: PALA-Offline-MVP-0.3.3-upgrade-v6
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/flutter-apk/app-release.sha256
