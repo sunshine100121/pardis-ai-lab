@@ -22,6 +22,11 @@ class UnrelatedLibrary extends FolderLibrary {
       ], []);
 }
 
+class _RealHttpOverrides extends HttpOverrides {}
+
+Future<T> _withRealHttp<T>(Future<T> Function() action) =>
+    HttpOverrides.runWithHttpOverrides(action, _RealHttpOverrides());
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -109,10 +114,15 @@ void main() {
       readToken: () async => 'synthetic-test-only',
       clock: () => DateTime.utc(2026, 11, 16, 12, 34),
     );
-    final result = await knowledge.searchDetailed('PM2.5 باغ در شش ماه');
-    expect(result.checks.single['code'], 'ha_insufficient');
-    expect(result.sources.where((s) => s.url.startsWith('pala-ha:')), isEmpty);
-    expect(seen, ['auth', 'recorder/statistics_during_period']);
+    await _withRealHttp(() async {
+      final result = await knowledge.searchDetailed('PM2.5 باغ در شش ماه');
+      expect(result.checks.single['code'], 'ha_insufficient');
+      expect(
+        result.sources.where((s) => s.url.startsWith('pala-ha:')),
+        isEmpty,
+      );
+      expect(seen, ['auth', 'recorder/statistics_during_period']);
+    });
   });
   test(
     'successful current sensor supersedes unrelated encyclopedia evidence',
@@ -132,17 +142,19 @@ void main() {
         await req.response.close();
       });
       await config(server.port, {'sensor.fixture_pm25': 'PM2.5 باغ'});
-      final result = await OfflineKnowledge(
-        UnrelatedLibrary(),
-        readToken: () async => 'synthetic-test-only',
-      ).searchDetailed('آلودگی باغ چقدر است؟');
-      expect(result.sources, hasLength(1));
-      expect(result.sources.single.url, startsWith('pala-ha://sensor'));
-      expect(
-        result.sources.single.pageText,
-        contains('"freshness":"unverified"'),
-      );
-      expect(result.checks, isEmpty);
+      await _withRealHttp(() async {
+        final result = await OfflineKnowledge(
+          UnrelatedLibrary(),
+          readToken: () async => 'synthetic-test-only',
+        ).searchDetailed('آلودگی باغ چقدر است؟');
+        expect(result.sources, hasLength(1));
+        expect(result.sources.single.url, startsWith('pala-ha://sensor'));
+        expect(
+          result.sources.single.pageText,
+          contains('"freshness":"unverified"'),
+        );
+        expect(result.checks, isEmpty);
+      });
     },
   );
 }
