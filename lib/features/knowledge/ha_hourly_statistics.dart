@@ -297,7 +297,7 @@ class _SameOriginHandshakeClient implements HttpClient {
         url.userInfo.isNotEmpty ||
         url.path != '/api/websocket' ||
         url.hasQuery ||
-        url.hasFragment) {
+        url.fragment.isNotEmpty) {
       throw const FormatException(
         'مقصد اتصال آمار با تنظیمات مجاز یکسان نیست.',
       );
