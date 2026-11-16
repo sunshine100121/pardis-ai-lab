@@ -152,8 +152,9 @@ class HaHourlyStatistics {
           if (finished) unawaited(closeSocket(lateSocket));
         }, onError: (Object error, StackTrace stack) {}),
       );
-      socket = await bounded(() => opening, const Duration(seconds: 10));
-      iterator = StreamIterator<dynamic>(socket);
+      final live = await bounded(() => opening, const Duration(seconds: 10));
+      socket = live;
+      iterator = StreamIterator<dynamic>(live);
       Future<Map<String, dynamic>> next() async {
         final more = await bounded(
           () => iterator!.moveNext(),
@@ -175,12 +176,12 @@ class HaHourlyStatistics {
       if (challenge['type'] != 'auth_required') {
         throw const FormatException('دست‌دهی احراز هویت معتبر نیست.');
       }
-      socket.add(jsonEncode({'type': 'auth', 'access_token': _token}));
+      live.add(jsonEncode({'type': 'auth', 'access_token': _token}));
       final auth = await next();
       if (auth['type'] != 'auth_ok') {
         throw const FormatException('دسترسی خواندن آمار تأیید نشد.');
       }
-      socket.add(
+      live.add(
         jsonEncode({
           'id': 1,
           'type': 'recorder/statistics_during_period',

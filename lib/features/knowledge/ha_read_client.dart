@@ -138,7 +138,7 @@ class HaReadClient {
           ? 'unverified'
           : ageSeconds! < 0
           ? 'clock_mismatch'
-          : ageSeconds! > 1800
+          : ageSeconds > 1800
           ? 'check_age'
           : 'reported',
       'unit': (data['attributes'] is Map
