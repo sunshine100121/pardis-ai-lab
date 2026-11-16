@@ -458,16 +458,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     final packs = ref.read(voiceModelsProvider);
     // Installed Kokoro/Supertonic packs do not speak Persian. In Persian,
     // use Android's verified on-device recognizer and fa TTS instead.
-    final nativeSpeechSupported=naturalVoiceSpeaks(voiceLanguage(settings.localeCode));
-    _natural = nativeSpeechSupported && offlineVoiceReady(
-      enabled: settings.naturalVoice,
-      installed:
-          packs.canListen &&
-          packs.canSpeakWith(ref.read(settingsProvider).readingVoice),
+    final nativeSpeechSupported = naturalVoiceSpeaks(
+      voiceLanguage(settings.localeCode),
     );
+    _natural =
+        nativeSpeechSupported &&
+        offlineVoiceReady(
+          enabled: settings.naturalVoice,
+          installed:
+              packs.canListen &&
+              packs.canSpeakWith(ref.read(settingsProvider).readingVoice),
+        );
     if (!_natural) {
-      if (nativeSpeechSupported && (!packs.canListen ||
-          !packs.canSpeakWith(ref.read(settingsProvider).readingVoice))) {
+      if (nativeSpeechSupported &&
+          (!packs.canListen ||
+              !packs.canSpeakWith(ref.read(settingsProvider).readingVoice))) {
         _set(() => _notice ??= l10n.convNeedsVoice);
       }
       _set(() {
@@ -719,8 +724,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     final text = VoiceNotifier.speakable(chunk);
     if (text.isEmpty) return;
     if (_natural) {
-      if (!naturalVoiceSpeaks(voiceLanguageForText(ref.read(settingsProvider).localeCode,text))) {
-        _set(()=>_notice='متن فارسی با موتور غیرفارسی خوانده نمی‌شود؛ حالت صوت فارسی اندروید را انتخاب کنید.');
+      if (!naturalVoiceSpeaks(
+        voiceLanguageForText(ref.read(settingsProvider).localeCode, text),
+      )) {
+        _set(
+          () => _notice = 'متن فارسی با موتور غیرفارسی خوانده نمی‌شود؛ حالت صوت فارسی اندروید را انتخاب کنید.',
+        );
         return;
       }
       if (_held != null) {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ondevice_llm/data/network/web_search/search_models.dart';
@@ -9,79 +10,139 @@ import 'package:ondevice_llm/features/knowledge/offline_knowledge.dart';
 
 class UnrelatedLibrary extends FolderLibrary {
   @override
-  Future<KnowledgeReadReport> searchDetailed(String question)async=>const KnowledgeReadReport([
-    SearchResult(title:'Fixture encyclopedia',url:'zim://fixture/article',snippet:'',rank:1,pageText:'Unrelated article text'),
-  ],[]);
+  Future<KnowledgeReadReport> searchDetailed(String question) async =>
+      const KnowledgeReadReport([
+        SearchResult(
+          title: 'Fixture encyclopedia',
+          url: 'zim://fixture/article',
+          snippet: '',
+          rank: 1,
+          pageText: 'Unrelated article text',
+        ),
+      ], []);
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(()=>SharedPreferences.setMockInitialValues({}));
-  Future<void> config(int port,Map<String,String> entities)async {
-    await (await SharedPreferences.getInstance()).setString(OfflineKnowledge.configKey,jsonEncode({
-      'enabled':true,'base':'http://${InternetAddress.loopbackIPv4.address}:$port','entities':entities,
-    }));
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  Future<void> config(int port, Map<String, String> entities) async {
+    await (await SharedPreferences.getInstance()).setString(
+      OfflineKnowledge.configKey,
+      jsonEncode({
+        'enabled': true,
+        'base': 'http://${InternetAddress.loopbackIPv4.address}:$port',
+        'entities': entities,
+      }),
+    );
   }
-  test('garden and pollutant conflicts fail before any credential or network use',()async {
-    await config(1,{'sensor.fixture_inside':'آلودگی داخل ساختمان','sensor.fixture_co2':'آلودگی CO2 باغ'});
-    var credentialReads=0;
-    final knowledge=OfflineKnowledge(UnrelatedLibrary(),readToken:()async {
-      credentialReads++; throw StateError('must not read credential');
-    });
-    for(final query in ['آلودگی داخل ساختمان در باغ طی شش ماه', 'PM2.5 باغ در شش ماه',
-      'آلودگی CO2 باغ برای PM2.5 چقدر است؟']) {
-      final result=await knowledge.searchDetailed(query);
-      expect(result.sources.where((s)=>s.url.startsWith('zim:')),isEmpty);
-      expect(result.checks.single['code'],anyOf('ha_ambiguous','ha_unavailable'));
-    }
-    expect(credentialReads,0);
-  });
-  test('current pollution question without configured HA cannot use a ZIM guess',()async {
-    final result=await OfflineKnowledge(UnrelatedLibrary(),readToken:()async=>throw StateError('must not read credential'))
-      .searchDetailed('آلودگی باغ چقدر است؟');
-    expect(result.sources,isEmpty);
-    expect(result.checks.single['code'],'ha_unavailable');
-  });
-  test('insufficient hourly coverage survives integration and cannot become success',()async {
-    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);
-    addTearDown(()=>server.close(force:true));
-    final seen=<String>[];
-    server.listen((req)async {
-      final ws=await WebSocketTransformer.upgrade(req);
-      ws.add(jsonEncode({'type':'auth_required'}));
-      await for(final frame in ws) {
-        final data=jsonDecode(frame as String) as Map;
+
+  test(
+    'garden and pollutant conflicts fail before any credential or network use',
+    () async {
+      await config(1, {
+        'sensor.fixture_inside': 'آلودگی داخل ساختمان',
+        'sensor.fixture_co2': 'آلودگی CO2 باغ',
+      });
+      var credentialReads = 0;
+      final knowledge = OfflineKnowledge(
+        UnrelatedLibrary(),
+        readToken: () async {
+          credentialReads++;
+          throw StateError('must not read credential');
+        },
+      );
+      for (final query in [
+        'آلودگی داخل ساختمان در باغ طی شش ماه',
+        'PM2.5 باغ در شش ماه',
+        'آلودگی CO2 باغ برای PM2.5 چقدر است؟',
+      ]) {
+        final result = await knowledge.searchDetailed(query);
+        expect(result.sources.where((s) => s.url.startsWith('zim:')), isEmpty);
+        expect(
+          result.checks.single['code'],
+          anyOf('ha_ambiguous', 'ha_unavailable'),
+        );
+      }
+      expect(credentialReads, 0);
+    },
+  );
+  test(
+    'current pollution question without configured HA cannot use a ZIM guess',
+    () async {
+      final result = await OfflineKnowledge(
+        UnrelatedLibrary(),
+        readToken: () async => throw StateError('must not read credential'),
+      ).searchDetailed('آلودگی باغ چقدر است؟');
+      expect(result.sources, isEmpty);
+      expect(result.checks.single['code'], 'ha_unavailable');
+    },
+  );
+  test('insufficient hourly coverage survives integration and cannot become success', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final seen = <String>[];
+    server.listen((req) async {
+      final ws = await WebSocketTransformer.upgrade(req);
+      ws.add(jsonEncode({'type': 'auth_required'}));
+      await for (final frame in ws) {
+        final data = jsonDecode(frame as String) as Map;
         seen.add(data['type'] as String);
-        if(data['type']=='auth') { ws.add(jsonEncode({'type':'auth_ok'})); }
-        else {
-          expect(data['type'],'recorder/statistics_during_period');
-          expect(data['statistic_ids'],['sensor.fixture_pm25']);
-          ws.add(jsonEncode({'id':data['id'],'type':'result','success':true,'result':{'sensor.fixture_pm25':[]}}));
+        if (data['type'] == 'auth') {
+          ws.add(jsonEncode({'type': 'auth_ok'}));
+        } else {
+          expect(data['type'], 'recorder/statistics_during_period');
+          expect(data['statistic_ids'], ['sensor.fixture_pm25']);
+          ws.add(
+            jsonEncode({
+              'id': data['id'],
+              'type': 'result',
+              'success': true,
+              'result': {'sensor.fixture_pm25': []},
+            }),
+          );
         }
       }
     });
-    await config(server.port,{'sensor.fixture_pm25':'PM2.5 باغ'});
-    final knowledge=OfflineKnowledge(UnrelatedLibrary(),readToken:()async=>'synthetic-test-only',
-      clock:()=>DateTime.utc(2026,11,16,12,34));
-    final result=await knowledge.searchDetailed('PM2.5 باغ در شش ماه');
-    expect(result.checks.single['code'],'ha_insufficient');
-    expect(result.sources.where((s)=>s.url.startsWith('pala-ha:')),isEmpty);
-    expect(seen,['auth','recorder/statistics_during_period']);
+    await config(server.port, {'sensor.fixture_pm25': 'PM2.5 باغ'});
+    final knowledge = OfflineKnowledge(
+      UnrelatedLibrary(),
+      readToken: () async => 'synthetic-test-only',
+      clock: () => DateTime.utc(2026, 11, 16, 12, 34),
+    );
+    final result = await knowledge.searchDetailed('PM2.5 باغ در شش ماه');
+    expect(result.checks.single['code'], 'ha_insufficient');
+    expect(result.sources.where((s) => s.url.startsWith('pala-ha:')), isEmpty);
+    expect(seen, ['auth', 'recorder/statistics_during_period']);
   });
-  test('successful current sensor supersedes unrelated encyclopedia evidence',()async {
-    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);
-    addTearDown(()=>server.close(force:true));
-    server.listen((req)async {
-      expect(req.method,'GET');
-      req.response.write(jsonEncode({'entity_id':'sensor.fixture_pm25','state':'12',
-        'last_updated':'2026-11-16T10:00:00Z','attributes':{'unit_of_measurement':'µg/m³'}}));
-      await req.response.close();
-    });
-    await config(server.port,{'sensor.fixture_pm25':'PM2.5 باغ'});
-    final result=await OfflineKnowledge(UnrelatedLibrary(),readToken:()async=>'synthetic-test-only').searchDetailed('آلودگی باغ چقدر است؟');
-    expect(result.sources,hasLength(1));
-    expect(result.sources.single.url,startsWith('pala-ha://sensor'));
-    expect(result.sources.single.pageText,contains('"freshness":"unverified"'));
-    expect(result.checks,isEmpty);
-  });
+  test(
+    'successful current sensor supersedes unrelated encyclopedia evidence',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((req) async {
+        expect(req.method, 'GET');
+        req.response.write(
+          jsonEncode({
+            'entity_id': 'sensor.fixture_pm25',
+            'state': '12',
+            'last_updated': '2026-11-16T10:00:00Z',
+            'attributes': {'unit_of_measurement': 'µg/m³'},
+          }),
+        );
+        await req.response.close();
+      });
+      await config(server.port, {'sensor.fixture_pm25': 'PM2.5 باغ'});
+      final result = await OfflineKnowledge(
+        UnrelatedLibrary(),
+        readToken: () async => 'synthetic-test-only',
+      ).searchDetailed('آلودگی باغ چقدر است؟');
+      expect(result.sources, hasLength(1));
+      expect(result.sources.single.url, startsWith('pala-ha://sensor'));
+      expect(
+        result.sources.single.pageText,
+        contains('"freshness":"unverified"'),
+      );
+      expect(result.checks, isEmpty);
+    },
+  );
 }

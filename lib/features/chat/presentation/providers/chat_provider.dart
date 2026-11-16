@@ -1,16 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:logging/logging.dart';
+
 import 'dart:math';
 import 'dart:io' show Platform;
+
 import '../../../attachments/domain/document_passages.dart';
 import '../../../../desktop/mcp/mcp_registry.dart';
 import '../../../../desktop/mcp/mcp_strings.dart';
+
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/platform/build_identity.dart';
 import '../../../../core/l10n/l10n.dart';
@@ -732,7 +737,7 @@ class ChatNotifier extends _ChatBase
       if (prompt == null) return t.accepted;
       await _startAnswer(t, prompt);
       if (t.offlineRefusal != null) {
-        t.appAnswer=t.offlineRefusal;
+        t.appAnswer = t.offlineRefusal;
         t.replaceAnswer(t.offlineRefusal!);
       } else {
         await _runRounds(t, prompt);
@@ -1088,9 +1093,8 @@ class ChatNotifier extends _ChatBase
                 m.role == ChatRole.assistant &&
                 isLive(m) &&
                 m.sourcesJson.trim().startsWith('[{') &&
-                SearchSteps.sourcesFromJson(
-                  m.sourcesJson,
-                ).any((s) => !s.sponsored),
+                SearchSteps.sourcesFromJson(m.sourcesJson)
+                    .any((s) => !s.sponsored),
           )) {
         // A follow-up in a chat that read the web, which the pages read do
         // not cover, searches again: Gemma 4 E2B guessed "300 to 400 shots"
@@ -1489,30 +1493,45 @@ class ChatNotifier extends _ChatBase
         );
       }
     }
-    if (documents && !settings.usesRemote && t.resume == null &&
-        t.reuseSourcesJson == null && t.promptOverride == null && input.isNotEmpty) {
-      final local = await ref.read(offlineKnowledgeProvider).searchDetailed(input);
+    if (documents &&
+        !settings.usesRemote &&
+        t.resume == null &&
+        t.reuseSourcesJson == null &&
+        t.promptOverride == null &&
+        input.isNotEmpty) {
+      final local = await ref
+          .read(offlineKnowledgeProvider)
+          .searchDetailed(input);
       if (_cancelled || !_alive) return null;
-      t.sources = [...local.sources.where((s)=>!s.url.startsWith('pala-status:')), ...t.sources];
+      t.sources = [
+        ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
+        ...t.sources,
+      ];
       t.offlineRead = local.toJson(
         requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
         supplied: false,
       );
       // Application-owned fail-closed result: do not ask Qwen to guess HA values.
-      final haFailure=local.checks.any((c)=>
-          c['code']=='ha_unavailable' || c['code']=='ha_ambiguous' ||
-          c['code']=='ha_insufficient');
+      final haFailure = local.checks.any(
+        (c) =>
+            c['code'] == 'ha_unavailable' ||
+            c['code'] == 'ha_ambiguous' ||
+            c['code'] == 'ha_insufficient',
+      );
       // Keep an application-side record of whether HA data was retrieved.
       // A source discarded by the context fitter is NOT grounds for an answer.
-      t.offlineRead!['haExpected'] = local.sources.any((s)=>
-          s.url.startsWith('pala-ha://sensor'));
-      if(haFailure) {
-        final noUniquePeak=local.checks.any((c)=>c['reason']=='non_unique_peak');
-        t.offlineRefusal=noUniquePeak
-          ? 'پوشش دادهٔ ساعتی کافی است، اما ساعت اوج یکتایی مشخص نیست؛ ساعت قطعی اعلام نمی‌کنم.'
-          : 'اطلاعات معتبر Home Assistant برای این پرسش دریافت نشد یا حسگر مبهم است. '
-            'برای جلوگیری از پاسخ ساختگی، عددی اعلام نمی‌کنم. اتصال یا نام حسگر را بررسی کنید.';
-        t.sources=[];
+      t.offlineRead!['haExpected'] = local.sources.any(
+        (s) => s.url.startsWith('pala-ha://sensor'),
+      );
+      if (haFailure) {
+        final noUniquePeak = local.checks.any(
+          (c) => c['reason'] == 'non_unique_peak',
+        );
+        t.offlineRefusal = noUniquePeak
+            ? 'پوشش دادهٔ ساعتی کافی است، اما ساعت اوج یکتایی مشخص نیست؛ ساعت قطعی اعلام نمی‌کنم.'
+            : 'اطلاعات معتبر Home Assistant برای این پرسش دریافت نشد یا حسگر مبهم است. '
+                  'برای جلوگیری از پاسخ ساختگی، عددی اعلام نمی‌کنم. اتصال یا نام حسگر را بررسی کنید.';
+        t.sources = [];
       }
     }
     // Reused or recalled sources may carry Knowledge passages from a
@@ -1524,7 +1543,11 @@ class ChatNotifier extends _ChatBase
       ];
     }
     if (settings.usesRemote) {
-      t.sources = t.sources.where((s) => !s.url.startsWith('pala-') && !s.url.startsWith('zim://')).toList();
+      t.sources = t.sources
+          .where(
+            (s) => !s.url.startsWith('pala-') && !s.url.startsWith('zim://'),
+          )
+          .toList();
     }
     final fitted = await _fitEvidence(
       input,
@@ -1550,28 +1573,38 @@ class ChatNotifier extends _ChatBase
     );
     if (fitted == null) return null;
     t.sources = fitted;
-    if(t.offlineRead != null) {
-      final supplied=t.sources.any((s)=>s.url.startsWith('zim://') && s.pageText?.trim().isNotEmpty==true);
-      t.offlineRead!['supplied']=supplied;
-      if(!supplied && (t.offlineRead!['checks'] as List).any((c)=>c['code']=='found')) {
-        t.offlineRead!['delivery']='context_limit';
+    if (t.offlineRead != null) {
+      final supplied = t.sources.any(
+        (s) =>
+            s.url.startsWith('zim://') && s.pageText?.trim().isNotEmpty == true,
+      );
+      t.offlineRead!['supplied'] = supplied;
+      if (!supplied &&
+          (t.offlineRead!['checks'] as List).any((c) => c['code'] == 'found')) {
+        t.offlineRead!['delivery'] = 'context_limit';
       }
       // A HA answer is only allowed when the actual sensor evidence survives
       // fitting into the local model context. An app success flag alone is not enough.
-      final haExpected=t.offlineRead!['haExpected']==true;
-      final haSupplied=t.sources.any((s)=>s.url.startsWith('pala-ha://sensor') &&
-          s.pageText?.trim().isNotEmpty==true);
-      t.offlineRead!['haSupplied']=haSupplied;
-      if(haExpected && !haSupplied && t.offlineRefusal==null) {
-        t.offlineRefusal='اطلاعات Home Assistant دریافت شد، اما شاهد واقعی در ظرفیت ورودی مدل قرار نگرفت. '
+      final haExpected = t.offlineRead!['haExpected'] == true;
+      final haSupplied = t.sources.any(
+        (s) =>
+            s.url.startsWith('pala-ha://sensor') &&
+            s.pageText?.trim().isNotEmpty == true,
+      );
+      t.offlineRead!['haSupplied'] = haSupplied;
+      if (haExpected && !haSupplied && t.offlineRefusal == null) {
+        t.offlineRefusal =
+            'اطلاعات Home Assistant دریافت شد، اما شاهد واقعی در ظرفیت ورودی مدل قرار نگرفت. '
             'برای جلوگیری از پاسخ بدون مدرک، نتیجه‌ای اعلام نمی‌کنم.';
-        t.sources=[];
+        t.sources = [];
       }
-      if(!haExpected && t.offlineRefusal==null &&
-          t.offlineRead!['requiredEncyclopedia']==true && !supplied) {
-        t.offlineRefusal='مقالهٔ قابل‌استناد از دانشنامهٔ آفلاین بازیابی و به مدل داده نشد؛ بنابراین پاسخ مستند تولید نمی‌کنم. وضعیت منبع زیر همین پیام را بررسی کنید. هیچ استفاده‌ای از ویکی‌پدیا برای این پاسخ تأیید نشده است.';
+      if (!haExpected &&
+          t.offlineRefusal == null &&
+          t.offlineRead!['requiredEncyclopedia'] == true &&
+          !supplied) {
+        t.offlineRefusal = 'مقالهٔ قابل‌استناد از دانشنامهٔ آفلاین بازیابی و به مدل داده نشد؛ بنابراین پاسخ مستند تولید نمی‌کنم. وضعیت منبع زیر همین پیام را بررسی کنید. هیچ استفاده‌ای از ویکی‌پدیا برای این پاسخ تأیید نشده است.';
         // No unrelated source or failed-read status is an encyclopedia citation.
-        t.sources=[];
+        t.sources = [];
       }
     }
     final fittedSystem = messages.first['content'] as String;
@@ -2286,8 +2319,7 @@ class ChatNotifier extends _ChatBase
           t.clearAnswer();
           toolMessages.add({
             'role': 'user',
-            'content':
-                'All helper replies are now available above. Check them and write the final answer from them and your own work.',
+            'content': 'All helper replies are now available above. Check them and write the final answer from them and your own work.',
           });
           t.newParser();
           continue;
@@ -2303,8 +2335,7 @@ class ChatNotifier extends _ChatBase
           t.clearAnswer();
           toolMessages.add({
             'role': 'user',
-            'content':
-                '(No more tool calls are available. Answer my question now from the tool results above, citing their source numbers.)',
+            'content': '(No more tool calls are available. Answer my question now from the tool results above, citing their source numbers.)',
           });
           t.newParser();
           continue;
@@ -2515,7 +2546,9 @@ class ChatNotifier extends _ChatBase
             ? grounding
             : null;
         await _saveAnswer(t, warning: warning);
-        final learned = t.offlineRefusal == null ? await _learnAndName(t) : <Memory>[];
+        final learned = t.offlineRefusal == null
+            ? await _learnAndName(t)
+            : <Memory>[];
         _showTurnEnd(t, grounding: grounding, learned: learned);
       }
     } finally {
@@ -2740,7 +2773,8 @@ class ChatNotifier extends _ChatBase
                   metrics: {
                     ...?t.metrics,
                     'lifecycle': t.lease.trace,
-                    if(t.offlineRead != null) 'offlineKnowledge':t.offlineRead,
+                    if (t.offlineRead != null)
+                      'offlineKnowledge': t.offlineRead,
                     'contextAudit': t.contextAudit(_fittedOmitted),
                     'memoryUsed': [
                       ...t.usedMemoryNotes
@@ -3063,9 +3097,9 @@ class ChatNotifier extends _ChatBase
       (n, r) => r.sequence > n ? r.sequence : n,
     );
     final sequence = resume != null
-        ? (await db.getMessages(
-                id,
-              )).firstWhere((r) => r.id == resume.id).sequence -
+        ? (await db.getMessages(id))
+                  .firstWhere((r) => r.id == resume.id)
+                  .sequence -
               1
         : insertUser
         ? lastSequence + 1

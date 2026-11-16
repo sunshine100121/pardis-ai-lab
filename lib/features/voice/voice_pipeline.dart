@@ -6,6 +6,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:logging/logging.dart';
+
 import '../../core/utils/inference_admission.dart';
 
 import 'sherpa_voice.dart';
@@ -31,8 +32,10 @@ bool naturalVoiceSpeaks(String language) =>
 
 /// Content cannot be routed to an English voice just because the UI is English.
 String voiceLanguageForText(String localeCode, String text) =>
-    RegExp(r'[\u0621-\u063a\u0641-\u064a\u066e-\u06d3\u06fa-\u06fc]').hasMatch(text)
-        ? 'fa' : voiceLanguage(localeCode);
+    RegExp(r'[\u0621-\u063a\u0641-\u064a\u066e-\u06d3\u06fa-\u06fc]')
+        .hasMatch(text)
+    ? 'fa'
+    : voiceLanguage(localeCode);
 
 String? dictationLocale(String localeCode, String? explicit) =>
     explicit ?? (voiceLanguage(localeCode) == 'fa' ? 'fa-IR' : null);
@@ -41,17 +44,22 @@ String? dictationLocale(String localeCode, String? explicit) =>
 Future<bool> selectOfflineVoice({
   required String language,
   required Future<dynamic> Function() voices,
-  required Future<dynamic> Function(Map<String,String>) select,
+  required Future<dynamic> Function(Map<String, String>) select,
 }) async {
   final available = await voices();
   if (available is! List) return false;
   for (final voice in available) {
-    if (voice is! Map || voice['name'] is! String || voice['locale'] is! String ||
-        !(voice['network_required'] == '0' || voice['network_required'] == false) ||
-        '${voice['features'] ?? ''}'.contains('notInstalled')) continue;
+    if (voice is! Map ||
+        voice['name'] is! String ||
+        voice['locale'] is! String ||
+        !(voice['network_required'] == '0' ||
+            voice['network_required'] == false) ||
+        '${voice['features'] ?? ''}'.contains('notInstalled'))
+      continue;
     final locale = voice['locale'] as String;
     if (locale.split(RegExp(r'[-_]')).first.toLowerCase() != language) continue;
-    if (await select({'name':voice['name'] as String,'locale':locale}) == 1) return true;
+    if (await select({'name': voice['name'] as String, 'locale': locale}) == 1)
+      return true;
   }
   return false;
 }

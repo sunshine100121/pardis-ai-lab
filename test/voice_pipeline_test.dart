@@ -280,10 +280,8 @@ void main() {
         'parakeet-v3',
       );
       expect(
-        InferenceSettings.fromJson({
-          ...s.toJson(),
-          'listeningModel': 'other',
-        }).listeningModel,
+        InferenceSettings.fromJson({...s.toJson(), 'listeningModel': 'other'})
+            .listeningModel,
         '',
       );
       expect(const InferenceSettings().listeningModel, '');

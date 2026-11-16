@@ -187,16 +187,13 @@ class VoiceNotifier extends Notifier<VoiceState> {
   }
 
   static String _explain(String code) => switch (code) {
-    'offline_unavailable' =>
-      'On-device dictation is unavailable. Install an offline speech service and language pack. No network recognizer was started.',
-    'offline_recognition_failed' =>
-      'On-device dictation failed. Check the offline language pack in the phone\'s speech settings. No network recognizer was started.',
+    'offline_unavailable' => 'On-device dictation is unavailable. Install an offline speech service and language pack. No network recognizer was started.',
+    'offline_recognition_failed' => 'On-device dictation failed. Check the offline language pack in the phone\'s speech settings. No network recognizer was started.',
     'error_no_match' => 'No speech recognised.',
     'error_speech_timeout' => 'No speech heard.',
     'error_permission' ||
     'error_audio' => 'Microphone permission is needed for dictation.',
-    'error_language_unavailable' || 'error_language_not_supported' =>
-      'On-device recognition has no language pack installed. Install one in the phone\'s speech settings, or allow the network recognizer.',
+    'error_language_unavailable' || 'error_language_not_supported' => 'On-device recognition has no language pack installed. Install one in the phone\'s speech settings, or allow the network recognizer.',
     'error_network' => 'The recognizer needs a network and none is available.',
     _ => 'Dictation error ($code).',
   };
@@ -207,9 +204,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
           'permission|denied|audio',
           caseSensitive: false,
         ).hasMatch(code)) {
-      return stringsFor(
-        ref.read(settingsProvider).localeCode,
-      ).desktopVoiceMicPrivacy;
+      return stringsFor(ref.read(settingsProvider).localeCode)
+          .desktopVoiceMicPrivacy;
     }
     return _explain(code);
   }
@@ -231,9 +227,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
         if (e.code == 'microphone_denied') {
           state = state.copyWith(
             listening: false,
-            error: stringsFor(
-              ref.read(settingsProvider).localeCode,
-            ).desktopVoiceMicPrivacy,
+            error: stringsFor(ref.read(settingsProvider).localeCode)
+                .desktopVoiceMicPrivacy,
           );
           return;
         }
@@ -252,7 +247,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
       );
       try {
         await _offline!.listen(
-          localeId: dictationLocale(ref.read(settingsProvider).localeCode,localeId),
+          localeId: dictationLocale(
+            ref.read(settingsProvider).localeCode,
+            localeId,
+          ),
           onResult: (text, isFinal) {
             if (!_alive || epoch != _listenEpoch) return;
             state = state.copyWith(partial: text, listening: !isFinal);
@@ -291,9 +289,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (DesktopHost.active && await VoiceAudioChannel.micPrivacyDenied()) {
       state = state.copyWith(
         listening: false,
-        error: stringsFor(
-          ref.read(settingsProvider).localeCode,
-        ).desktopVoiceMicPrivacy,
+        error: stringsFor(ref.read(settingsProvider).localeCode)
+            .desktopVoiceMicPrivacy,
       );
       return;
     }
@@ -316,7 +313,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
           cancelOnError: true,
           listenFor: const Duration(seconds: 60),
           pauseFor: const Duration(seconds: 4),
-          localeId: dictationLocale(ref.read(settingsProvider).localeCode,localeId),
+          localeId: dictationLocale(
+            ref.read(settingsProvider).localeCode,
+            localeId,
+          ),
         ),
       );
     } catch (e) {
@@ -330,7 +330,12 @@ class VoiceNotifier extends Notifier<VoiceState> {
   );
 
   bool _naturalSpeaking() =>
-      naturalVoiceSpeaks(voiceLanguageForText(ref.read(settingsProvider).localeCode,_spokenText)) &&
+      naturalVoiceSpeaks(
+        voiceLanguageForText(
+          ref.read(settingsProvider).localeCode,
+          _spokenText,
+        ),
+      ) &&
       offlineVoiceReady(
         enabled: ref.read(settingsProvider).naturalVoice,
         installed: ref
@@ -535,8 +540,12 @@ class VoiceNotifier extends Notifier<VoiceState> {
   Future<bool> _selectOfflineVoice() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
     return selectOfflineVoice(
-      language:voiceLanguageForText(ref.read(settingsProvider).localeCode,_spokenText),
-      voices:()=>_tts!.getVoices,select:(voice)=>_tts!.setVoice(voice),
+      language: voiceLanguageForText(
+        ref.read(settingsProvider).localeCode,
+        _spokenText,
+      ),
+      voices: () => _tts!.getVoices,
+      select: (voice) => _tts!.setVoice(voice),
     );
   }
 
@@ -549,9 +558,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
           state = state.copyWith(
             speaking: false,
             clearSpeakingId: true,
-            error: stringsFor(
-              ref.read(settingsProvider).localeCode,
-            ).voiceOfflineUnavailable,
+            error: stringsFor(ref.read(settingsProvider).localeCode)
+                .voiceOfflineUnavailable,
           );
         }
         return;
@@ -563,9 +571,11 @@ class VoiceNotifier extends Notifier<VoiceState> {
         _chunkStart = _position;
         _ttsBusy = true;
         try {
-          final completed=await _tts!.speak(chunk);
-          if(defaultTargetPlatform==TargetPlatform.android && completed!=1 &&
-              _alive && epoch==_speechEpoch) {
+          final completed = await _tts!.speak(chunk);
+          if (defaultTargetPlatform == TargetPlatform.android &&
+              completed != 1 &&
+              _alive &&
+              epoch == _speechEpoch) {
             throw StateError('خواندن با صدای آفلاین تأیید نشد.');
           }
         } finally {
