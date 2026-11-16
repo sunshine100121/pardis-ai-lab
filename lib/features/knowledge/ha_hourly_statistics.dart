@@ -290,11 +290,10 @@ class _SameOriginHandshakeClient implements HttpClient {
   _SameOriginHandshakeClient(this.inner, this.base);
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
-    final expected = HaHourlyStatistics.wsUri(base);
     if (method != 'GET' ||
-        url.scheme != expected.scheme ||
-        url.host != expected.host ||
-        url.port != expected.port ||
+        url.scheme != base.scheme ||
+        url.host != base.host ||
+        url.port != base.port ||
         url.userInfo.isNotEmpty ||
         url.path != '/api/websocket' ||
         url.hasQuery ||
