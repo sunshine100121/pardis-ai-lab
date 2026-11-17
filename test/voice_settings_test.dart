@@ -173,6 +173,7 @@ void main() {
       final container = await pump(
         tester,
         ready: {VoiceModels.listening.id, VoiceModels.speaking.id},
+        settings: const InferenceSettings(localeCode: 'en'),
       );
       expect(
         tester
