@@ -4,6 +4,14 @@ import 'package:flutter/services.dart';
 /// recognizer. Session ids discard late events from a cancelled/replaced run.
 class OfflineDictation {
   static const channel = MethodChannel('ondevice_llm/offline_dictation');
+  static Future<Map<String, dynamic>> capabilities() async =>
+      Map<String, dynamic>.from(
+        await channel.invokeMapMethod<String, dynamic>('capabilities') ?? const {},
+      );
+  static Future<void> requestAndroidPersianModel() =>
+      channel.invokeMethod<void>('downloadAndroidFa');
+  static Future<void> openSystemTtsSettings() =>
+      channel.invokeMethod<void>('openTtsSettings');
   static int _nextSession = 0;
   int? _session;
   bool _disposed = false;
@@ -38,6 +46,8 @@ class OfflineDictation {
     required void Function(String, bool) onResult,
     required void Function(String) onError,
     String? localeId,
+    String engine = 'android-local',
+    String? modelPath,
   }) async {
     if (_disposed) throw StateError('Dictation has been disposed.');
     final token = ++_nextSession;
@@ -48,6 +58,8 @@ class OfflineDictation {
       await channel.invokeMethod<void>('listen', {
         'session': token,
         'localeId': ?localeId,
+        'engine': engine,
+        'modelPath': ?modelPath,
       });
     } catch (_) {
       if (_session == token) _session = null;

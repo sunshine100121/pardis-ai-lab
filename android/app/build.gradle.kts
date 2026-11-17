@@ -134,4 +134,7 @@ flutter {
 dependencies {
     // Same bundled Latin recognizer as before, without the legacy plugin.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Official Vosk Android runtime; the language model is downloaded separately.
+    implementation("com.alphacephei:vosk-android:0.3.75@aar")
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
 }

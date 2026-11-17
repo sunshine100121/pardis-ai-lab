@@ -11,6 +11,7 @@ in this repository, and each keeps its own licence.
 | llama.cpp / ggml | MIT | https://github.com/ggml-org/llama.cpp (vendored in `native/llama.cpp`) |
 | sherpa-onnx | Apache-2.0 | https://github.com/k2-fsa/sherpa-onnx (`sherpa_onnx` package) |
 | ONNX Runtime (bundled with sherpa-onnx) | MIT | https://github.com/microsoft/onnxruntime |
+| Vosk Android runtime 0.3.75 | Apache-2.0 | https://github.com/alphacep/vosk-api |
 
 Dart and Flutter packages keep their own licences. The app's licence page
 (Settings > About > Open-source licences) lists them, with the models below.
@@ -24,6 +25,7 @@ Dart and Flutter packages keep their own licences. The app's licence page
 | EmbeddingGemma 2 (text and projector) | Search ranking, memory | Apache-2.0 | `ggml-org/embeddinggemma-2-GGUF` |
 | Qwen3-Reranker 0.6B Q8_0 | Optional source check | Apache-2.0 | `ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF` |
 | Whisper base (int8, sherpa-onnx export) | Listening | MIT | `csukuangfj/sherpa-onnx-whisper-base` (OpenAI Whisper) |
+| Vosk small Persian fa-0.42 | Optional Persian listening | Apache-2.0 | [Official Alpha Cephei model list](https://alphacephei.com/vosk/models) |
 | Parakeet TDT 0.6B v3 (int8, sherpa-onnx export) | Optional listening | CC-BY-4.0 | `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` |
 | Silero VAD | Speech detection | MIT | https://github.com/snakers4/silero-vad |
 | Kokoro 82M v1.0 (multi-language) | Speaking | Apache-2.0 | `k2-fsa/sherpa-onnx` tts-models release (hexgrad/Kokoro-82M) |
@@ -33,6 +35,10 @@ Supertonic 2 weights retain the [OpenRAIL-M licence and use restrictions](https:
 The [Supertonic code](https://github.com/supertone-inc/supertonic) is MIT licensed;
 that does not change the weights licence. The app downloads the unchanged
 sherpa-onnx export only on request and preserves the archive's licence file.
+
+The Vosk Persian model is downloaded only on explicit user request. Its
+upstream archive digest and size are pinned in `VoiceModels`; the archive is
+not copied from PVM or included in this repository.
 
 ### Attribution: Parakeet TDT 0.6B v3
 

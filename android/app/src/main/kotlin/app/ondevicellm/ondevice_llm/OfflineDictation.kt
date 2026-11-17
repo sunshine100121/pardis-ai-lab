@@ -11,13 +11,20 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.RecognitionSupport
+import android.speech.RecognitionSupportCallback
+import org.json.JSONObject
+import org.vosk.Model
+import org.vosk.Recognizer
+import org.vosk.android.RecognitionListener as VoskRecognitionListener
+import org.vosk.android.SpeechService
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Strict local dictation. Deliberately never calls createSpeechRecognizer:
- * EXTRA_PREFER_OFFLINE on the default recognizer is only a preference.
+ * Local Android speech adapters: a verified on-device platform recognizer
+ * and the separately installed Vosk model. No network recognizer is created.
  */
 class OfflineDictation(private val activity: Activity, messenger: BinaryMessenger) :
     MethodChannel.MethodCallHandler {
@@ -26,6 +33,10 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
     private val channel = MethodChannel(messenger, "ondevice_llm/offline_dictation")
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
+    private var voskModel: Model? = null
+    private var voskService: SpeechService? = null
+    private var activeEngine = "android-local"
+    private val voskCommitted = mutableListOf<String>()
     private var session: Int? = null
     private var pending: Pair<MethodCall, MethodChannel.Result>? = null
     private var deadline: Runnable? = null
@@ -34,8 +45,24 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "capabilities" -> reportPersianSystemSupport(result)
+            "downloadAndroidFa" -> requestPersianSystemModel(result)
+            "openTtsSettings" -> try {
+                activity.startActivity(Intent(android.provider.Settings.ACTION_TTS_SETTINGS))
+                result.success(null)
+            } catch (e: Exception) {
+                result.error("tts_settings_unavailable", e.message, null)
+            }
             "listen" -> {
                 cancel()
+                val engine = call.argument<String>("engine") ?: "android-local"
+                if (engine == "vosk-fa") {
+                    if (activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        pending = call to result
+                        activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_REQUEST)
+                    } else startVosk(call, result)
+                    return
+                }
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                     !SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)) {
                     result.error("offline_unavailable", "An on-device speech recognizer is unavailable.", null)
@@ -53,7 +80,8 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
                 pending?.second?.error("cancelled", "Dictation cancelled.", null)
                 pending = null
                 try {
-                    recognizer?.stopListening()
+                    if (activeEngine == "vosk-fa") voskService?.stop()
+                    else recognizer?.stopListening()
                     result.success(null)
                 } catch (e: Exception) {
                     cancel()
@@ -65,13 +93,90 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
         }
     }
 
+    private fun reportPersianSystemSupport(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 33 ||
+            !SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)) {
+            result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "apiLevel" to Build.VERSION.SDK_INT))
+            return
+        }
+        try {
+            val engine = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            }
+            engine.checkRecognitionSupport(intent, activity.mainExecutor,
+                object : RecognitionSupportCallback {
+                    override fun onSupportResult(support: RecognitionSupport) {
+                        val installed = support.installedOnDeviceLanguages
+                        val isFa: (String) -> Boolean = { it.equals("fa", true) || it.startsWith("fa-", true) || it.startsWith("fa_", true) }
+                        val available = installed.any(isFa)
+                        val supported = support.supportedOnDeviceLanguages.any(isFa)
+                        val pending = support.pendingOnDeviceLanguages.any(isFa)
+                        engine.destroy()
+                        result.success(mapOf("androidOfflineAvailable" to available, "androidOfflineSupported" to supported, "androidOfflinePending" to pending, "apiLevel" to Build.VERSION.SDK_INT))
+                    }
+                    override fun onError(error: Int) {
+                        engine.destroy()
+                        result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "apiLevel" to Build.VERSION.SDK_INT))
+                    }
+                })
+        } catch (_: Exception) {
+            result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "apiLevel" to Build.VERSION.SDK_INT))
+        }
+    }
+
+    private fun requestPersianSystemModel(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 33 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)) {
+            result.error("offline_model_download_unsupported", "This Android version cannot query/download an on-device language pack.", null)
+            return
+        }
+        try {
+            val engine = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            }
+            engine.checkRecognitionSupport(intent, activity.mainExecutor,
+                object : RecognitionSupportCallback {
+                    override fun onSupportResult(support: RecognitionSupport) {
+                        val supported = support.supportedOnDeviceLanguages.any {
+                            it.equals("fa", true) || it.startsWith("fa-", true) || it.startsWith("fa_", true)
+                        }
+                        try {
+                            if (supported) engine.triggerModelDownload(intent)
+                        } catch (e: Exception) {
+                            engine.destroy()
+                            result.error("offline_model_download_failed", e.message, null)
+                            return
+                        }
+                        engine.destroy()
+                        if (supported) result.success(null)
+                        else result.error("offline_language_unsupported", "Persian is not offered by the installed Android recognizer.", null)
+                    }
+                    override fun onError(error: Int) {
+                        engine.destroy()
+                        result.error("offline_language_unsupported", "Android could not verify Persian language support.", null)
+                    }
+                })
+        } catch (e: Exception) {
+            result.error("offline_model_download_failed", e.message, null)
+        }
+    }
+
     fun onPermissionResult(granted: Boolean) {
         val request = pending ?: return
         pending = null
         if (!granted) {
             request.second.error("error_permission", "Microphone permission is needed for dictation.", null)
         } else {
-            start(request.first, request.second)
+            if (request.first.argument<String>("engine") == "vosk-fa") {
+                startVosk(request.first, request.second)
+            } else {
+                start(request.first, request.second)
+            }
         }
     }
 
@@ -89,6 +194,7 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
                 return
             }
             session = token
+            activeEngine = "android-local"
             val engine = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
             recognizer = engine
             engine.setRecognitionListener(object : RecognitionListener {
@@ -137,6 +243,110 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
         }
     }
 
+    private fun startVosk(call: MethodCall, result: MethodChannel.Result) {
+        val token = call.argument<Int>("session")
+        val modelPath = call.argument<String>("modelPath")
+        if (token == null || modelPath.isNullOrBlank()) {
+            result.error("vosk_model_unavailable", "Vosk Persian model is not installed.", null)
+            return
+        }
+        try {
+            session = token
+            activeEngine = "vosk-fa"
+            voskCommitted.clear()
+            Thread {
+                try {
+                    val model = voskModel ?: Model(modelPath).also { voskModel = it }
+                    val decoder = Recognizer(model, 16000.0f)
+                    val service = SpeechService(decoder, 16000.0f)
+                    handler.post {
+                        if (session != token) {
+                            service.stop()
+                            service.shutdown()
+                            return@post
+                        }
+                        voskService = service
+                        service.startListening(object : VoskRecognitionListener {
+                            override fun onPartialResult(hypothesis: String?) {
+                                if (session != token) return
+                                val partial = hypothesisText(hypothesis, "partial")
+                                channel.invokeMethod("result", mapOf(
+                                    "session" to token,
+                                    "text" to (voskCommitted + partial).filter(String::isNotBlank).joinToString(" "),
+                                    "final" to false,
+                                ))
+                            }
+
+                            override fun onResult(hypothesis: String?) {
+                                if (session != token) return
+                                val segment = hypothesisText(hypothesis, "text")
+                                if (segment.isNotBlank() && voskCommitted.lastOrNull() != segment) {
+                                    voskCommitted.add(segment)
+                                }
+                                channel.invokeMethod("result", mapOf(
+                                    "session" to token,
+                                    "text" to voskCommitted.joinToString(" "),
+                                    "final" to false,
+                                ))
+                            }
+
+                            override fun onFinalResult(hypothesis: String?) {
+                                if (session != token) return
+                                val segment = hypothesisText(hypothesis, "text")
+                                if (segment.isNotBlank() && voskCommitted.lastOrNull() != segment) {
+                                    voskCommitted.add(segment)
+                                }
+                                channel.invokeMethod("result", mapOf(
+                                    "session" to token,
+                                    "text" to voskCommitted.joinToString(" "),
+                                    "final" to true,
+                                ))
+                                release()
+                            }
+
+                            override fun onError(exception: Exception?) {
+                                if (session != token) return
+                                channel.invokeMethod("error", mapOf(
+                                    "session" to token,
+                                    "code" to "offline_recognition_failed",
+                                ))
+                                release()
+                            }
+
+                            override fun onTimeout() {
+                                if (session != token) return
+                                channel.invokeMethod("result", mapOf(
+                                    "session" to token,
+                                    "text" to voskCommitted.joinToString(" "),
+                                    "final" to true,
+                                ))
+                                release()
+                            }
+                        })
+                    }
+                } catch (e: Exception) {
+                    handler.post {
+                        if (session == token) {
+                            channel.invokeMethod("error", mapOf(
+                                "session" to token,
+                                "code" to "offline_recognition_failed",
+                            ))
+                            release()
+                        }
+                    }
+                }
+            }.start()
+            result.success(null)
+        } catch (e: Exception) {
+            release()
+            result.error("offline_recognition_failed", e.message, null)
+        }
+    }
+
+    private fun hypothesisText(raw: String?, field: String): String = try {
+        JSONObject(raw ?: "{}").optString(field, "").trim()
+    } catch (_: Exception) { "" }
+
     private fun transcript(token: Int, result: Bundle?, isFinal: Boolean) {
         if (session != token) return
         val text = result?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""
@@ -152,19 +362,34 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
         recognizer = null
         try { old?.cancel() } catch (_: Exception) {}
         try { old?.destroy() } catch (_: Exception) {}
+        val oldVosk = voskService
+        voskService = null
+        try { oldVosk?.stop() } catch (_: Exception) {}
+        try { oldVosk?.shutdown() } catch (_: Exception) {}
+        activeEngine = "android-local"
     }
 
     fun cancel() {
-        session?.let {
-            channel.invokeMethod("error", mapOf("session" to it, "code" to "cancelled"))
-        }
+        val oldSession = session
+        session = null
+        oldSession?.let { channel.invokeMethod("error", mapOf("session" to it, "code" to "cancelled")) }
         pending?.second?.error("cancelled", "Dictation cancelled.", null)
         pending = null
+        if (activeEngine == "vosk-fa") {
+            val current = voskService
+            if (current != null) {
+                try { current.stop() } catch (_: Exception) {}
+                try { current.shutdown() } catch (_: Exception) {}
+                voskService = null
+            }
+        }
         release()
     }
 
     fun close() {
         cancel()
         channel.setMethodCallHandler(null)
+        try { voskModel?.close() } catch (_: Exception) {}
+        voskModel = null
     }
 }

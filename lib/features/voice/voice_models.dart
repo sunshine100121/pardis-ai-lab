@@ -79,6 +79,23 @@ class VoiceModels {
     ],
   );
 
+  /// Official Alpha Cephei Persian mobile model (Apache-2.0, 53 MB).
+  /// The archive digest/size are pinned to the public model artifact; no
+  /// PVM model or configuration is used.
+  static const voskPersian = VoicePack(
+    id: 'vosk-small-fa-0.42',
+    unpackTo: 'vosk-model-small-fa-0.42',
+    files: [
+      VoiceFile(
+        fileName: 'vosk-model-small-fa-0.42.zip',
+        url: 'https://alphacephei.com/vosk/models/vosk-model-small-fa-0.42.zip',
+        sha256:
+            '977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46',
+        sizeBytes: 53431220,
+      ),
+    ],
+  );
+
   static const _parakeetRevision = '2bda32ec70b097a55adaa07d9a7173915b43cc78';
   static const _parakeet =
       'https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/$_parakeetRevision';
@@ -188,12 +205,22 @@ class VoiceModels {
   static const packs = [listening, speaking];
 
   /// Every pack the app can install, the optional ones included.
-  static const all = [listening, speaking, parakeet, supertonic];
+  static const all = [listening, speaking, parakeet, supertonic, voskPersian];
 
   /// Marker written last when an archive is fully unpacked.
   static const readyMarker = '.ready';
 
   static Future<bool> isReady(VoicePack pack) async {
+    if (pack.id == voskPersian.id) {
+      final dir = Directory(await ModelStorage.resourcePath(pack.unpackTo!));
+      if (!File(p.join(dir.path, readyMarker)).existsSync()) return false;
+      return [
+        'am/final.mdl',
+        'conf/model.conf',
+        'graph/Gr.fst',
+        'graph/HCLr.fst',
+      ].every((relative) => File(p.join(dir.path, relative)).existsSync());
+    }
     if (pack.unpackTo != null) {
       Future<bool> ready(String folder) async => File(
         p.join(await ModelStorage.resourcePath(folder), readyMarker),
@@ -235,22 +262,30 @@ class VoiceModels {
   /// replaces the archive's own; [readyMarker] is written last.
   static void unpackArchive(String archive, String out) {
     final tar = '$archive.tar';
-    final input = InputFileStream(archive);
-    final output = OutputFileStream(tar);
-    try {
-      BZip2Decoder().decodeStream(input, output);
-    } finally {
-      input.closeSync();
-      output.closeSync();
+    final isZip = archive.toLowerCase().endsWith('.zip');
+    if (!isZip) {
+      final input = InputFileStream(archive);
+      final output = OutputFileStream(tar);
+      try {
+        BZip2Decoder().decodeStream(input, output);
+      } finally {
+        input.closeSync();
+        output.closeSync();
+      }
     }
     final root = Directory(out);
     if (root.existsSync()) root.deleteSync(recursive: true);
     root.createSync(recursive: true);
-    final tarInput = InputFileStream(tar);
+    final tarInput = InputFileStream(isZip ? archive : tar);
     try {
-      for (final entry in TarDecoder().decodeStream(tarInput)) {
+      final entries = isZip
+          ? ZipDecoder().decodeStream(tarInput)
+          : TarDecoder().decodeStream(tarInput);
+      for (final entry in entries) {
         if (!entry.isFile || entry.isSymbolicLink) continue;
-        final parts = p.posix.normalize(entry.name).split('/');
+        final normalized = p.posix.normalize(entry.name);
+        if (normalized.startsWith('/') || normalized == '..' || normalized.startsWith('../')) continue;
+        final parts = normalized.split('/');
         if (parts.length < 2 || parts.contains('..')) continue;
         final relative = parts.skip(1).join('/');
         if (skipped('/$relative')) continue;
@@ -268,7 +303,7 @@ class VoiceModels {
       }
     } finally {
       tarInput.closeSync();
-      File(tar).deleteSync();
+      if (!isZip) File(tar).deleteSync();
     }
     File(p.join(out, readyMarker)).writeAsStringSync('ok');
   }
@@ -323,6 +358,11 @@ class VoiceModels {
     }
     if (await isReady(parakeet)) return parakeetPaths();
     return null;
+  }
+
+  static Future<String?> voskPersianPath() async {
+    if (!await isReady(voskPersian)) return null;
+    return await ModelStorage.resourcePath(voskPersian.unpackTo!);
   }
 
   static Future<SpeakingPaths?> speakingPaths({

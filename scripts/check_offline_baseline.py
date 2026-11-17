@@ -40,6 +40,7 @@ for path in compatibility_paths:
         'parakeet-v3' => 'parakeet-v3',
         'android-local' => 'android-local',
         'whisper-fa' => 'whisper-fa',
+        'vosk-fa' => 'vosk-fa',
         _ => '',
       },"""
         assert installed.count(old)==1, 'UNEXPECTED_INSTALLED_SETTINGS_BASELINE'

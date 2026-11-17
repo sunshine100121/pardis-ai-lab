@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/platform/desktop_host.dart';
@@ -61,6 +62,7 @@ class VoiceState {
 }
 
 class VoiceNotifier extends Notifier<VoiceState> {
+  static const _androidTtsEngineKey = 'pala_voice_android_tts_engine_v1';
   SpeechToText? _stt;
   FlutterTts? _tts;
 
@@ -225,6 +227,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
     final explicitWhisper =
         voiceLanguage(selectedSettings.localeCode) == 'fa' &&
         selectedSettings.listeningModel == 'whisper-fa';
+    final explicitVosk =
+        voiceLanguage(selectedSettings.localeCode) == 'fa' &&
+        selectedSettings.listeningModel == 'vosk-fa';
     if (explicitWhisper && !_naturalListening()) {
       state = state.copyWith(
         listening: false,
@@ -256,6 +261,14 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
     if (!_alive || epoch != _listenEpoch) return;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final voskPath = explicitVosk ? await VoiceModels.voskPersianPath() : null;
+      if (explicitVosk && voskPath == null) {
+        state = state.copyWith(
+          listening: false,
+          error: 'مدل Vosk فارسی نصب نشده است؛ ابتدا آن را دریافت کنید.',
+        );
+        return;
+      }
       _usingOffline = true;
       _offline ??= OfflineDictation();
       state = state.copyWith(
@@ -266,6 +279,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
       );
       try {
         await _offline!.listen(
+          engine: explicitVosk ? 'vosk-fa' : 'android-local',
+          modelPath: voskPath,
           localeId: dictationLocale(
             ref.read(settingsProvider).localeCode,
             localeId,
@@ -347,6 +362,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
     final settings = ref.read(settingsProvider);
     final packs = ref.read(voiceModelsProvider);
     if (settings.listeningModel == 'android-local') return false;
+    if (settings.listeningModel == 'vosk-fa') return false;
     if (voiceLanguage(settings.localeCode) == 'fa') {
       if (settings.listeningModel == VoiceModels.parakeetSetting) return false;
       return (settings.listeningModel == 'whisper-fa' ||
@@ -526,6 +542,46 @@ class VoiceNotifier extends Notifier<VoiceState> {
     });
   }
 
+  /// Selects an installed Android engine only when it exposes an offline
+  /// Persian voice. An incompatible choice leaves the current engine intact.
+  Future<bool> setAndroidTtsEngine(String engine) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+    await _initTts();
+    final previous = await _tts!.getDefaultEngine();
+    try {
+      await _tts!.setEngine(engine);
+      final voices = await _tts!.getVoices;
+      final hasOfflinePersian = voices is List && voices.any((voice) {
+        if (voice is! Map || voice['locale'] is! String) return false;
+        final language = (voice['locale'] as String)
+            .split(RegExp(r'[-_]'))
+            .first
+            .toLowerCase();
+        return language == 'fa' &&
+            (voice['network_required'] == '0' ||
+                voice['network_required'] == false) &&
+            !'${voice['features'] ?? ''}'.contains('notInstalled');
+      });
+      if (!hasOfflinePersian) {
+        if (previous is String && previous.isNotEmpty) {
+          await _tts!.setEngine(previous);
+        }
+        return false;
+      }
+      final prefs = await SharedPreferences.getInstance();
+      final saved = await prefs.setString(_androidTtsEngineKey, engine);
+      if (!saved && previous is String && previous.isNotEmpty) {
+        await _tts!.setEngine(previous);
+      }
+      return saved;
+    } catch (_) {
+      if (previous is String && previous.isNotEmpty) {
+        try { await _tts!.setEngine(previous); } catch (_) {}
+      }
+      return false;
+    }
+  }
+
   /// Reads [markdown] aloud; tapping the same message again stops it.
   Future<void> speak(String markdown, {String? id, double? rate}) async {
     await _initTts();
@@ -569,6 +625,27 @@ class VoiceNotifier extends Notifier<VoiceState> {
   /// reports as local ("0"). Windows voices (SAPI/OneCore) are all local.
   Future<bool> _selectOfflineVoice() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
+    final savedEngine = (await SharedPreferences.getInstance())
+        .getString(_androidTtsEngineKey);
+    if (savedEngine != null && savedEngine.isNotEmpty) {
+      try {
+        await _tts!.setEngine(savedEngine);
+      } catch (_) {
+        return false;
+      }
+    }
+    String? preferredVoice;
+    try {
+      final current = await _tts!.getDefaultVoice;
+      if (current is Map && current['name'] is String && current['locale'] is String &&
+          (current['locale'] as String).split(RegExp(r'[-_]')).first.toLowerCase() ==
+              voiceLanguageForText(
+                ref.read(settingsProvider).localeCode,
+                _spokenText,
+              )) {
+        preferredVoice = current['name'] as String;
+      }
+    } catch (_) {}
     return selectOfflineVoice(
       language: voiceLanguageForText(
         ref.read(settingsProvider).localeCode,
@@ -576,6 +653,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
       ),
       voices: () => _tts!.getVoices,
       select: (voice) => _tts!.setVoice(voice),
+      preferredName: preferredVoice,
     );
   }
 

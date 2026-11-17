@@ -107,6 +107,7 @@ class VoiceModelsNotifier extends Notifier<VoiceModelsState> {
     }
 
     var done = 0;
+    var received = 0;
     _set(pack, const VoicePackState(VoicePackStatus.downloading));
     try {
       await DownloadJobs.add(pack.downloadKey);
@@ -120,6 +121,7 @@ class VoiceModelsNotifier extends Notifier<VoiceModelsState> {
         }
         final key = '${pack.downloadKey}:${f.fileName}';
         final sub = _dl.progressStream(key).listen((p) {
+          received = done + p.received;
           _set(
             pack,
             VoicePackState(
@@ -154,7 +156,7 @@ class VoiceModelsNotifier extends Notifier<VoiceModelsState> {
         pack,
         VoicePackState(
           VoicePackStatus.missing,
-          received: done,
+          received: received > done ? received : done,
           error: paused ? null : '$e',
         ),
       );

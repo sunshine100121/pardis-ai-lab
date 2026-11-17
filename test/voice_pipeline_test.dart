@@ -9,10 +9,21 @@ import 'package:ondevice_llm/features/settings/domain/entities/inference_setting
 import 'package:ondevice_llm/features/voice/conversation_screen.dart';
 import 'package:ondevice_llm/features/voice/sherpa_voice.dart';
 import 'package:ondevice_llm/features/voice/voice_models.dart';
+import 'package:ondevice_llm/features/voice/voice_engine_catalog.dart';
 import 'package:ondevice_llm/features/voice/voice_pipeline.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
+  test('speech engine catalog exposes only implemented language routes', () {
+    expect(VoiceEngineCatalog.stt.map((e) => e.id), containsAll([
+      'android-local', 'whisper-fa', 'vosk-fa',
+    ]));
+    expect(VoiceEngineCatalog.voskFa.supports('fa'), isTrue);
+    expect(VoiceEngineCatalog.voskFa.supports('en'), isFalse);
+    expect(VoiceEngineCatalog.kokoro.supports('fa'), isFalse);
+    expect(VoiceEngineCatalog.androidEngineName('org.hayai.tts'), contains('HayaiTTS'));
+  });
+
   test('speechEnvelope gives the loudness every 32 ms', () {
     // 0.1 s of silence, then 0.1 s at half scale, at 24 kHz.
     final pcm = Int16List(4800);
@@ -244,6 +255,21 @@ void main() {
       },
     );
 
+    test('Vosk zip models unpack without allowing path traversal', () async {
+      final dir = await Directory.systemTemp.createTemp('vosk_unpack');
+      addTearDown(() => dir.delete(recursive: true));
+      final archive = Archive()
+        ..addFile(ArchiveFile.string('vosk-fa/conf/model.conf', 'safe'))
+        ..addFile(ArchiveFile.string('vosk-fa/../../escape.txt', 'unsafe'));
+      final path = p.join(dir.path, 'vosk.zip');
+      File(path).writeAsBytesSync(ZipEncoder().encode(archive));
+      final out = p.join(dir.path, 'out');
+      VoiceModels.unpackArchive(path, out);
+      expect(File(p.join(out, 'conf', 'model.conf')).readAsStringSync(), 'safe');
+      expect(File(p.join(dir.path, 'escape.txt')).existsSync(), isFalse);
+      expect(File(p.join(out, VoiceModels.readyMarker)).existsSync(), isTrue);
+    });
+
     test('packs are pinned with hashes and sizes', () {
       for (final pack in VoiceModels.all) {
         for (final f in pack.files) {
@@ -256,6 +282,9 @@ void main() {
       for (final pack in [VoiceModels.listening, VoiceModels.parakeet]) {
         expect(pack.files.first.url, isNot(contains('/resolve/main/')));
       }
+      expect(VoiceModels.voskPersian.files.single.sizeBytes, 53431220);
+      expect(VoiceModels.voskPersian.files.single.sha256,
+          '977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46');
       // Parakeet is optional: not in the voice pack's one download row,
       // and it brings the Silero detector it needs.
       expect(VoiceModels.packs, isNot(contains(VoiceModels.parakeet)));

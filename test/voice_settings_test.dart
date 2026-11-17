@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/core/theme/app_theme.dart';
 import 'package:ondevice_llm/features/models/presentation/providers/model_manager_provider.dart';
 import 'package:ondevice_llm/features/settings/domain/entities/inference_settings.dart';
 import 'package:ondevice_llm/features/settings/presentation/providers/settings_provider.dart';
 import 'package:ondevice_llm/features/voice/voice_models.dart';
+import 'package:ondevice_llm/features/voice/offline_dictation.dart';
 import 'package:ondevice_llm/features/voice/voice_models_provider.dart';
 import 'package:ondevice_llm/features/voice/voice_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,10 +69,19 @@ class _Packs extends VoiceModelsNotifier {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(OfflineDictation.channel, (call) async {
+          if (call.method == 'capabilities') {
+            return {'androidOfflineAvailable': true, 'apiLevel': 35};
+          }
+          return null;
+        });
+  });
 
   test('legacy and new listening preferences survive settings decoding', () {
-    for (final value in ['', 'parakeet-v3', 'android-local', 'whisper-fa']) {
+    for (final value in ['', 'parakeet-v3', 'android-local', 'whisper-fa', 'vosk-fa']) {
       final settings = InferenceSettings.fromJson({'listeningModel': value});
       expect(settings.listeningModel, value);
       expect(
@@ -222,6 +233,27 @@ void main() {
       expect(container.read(settingsProvider).readingVoice, 'supertonic-2');
     },
   );
+
+  testWidgets('Vosk must be installed before selection and stays independent', (tester) async {
+    final container = await pump(
+      tester,
+      ready: {VoiceModels.listening.id, VoiceModels.speaking.id},
+      settings: const InferenceSettings(localeCode: 'fa', readingVoice: 'supertonic-2'),
+    );
+    expect(tester.widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk'))).onSelected, isNull);
+    await tester.tap(find.byKey(const Key('vosk-download')));
+    await tester.pump();
+    final notifier = container.read(voiceModelsProvider.notifier) as _Packs;
+    expect(notifier.downloaded, [VoiceModels.voskPersian]);
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk'))).onSelected, isNotNull);
+    await tester.tap(find.byKey(const Key('persian-stt-vosk')));
+    await tester.pump();
+    final settings = container.read(settingsProvider);
+    expect(settings.listeningModel, 'vosk-fa');
+    expect(settings.readingVoice, 'supertonic-2');
+    expect(InferenceSettings.fromJson(settings.toJson()).listeningModel, 'vosk-fa');
+  });
 
   testWidgets(
     'selecting missing Supertonic offers its download and preserves Kokoro',

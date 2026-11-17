@@ -45,6 +45,7 @@ Future<bool> selectOfflineVoice({
   required String language,
   required Future<dynamic> Function() voices,
   required Future<dynamic> Function(Map<String, String>) select,
+  String? preferredName,
 }) async {
   final available = await voices();
   if (available is! List) return false;
@@ -58,6 +59,7 @@ Future<bool> selectOfflineVoice({
       continue;
     final locale = voice['locale'] as String;
     if (locale.split(RegExp(r'[-_]')).first.toLowerCase() != language) continue;
+    if (preferredName != null && voice['name'] != preferredName) continue;
     if (await select({'name': voice['name'] as String, 'locale': locale}) == 1)
       return true;
   }

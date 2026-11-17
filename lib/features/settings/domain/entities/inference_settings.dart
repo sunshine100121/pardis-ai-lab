@@ -1572,6 +1572,7 @@ class InferenceSettings {
         'parakeet-v3' => 'parakeet-v3',
         'android-local' => 'android-local',
         'whisper-fa' => 'whisper-fa',
+        'vosk-fa' => 'vosk-fa',
         _ => '',
       },
       localeCode: const {'fa', 'en', 'fr', 'es'}.contains(text('localeCode', 8))
