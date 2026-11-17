@@ -48,7 +48,13 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
             "capabilities" -> reportPersianSystemSupport(result)
             "downloadAndroidFa" -> requestPersianSystemModel(result)
             "openTtsSettings" -> try {
-                activity.startActivity(Intent(android.provider.Settings.ACTION_TTS_SETTINGS))
+                try {
+                    activity.startActivity(Intent("com.android.settings.TTS_SETTINGS"))
+                } catch (_: android.content.ActivityNotFoundException) {
+                    activity.startActivity(
+                        Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
+                    )
+                }
                 result.success(null)
             } catch (e: Exception) {
                 result.error("tts_settings_unavailable", e.message, null)
