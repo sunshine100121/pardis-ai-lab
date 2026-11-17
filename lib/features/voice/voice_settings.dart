@@ -41,18 +41,17 @@ class NaturalVoiceSettings extends ConsumerWidget {
           value: s.naturalVoice,
           onChanged: (v) => n.update(s.copyWith(naturalVoice: v)),
         ),
-        if (persian) ...[
-          const _PersianEngines(),
-          const _VoiceDownloadRow(),
-        ],
+        if (persian) ...[const _PersianEngines(), const _VoiceDownloadRow()],
         if (s.naturalVoice) ...[
           if (naturalVoiceSpeaks(voiceLanguage(s.localeCode)))
             const _ReadingVoiceTile(),
           if (!persian) const _VoiceDownloadRow(),
           // Offered once the voice pack is in, or while Parakeet is.
           if (!persian &&
-              (packs.of(VoiceModels.listening).status == VoicePackStatus.ready ||
-                  packs.of(VoiceModels.parakeet).status != VoicePackStatus.missing))
+              (packs.of(VoiceModels.listening).status ==
+                      VoicePackStatus.ready ||
+                  packs.of(VoiceModels.parakeet).status !=
+                      VoicePackStatus.missing))
             const _ListeningModelTile(),
           if (naturalVoiceSpeaks(voiceLanguage(s.localeCode)) &&
               packs.canSpeakWith(s.readingVoice))
@@ -83,7 +82,8 @@ class _PersianEngines extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final state = ref.watch(voiceModelsProvider).of(VoiceModels.listening);
     final ready = state.status == VoicePackStatus.ready;
-    final whisper = ready &&
+    final whisper =
+        ready &&
         settings.listeningModel != 'android-local' &&
         settings.listeningModel != VoiceModels.parakeetSetting &&
         (settings.listeningModel == 'whisper-fa' || settings.naturalVoice);
@@ -102,18 +102,20 @@ class _PersianEngines extends ConsumerWidget {
                 key: const Key('persian-stt-android'),
                 label: const Text('اندروید آفلاین'),
                 selected: !whisper && settings.listeningModel != 'whisper-fa',
-                onSelected: (_) => ref.read(settingsProvider.notifier).update(
-                  settings.copyWith(listeningModel: 'android-local'),
-                ),
+                onSelected: (_) => ref
+                    .read(settingsProvider.notifier)
+                    .update(settings.copyWith(listeningModel: 'android-local')),
               ),
               ChoiceChip(
                 key: const Key('persian-stt-whisper'),
                 label: Text(ready ? 'Whisper · آماده' : 'Whisper · نصب نشده'),
                 selected: whisper,
                 onSelected: ready
-                    ? (_) => ref.read(settingsProvider.notifier).update(
-                        settings.copyWith(listeningModel: 'whisper-fa'),
-                      )
+                    ? (_) => ref
+                          .read(settingsProvider.notifier)
+                          .update(
+                            settings.copyWith(listeningModel: 'whisper-fa'),
+                          )
                     : null,
               ),
               const ChoiceChip(
@@ -124,13 +126,17 @@ class _PersianEngines extends ConsumerWidget {
               ),
             ],
           ),
-          const Text('خواندن: صدای فارسی آفلاین اندروید؛ موتور در تنظیمات اندروید انتخاب می‌شود.'),
+          const Text(
+            'خواندن: صدای فارسی آفلاین اندروید؛ موتور در تنظیمات اندروید انتخاب می‌شود.',
+          ),
           TextButton.icon(
             key: const Key('persian-tts-try'),
-            onPressed: () => ref.read(voiceProvider.notifier).speak(
-              'سلام، این یک آزمایش صدای فارسی است.',
-              id: 'persian-voice-sample',
-            ),
+            onPressed: () => ref
+                .read(voiceProvider.notifier)
+                .speak(
+                  'سلام، این یک آزمایش صدای فارسی است.',
+                  id: 'persian-voice-sample',
+                ),
             icon: const Icon(Icons.play_arrow, size: 18),
             label: const Text('آزمایش صدا'),
           ),

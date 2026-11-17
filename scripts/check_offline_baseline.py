@@ -44,6 +44,13 @@ for path in compatibility_paths:
       },"""
         assert installed.count(old)==1, 'UNEXPECTED_INSTALLED_SETTINGS_BASELINE'
         installed=installed.replace(old,new,1)
+        format_old=b"""              [
+                for (var i = 0; i < a.length; i++) same(a[i], b[i]),
+              ].every((x) => x)"""
+        format_new=b"""              [for (var i = 0; i < a.length; i++) same(a[i], b[i])]
+                  .every((x) => x)"""
+        assert installed.count(format_old)==1, 'UNEXPECTED_SETTINGS_FORMAT_BASELINE'
+        installed=installed.replace(format_old,format_new,1)
     assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed, 'INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:'+path
 print(json.dumps({'runtime_baseline':'PASS','f1_absent':'PASS','persian_334_keys':'PASS',
                   'installed_model_path_and_database_source_compatibility':'PASS',

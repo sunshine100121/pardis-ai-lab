@@ -73,9 +73,15 @@ void main() {
     for (final value in ['', 'parakeet-v3', 'android-local', 'whisper-fa']) {
       final settings = InferenceSettings.fromJson({'listeningModel': value});
       expect(settings.listeningModel, value);
-      expect(InferenceSettings.fromJson(settings.toJson()).listeningModel, value);
+      expect(
+        InferenceSettings.fromJson(settings.toJson()).listeningModel,
+        value,
+      );
     }
-    expect(InferenceSettings.fromJson({'listeningModel': 'invalid'}).listeningModel, '');
+    expect(
+      InferenceSettings.fromJson({'listeningModel': 'invalid'}).listeningModel,
+      '',
+    );
   });
 
   Future<ProviderContainer> pump(
@@ -178,29 +184,44 @@ void main() {
     },
   );
 
-  testWidgets('Persian STT selection persists independently of TTS preferences', (
-    tester,
-  ) async {
-    final container = await pump(
-      tester,
-      ready: {VoiceModels.listening.id, VoiceModels.parakeet.id},
-      settings: const InferenceSettings(localeCode: 'fa', readingVoice: 'supertonic-2'),
-    );
-    expect(find.byKey(const Key('listening-parakeet')), findsNothing);
-    expect(tester.widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk'))).onSelected, isNull);
-    await tester.ensureVisible(find.byKey(const Key('persian-stt-android')));
-    await tester.tap(find.byKey(const Key('persian-stt-android')));
-    await tester.pump();
-    expect(container.read(settingsProvider).listeningModel, 'android-local');
-    expect(container.read(settingsProvider).readingVoice, 'supertonic-2');
-    final reloaded = InferenceSettings.fromJson(container.read(settingsProvider).toJson());
-    expect(reloaded.listeningModel, 'android-local');
-    await tester.tap(find.byKey(const Key('persian-stt-whisper')));
-    await tester.pump();
-    expect(container.read(settingsProvider).listeningModel, 'whisper-fa');
-    expect(InferenceSettings.fromJson(container.read(settingsProvider).toJson()).listeningModel, 'whisper-fa');
-    expect(container.read(settingsProvider).readingVoice, 'supertonic-2');
-  });
+  testWidgets(
+    'Persian STT selection persists independently of TTS preferences',
+    (tester) async {
+      final container = await pump(
+        tester,
+        ready: {VoiceModels.listening.id, VoiceModels.parakeet.id},
+        settings: const InferenceSettings(
+          localeCode: 'fa',
+          readingVoice: 'supertonic-2',
+        ),
+      );
+      expect(find.byKey(const Key('listening-parakeet')), findsNothing);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk')))
+            .onSelected,
+        isNull,
+      );
+      await tester.ensureVisible(find.byKey(const Key('persian-stt-android')));
+      await tester.tap(find.byKey(const Key('persian-stt-android')));
+      await tester.pump();
+      expect(container.read(settingsProvider).listeningModel, 'android-local');
+      expect(container.read(settingsProvider).readingVoice, 'supertonic-2');
+      final reloaded = InferenceSettings.fromJson(
+        container.read(settingsProvider).toJson(),
+      );
+      expect(reloaded.listeningModel, 'android-local');
+      await tester.tap(find.byKey(const Key('persian-stt-whisper')));
+      await tester.pump();
+      expect(container.read(settingsProvider).listeningModel, 'whisper-fa');
+      expect(
+        InferenceSettings.fromJson(container.read(settingsProvider).toJson())
+            .listeningModel,
+        'whisper-fa',
+      );
+      expect(container.read(settingsProvider).readingVoice, 'supertonic-2');
+    },
+  );
 
   testWidgets(
     'selecting missing Supertonic offers its download and preserves Kokoro',

@@ -1395,9 +1395,8 @@ class InferenceSettings {
         ? a == b
         : a is List && b is List
         ? a.length == b.length &&
-              [
-                for (var i = 0; i < a.length; i++) same(a[i], b[i]),
-              ].every((x) => x)
+              [for (var i = 0; i < a.length; i++) same(a[i], b[i])]
+                  .every((x) => x)
         : a == b;
     return {
       for (final e in j.entries.take(128))
