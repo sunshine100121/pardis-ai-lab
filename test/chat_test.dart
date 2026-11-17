@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:ondevice_llm/data/network/web_search/duckduckgo_scraper.dart';
 import 'package:ondevice_llm/data/network/web_search/instant_answers.dart';
@@ -409,8 +410,7 @@ class FakeWikipedia extends WikipediaClient {
       url: 'https://en.wikipedia.org/wiki/Nikon_Z30',
       snippet: 'The Z30 is an APS-C mirrorless camera.',
       rank: 0,
-      pageText:
-          'The Nikon Z30 is an APS-C mirrorless camera announced on June 29, 2022.',
+      pageText: 'The Nikon Z30 is an APS-C mirrorless camera announced on June 29, 2022.',
       outlet: 'Wikipedia',
     );
   }
@@ -924,45 +924,40 @@ void main() {
     expect(container.read(chatProvider).error, isNull);
   });
 
-  test(
-    'reads pages, fits evidence with native preview, and persists supplied excerpts',
-    () async {
-      container.dispose();
-      container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(WebTestSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-          duckDuckGoScraperProvider.overrideWithValue(TestSearch()),
-          webPageReaderProvider.overrideWithValue(TestReader()),
-        ],
-      );
-      final notifier = container.read(chatProvider.notifier);
-      await notifier.send('Latest facts');
-      expect(container.read(chatProvider).error, isNull);
-      expect(engine.previews, greaterThan(1));
-      expect(
-        engine.receivedMessages!.last['content'],
-        contains('Verified page evidence'),
-      );
-      expect(
-        engine.receivedMessages!.first['content'],
-        isNot(contains('Verified page evidence')),
-      );
-      final messages = await db.getMessages(
-        container.read(chatProvider).chatId!,
-      );
-      final sources = jsonDecode(messages.last.sourcesJson) as List;
-      expect(sources.single['retrievalStatus'], 'page_read');
-      // Passages were dropped until the (fake) preview said the prompt fits.
-      expect(sources.single['excerpt'].length, inInclusiveRange(1, 1800));
-      expect(
-        engine.receivedMessages!.last['content'],
-        contains(sources.single['excerpt']),
-      );
-    },
-  );
+  test('reads pages, fits evidence with native preview, and persists supplied excerpts', () async {
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(WebTestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+        duckDuckGoScraperProvider.overrideWithValue(TestSearch()),
+        webPageReaderProvider.overrideWithValue(TestReader()),
+      ],
+    );
+    final notifier = container.read(chatProvider.notifier);
+    await notifier.send('Latest facts');
+    expect(container.read(chatProvider).error, isNull);
+    expect(engine.previews, greaterThan(1));
+    expect(
+      engine.receivedMessages!.last['content'],
+      contains('Verified page evidence'),
+    );
+    expect(
+      engine.receivedMessages!.first['content'],
+      isNot(contains('Verified page evidence')),
+    );
+    final messages = await db.getMessages(container.read(chatProvider).chatId!);
+    final sources = jsonDecode(messages.last.sourcesJson) as List;
+    expect(sources.single['retrievalStatus'], 'page_read');
+    // Passages were dropped until the (fake) preview said the prompt fits.
+    expect(sources.single['excerpt'].length, inInclusiveRange(1, 1800));
+    expect(
+      engine.receivedMessages!.last['content'],
+      contains(sources.single['excerpt']),
+    );
+  });
   test(
     'sponsored results are persisted for disclosure but never fetched',
     () async {
@@ -1800,33 +1795,30 @@ void main() {
     expect(rendered['images'], ['/nowhere/a2.png']);
   });
 
-  test(
-    'a follow-up selects a different late section of a stored attachment',
-    () async {
-      final text = [
-        for (var i = 0; i < 24; i++)
-          i == 20
-              ? 'Section $i: The warranty expires on 30 June 2028. ${'Warranty coverage terms. ' * 20}'
-              : 'Section $i: ${'General background and unrelated notes. ' * 20}',
-      ].join('\n');
-      final doc = Attachment(
-        id: 'long-report',
-        kind: AttachmentKind.document,
-        name: 'report.txt',
-        mime: 'text/plain',
-        path: '/nowhere/report.txt',
-        sizeBytes: text.length,
-        text: text,
-      );
-      final n = container.read(chatProvider.notifier);
-      await n.send('Summarize the report', attachments: [doc]);
-      await n.send('When does the warranty expire?');
-      final previous = engine.receivedMessages![1]['content'] as String;
-      expect(previous, contains('30 June 2028'));
-      expect(previous, contains('Selected passages'));
-      expect(previous.length, lessThan(text.length));
-    },
-  );
+  test('a follow-up selects a different late section of a stored attachment', () async {
+    final text = [
+      for (var i = 0; i < 24; i++)
+        i == 20
+            ? 'Section $i: The warranty expires on 30 June 2028. ${'Warranty coverage terms. ' * 20}'
+            : 'Section $i: ${'General background and unrelated notes. ' * 20}',
+    ].join('\n');
+    final doc = Attachment(
+      id: 'long-report',
+      kind: AttachmentKind.document,
+      name: 'report.txt',
+      mime: 'text/plain',
+      path: '/nowhere/report.txt',
+      sizeBytes: text.length,
+      text: text,
+    );
+    final n = container.read(chatProvider.notifier);
+    await n.send('Summarize the report', attachments: [doc]);
+    await n.send('When does the warranty expire?');
+    final previous = engine.receivedMessages![1]['content'] as String;
+    expect(previous, contains('30 June 2028'));
+    expect(previous, contains('Selected passages'));
+    expect(previous.length, lessThan(text.length));
+  });
 
   test('memory learns facts after an answer and feeds them back', () async {
     container.dispose();
@@ -2563,45 +2555,40 @@ void main() {
     );
   });
 
-  test(
-    'tool loop: a text-protocol call runs the calculator and the model answers from the result',
-    () async {
-      container.dispose();
-      engine = TestEngine()
-        ..toolBlock =
-            'Let me compute.\n```tool\n{"name": "calculator", "arguments": {"expression": "6 * 7"}}\n```';
-      container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(ToolTestSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-        ],
-      );
-      final n = container.read(chatProvider.notifier);
-      expect(await n.send('What is six times seven?'), isTrue);
-      final last = container.read(chatProvider).messages.last;
-      expect(last.content, 'The answer is 42');
-      // The tool step is visible in the reasoning channel, not the answer.
-      expect(last.reasoning, contains('calculator'));
-      expect(last.reasoning, contains('6 * 7 = 42'));
-      // The system prompt carried the text protocol (no native tool support).
-      expect(
-        engine.receivedMessages!.first['content'] as String,
-        contains('```tool'),
-      );
-      // The second round saw the assistant's block and the tool result.
-      final roles = engine.toolMessages!.map((m) => m['role']).toList();
-      expect(roles.sublist(roles.length - 2), ['assistant', 'tool']);
-      expect(engine.toolMessages!.last['content'], '6 * 7 = 42');
-      expect(engine.toolMessages!.last['name'], 'calculator');
-      // The run record keeps the replay trace.
-      final run = TurnRun.decode(last.runJson);
-      expect(run!.toolTrace, hasLength(1));
-      expect(run.toolTrace.first['ok'], isTrue);
-      expect(run.plainText(), contains('calculator('));
-    },
-  );
+  test('tool loop: a text-protocol call runs the calculator and the model answers from the result', () async {
+    container.dispose();
+    engine = TestEngine()..toolBlock = 'Let me compute.\n```tool\n{"name": "calculator", "arguments": {"expression": "6 * 7"}}\n```';
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(ToolTestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+      ],
+    );
+    final n = container.read(chatProvider.notifier);
+    expect(await n.send('What is six times seven?'), isTrue);
+    final last = container.read(chatProvider).messages.last;
+    expect(last.content, 'The answer is 42');
+    // The tool step is visible in the reasoning channel, not the answer.
+    expect(last.reasoning, contains('calculator'));
+    expect(last.reasoning, contains('6 * 7 = 42'));
+    // The system prompt carried the text protocol (no native tool support).
+    expect(
+      engine.receivedMessages!.first['content'] as String,
+      contains('```tool'),
+    );
+    // The second round saw the assistant's block and the tool result.
+    final roles = engine.toolMessages!.map((m) => m['role']).toList();
+    expect(roles.sublist(roles.length - 2), ['assistant', 'tool']);
+    expect(engine.toolMessages!.last['content'], '6 * 7 = 42');
+    expect(engine.toolMessages!.last['name'], 'calculator');
+    // The run record keeps the replay trace.
+    final run = TurnRun.decode(last.runJson);
+    expect(run!.toolTrace, hasLength(1));
+    expect(run.toolTrace.first['ok'], isTrue);
+    expect(run.plainText(), contains('calculator('));
+  });
 
   test('an empty first search is retried with the bare keywords', () async {
     container.dispose();
@@ -2683,9 +2670,7 @@ void main() {
     'tool results that overflow the context are cut, never the question',
     () async {
       container.dispose();
-      engine = TestEngine()
-        ..toolBlock =
-            '```tool\n{"name": "read_url", "arguments": {"url": "https://example.com/evidence"}}\n```';
+      engine = TestEngine()..toolBlock = '```tool\n{"name": "read_url", "arguments": {"url": "https://example.com/evidence"}}\n```';
       container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
@@ -2774,92 +2759,89 @@ void main() {
     },
   );
 
-  test(
-    'research loop: a searchable question goes to the tools, not the pipeline',
-    () async {
-      container.dispose();
-      final search = TestSearch();
-      engine = TestEngine()..toolBlock = searchBlock;
-      container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(ResearchLoopSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-          duckDuckGoScraperProvider.overrideWithValue(search),
-          webPageReaderProvider.overrideWithValue(TestReader()),
-        ],
-      );
-      final n = container.read(chatProvider.notifier);
-      expect(await n.send('search for the latest Flutter version'), isTrue);
-      final last = container.read(chatProvider).messages.last;
-      expect(last.content, 'The answer is 42');
-      // The only search was the model's own call: the fixed pipeline did not run.
-      expect(search.calls, 1);
-      expect(last.reasoning, contains('search_web'));
-      final system = engine.receivedMessages!.first['content'] as String;
-      expect(system, isNot(contains('Research before answering')));
-      final question = engine.receivedMessages!.lastWhere(
-        (m) => m['role'] == 'user',
-      )['content'];
-      expect(question, contains('Research before answering'));
-      expect(question, contains('Research recipe:'));
-      expect(system, contains('MUST be a tool call'));
-      expect(system, isNot(contains('Live information is unavailable')));
-      // What the tools found is this answer's evidence.
-      expect(jsonDecode(last.sourcesJson) as List, isNotEmpty);
-      // A model that ignores the instruction gets a notice, not silence.
-      container.dispose();
-      final search3 = TestSearch();
-      engine = TestEngine();
-      container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(ResearchLoopSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-          duckDuckGoScraperProvider.overrideWithValue(search3),
-          webPageReaderProvider.overrideWithValue(TestReader()),
-        ],
-      );
-      expect(
-        await container
-            .read(chatProvider.notifier)
-            .send('search for the latest Flutter version'),
-        isTrue,
-      );
-      expect(search3.calls, 0);
-      expect(
-        container.read(chatProvider).notice,
-        contains('answered without searching'),
-      );
-      // Off by default: the same question takes the fixed pipeline.
-      container.dispose();
-      final search2 = TestSearch();
-      engine = TestEngine();
-      container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(WebTestSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-          duckDuckGoScraperProvider.overrideWithValue(search2),
-          webPageReaderProvider.overrideWithValue(TestReader()),
-        ],
-      );
-      expect(
-        await container
-            .read(chatProvider.notifier)
-            .send('search for the latest Flutter version'),
-        isTrue,
-      );
-      expect(search2.calls, greaterThanOrEqualTo(1));
-      expect(
-        engine.receivedMessages!.first['content'] as String,
-        isNot(contains('Research before answering')),
-      );
-    },
-  );
+  test('research loop: a searchable question goes to the tools, not the pipeline', () async {
+    container.dispose();
+    final search = TestSearch();
+    engine = TestEngine()..toolBlock = searchBlock;
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(ResearchLoopSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+        duckDuckGoScraperProvider.overrideWithValue(search),
+        webPageReaderProvider.overrideWithValue(TestReader()),
+      ],
+    );
+    final n = container.read(chatProvider.notifier);
+    expect(await n.send('search for the latest Flutter version'), isTrue);
+    final last = container.read(chatProvider).messages.last;
+    expect(last.content, 'The answer is 42');
+    // The only search was the model's own call: the fixed pipeline did not run.
+    expect(search.calls, 1);
+    expect(last.reasoning, contains('search_web'));
+    final system = engine.receivedMessages!.first['content'] as String;
+    expect(system, isNot(contains('Research before answering')));
+    final question = engine.receivedMessages!.lastWhere(
+      (m) => m['role'] == 'user',
+    )['content'];
+    expect(question, contains('Research before answering'));
+    expect(question, contains('Research recipe:'));
+    expect(system, contains('MUST be a tool call'));
+    expect(system, isNot(contains('Live information is unavailable')));
+    // What the tools found is this answer's evidence.
+    expect(jsonDecode(last.sourcesJson) as List, isNotEmpty);
+    // A model that ignores the instruction gets a notice, not silence.
+    container.dispose();
+    final search3 = TestSearch();
+    engine = TestEngine();
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(ResearchLoopSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+        duckDuckGoScraperProvider.overrideWithValue(search3),
+        webPageReaderProvider.overrideWithValue(TestReader()),
+      ],
+    );
+    expect(
+      await container
+          .read(chatProvider.notifier)
+          .send('search for the latest Flutter version'),
+      isTrue,
+    );
+    expect(search3.calls, 0);
+    expect(
+      container.read(chatProvider).notice,
+      contains('answered without searching'),
+    );
+    // Off by default: the same question takes the fixed pipeline.
+    container.dispose();
+    final search2 = TestSearch();
+    engine = TestEngine();
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(WebTestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+        duckDuckGoScraperProvider.overrideWithValue(search2),
+        webPageReaderProvider.overrideWithValue(TestReader()),
+      ],
+    );
+    expect(
+      await container
+          .read(chatProvider.notifier)
+          .send('search for the latest Flutter version'),
+      isTrue,
+    );
+    expect(search2.calls, greaterThanOrEqualTo(1));
+    expect(
+      engine.receivedMessages!.first['content'] as String,
+      isNot(contains('Research before answering')),
+    );
+  });
 
   test(
     'chat overrides persist with the chat and decide the turn settings',
