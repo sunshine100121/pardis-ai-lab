@@ -549,7 +549,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
   Future<bool> setAndroidTtsEngine(String engine) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
     await _initTts();
-    final previous = await _tts!.getDefaultEngine();
+    final previous = await _tts!.getDefaultEngine as String?;
     try {
       await _tts!.setEngine(engine);
       final voices = await _tts!.getVoices;
