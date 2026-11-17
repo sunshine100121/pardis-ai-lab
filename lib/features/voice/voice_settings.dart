@@ -41,13 +41,16 @@ class NaturalVoiceSettings extends ConsumerWidget {
           onChanged: (v) => n.update(s.copyWith(naturalVoice: v)),
         ),
         if (s.naturalVoice) ...[
-          const _ReadingVoiceTile(),
+          if (naturalVoiceSpeaks(voiceLanguage(s.localeCode)))
+            const _ReadingVoiceTile(),
           const _VoiceDownloadRow(),
           // Offered once the voice pack is in, or while Parakeet is.
           if (packs.of(VoiceModels.listening).status == VoicePackStatus.ready ||
               packs.of(VoiceModels.parakeet).status != VoicePackStatus.missing)
             const _ListeningModelTile(),
-          if (packs.canSpeakWith(s.readingVoice)) const _VoicePicker(),
+          if (naturalVoiceSpeaks(voiceLanguage(s.localeCode)) &&
+              packs.canSpeakWith(s.readingVoice))
+            const _VoicePicker(),
           SettingsSwitchRow(
             key: const Key('talk-over'),
             secondary: const Icon(Icons.record_voice_over_outlined),
@@ -200,9 +203,11 @@ class _VoiceDownloadRow extends ConsumerWidget {
     final c = context.colors;
     final packs = ref.watch(voiceModelsProvider);
     final notifier = ref.read(voiceModelsProvider.notifier);
-    final selectedPacks = VoiceModels.packsFor(
-      ref.watch(settingsProvider).readingVoice,
-    );
+    final settings = ref.watch(settingsProvider);
+    final persian = voiceLanguage(settings.localeCode) == 'fa';
+    final selectedPacks = persian
+        ? [VoiceModels.listening]
+        : VoiceModels.packsFor(settings.readingVoice);
     final states = [for (final p in selectedPacks) packs.of(p)];
     final missing = [
       for (final p in selectedPacks)
@@ -271,7 +276,9 @@ class _VoiceDownloadRow extends ConsumerWidget {
       key: const Key('voice-download'),
       leading: const Icon(Icons.download_for_offline_outlined),
       title: Text(
-        '${context.l10n.voiceListeningPack} · ${ref.watch(settingsProvider).readingVoice == VoiceModels.supertonic.id ? context.l10n.supertonicSpeakingPack : context.l10n.voiceSpeakingPack}',
+        persian
+            ? context.l10n.voiceListeningPack
+            : '${context.l10n.voiceListeningPack} · ${settings.readingVoice == VoiceModels.supertonic.id ? context.l10n.supertonicSpeakingPack : context.l10n.voiceSpeakingPack}',
       ),
       // The button sits under the title: a long label (French, large text)
       // must not squeeze the tile.

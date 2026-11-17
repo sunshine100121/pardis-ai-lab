@@ -146,6 +146,26 @@ void main() {
     );
   });
 
+  testWidgets('Persian settings preserve installed speech pack and download only Whisper', (
+    tester,
+  ) async {
+    final container = await pump(
+      tester,
+      ready: {VoiceModels.speaking.id},
+      settings: const InferenceSettings(localeCode: 'fa', naturalVoice: true),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('kokoro-voice')), findsNothing);
+    expect(find.byKey(const Key('reading-kokoro')), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('voice-add')));
+    await tester.tap(find.byKey(const Key('voice-add')));
+    await tester.pump();
+    final packs = container.read(voiceModelsProvider.notifier) as _Packs;
+    expect(packs.downloaded, [VoiceModels.listening]);
+    expect(container.read(voiceModelsProvider).canSpeak, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'selecting missing Supertonic offers its download and preserves Kokoro',
     (tester) async {
