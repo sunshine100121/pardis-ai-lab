@@ -1862,6 +1862,7 @@
   "noticeResearchSkipped": "The model answered without searching, so nothing here was verified this turn. Regenerate, or turn Model-driven research off to use the fixed search.",
   "noticeNoSourcesWebOff": "Web research is off, so the model had no sources. Tap the Local pill to turn it on.",
   "noticeNoSourcesNoSearch": "No search ran for this message, so the model had no sources. Switch the pill to Web · always, or ask with \"search for …\".",
+  "noticeModelKnowledge": "Source [0]: model knowledge; no source was retrieved for this answer.",
   "noticeStoriesCount": "{count, plural, =1{1 story} other{{count} stories}}",
   "@noticeStoriesCount": {
     "placeholders": {

@@ -1430,6 +1430,7 @@
   "noticeResearchSkipped": "El modelo respondió sin buscar, así que nada se verificó en este turno. Regenera o desactiva la investigación guiada por el modelo para usar la búsqueda fija.",
   "noticeNoSourcesWebOff": "La investigación web está desactivada, así que el modelo no tenía fuentes. Toca la pastilla Local para activarla.",
   "noticeNoSourcesNoSearch": "No se hizo ninguna búsqueda para este mensaje, así que el modelo no tenía fuentes. Cambia la pastilla a Web · siempre o pide «busca …».",
+  "noticeModelKnowledge": "Fuente [0]: conocimiento del modelo; no se recuperaron fuentes para esta respuesta.",
   "noticeStoriesCount": "{count, plural, =1{1 noticia} other{{count} noticias}}",
   "noticeOutletsCount": "{count, plural, =1{1 medio} other{{count} medios}}",
   "noticeArticlesRead": "{count, plural, =1{1 artículo leído} other{{count} artículos leídos}}",

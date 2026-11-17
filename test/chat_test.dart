@@ -1447,6 +1447,13 @@ void main() {
     );
   });
 
+  test('no-source model answers are marked as model knowledge', () async {
+    final n = container.read(chatProvider.notifier);
+    await n.send('What is Mars?');
+    expect(container.read(chatProvider).notice, contains('Source [0]'));
+    expect(container.read(chatProvider).messages.last.sourcesJson, '[]');
+  });
+
   test('evidence travels with the question in the last user turn', () async {
     container.dispose();
     container = ProviderContainer(

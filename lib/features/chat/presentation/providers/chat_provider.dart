@@ -2704,6 +2704,11 @@ class ChatNotifier extends _ChatBase
       return AnswerChecks.groundingNotice(answer, sources.length, _t) ??
           doubted();
     }
+    if (!AnswerChecks.refusal.hasMatch(answer) &&
+        t.appAnswer == null &&
+        t.attachments.isEmpty) {
+      return _t.noticeModelKnowledge;
+    }
     if (!AnswerChecks.refusal.hasMatch(answer)) return null;
     if (ref.read(settingsProvider).webMode == WebMode.off) {
       return _t.noticeNoSourcesWebOff;
