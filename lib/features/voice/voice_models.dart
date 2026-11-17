@@ -70,8 +70,7 @@ class VoiceModels {
       ),
       VoiceFile(
         fileName: 'silero_vad.onnx',
-        url:
-            'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx',
+        url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx',
         sha256:
             '9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6',
         sizeBytes: 643854,
@@ -138,8 +137,7 @@ class VoiceModels {
       ),
       VoiceFile(
         fileName: 'silero_vad.onnx',
-        url:
-            'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx',
+        url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx',
         sha256:
             '9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6',
         sizeBytes: 643854,
@@ -163,8 +161,7 @@ class VoiceModels {
     files: [
       VoiceFile(
         fileName: 'kokoro-multi-lang-v1_0.tar.bz2',
-        url:
-            'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2',
+        url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2',
         sha256:
             '60703707bc05ccd48d60e1eb723f38b07d6e474795a0b6a588d7220400e0f7a4',
         sizeBytes: 349886476,
@@ -180,8 +177,7 @@ class VoiceModels {
     files: [
       VoiceFile(
         fileName: 'sherpa-onnx-supertonic-tts-int8-2026-03-06.tar.bz2',
-        url:
-            'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-tts-int8-2026-03-06.tar.bz2',
+        url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-tts-int8-2026-03-06.tar.bz2',
         sha256:
             '8c74359f63edd5045d47747f65331f0f6dbcbc91d7e898dd756d631295fe3259',
         sizeBytes: 84692981,
@@ -222,9 +218,9 @@ class VoiceModels {
       ].every((relative) => File(p.join(dir.path, relative)).existsSync());
     }
     if (pack.unpackTo != null) {
-      Future<bool> ready(String folder) async => File(
-        p.join(await ModelStorage.resourcePath(folder), readyMarker),
-      ).exists();
+      Future<bool> ready(String folder) async =>
+          File(p.join(await ModelStorage.resourcePath(folder), readyMarker))
+              .exists();
       return await ready(pack.unpackTo!) ||
           (pack.id == speaking.id && await ready(legacySpeakingDir));
     }
@@ -241,9 +237,8 @@ class VoiceModels {
     final target = pack.unpackTo;
     if (target == null) return;
     final dir = await ModelStorage.modelsDir();
-    final archive = (await ModelStorage.modelFile(
-      pack.files.single.fileName,
-    )).path;
+    final archive = (await ModelStorage.modelFile(pack.files.single.fileName))
+        .path;
     final out = p.join(dir.path, target);
     await Isolate.run(() => unpackArchive(archive, out));
     await File(archive).delete();
@@ -284,7 +279,10 @@ class VoiceModels {
       for (final entry in entries) {
         if (!entry.isFile || entry.isSymbolicLink) continue;
         final normalized = p.posix.normalize(entry.name);
-        if (normalized.startsWith('/') || normalized == '..' || normalized.startsWith('../')) continue;
+        if (normalized.startsWith('/') ||
+            normalized == '..' ||
+            normalized.startsWith('../'))
+          continue;
         final parts = normalized.split('/');
         if (parts.length < 2 || parts.contains('..')) continue;
         final relative = parts.skip(1).join('/');

@@ -261,7 +261,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
     if (!_alive || epoch != _listenEpoch) return;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      final voskPath = explicitVosk ? await VoiceModels.voskPersianPath() : null;
+      final voskPath = explicitVosk
+          ? await VoiceModels.voskPersianPath()
+          : null;
       if (explicitVosk && voskPath == null) {
         state = state.copyWith(
           listening: false,
@@ -551,17 +553,19 @@ class VoiceNotifier extends Notifier<VoiceState> {
     try {
       await _tts!.setEngine(engine);
       final voices = await _tts!.getVoices;
-      final hasOfflinePersian = voices is List && voices.any((voice) {
-        if (voice is! Map || voice['locale'] is! String) return false;
-        final language = (voice['locale'] as String)
-            .split(RegExp(r'[-_]'))
-            .first
-            .toLowerCase();
-        return language == 'fa' &&
-            (voice['network_required'] == '0' ||
-                voice['network_required'] == false) &&
-            !'${voice['features'] ?? ''}'.contains('notInstalled');
-      });
+      final hasOfflinePersian =
+          voices is List &&
+          voices.any((voice) {
+            if (voice is! Map || voice['locale'] is! String) return false;
+            final language = (voice['locale'] as String)
+                .split(RegExp(r'[-_]'))
+                .first
+                .toLowerCase();
+            return language == 'fa' &&
+                (voice['network_required'] == '0' ||
+                    voice['network_required'] == false) &&
+                !'${voice['features'] ?? ''}'.contains('notInstalled');
+          });
       if (!hasOfflinePersian) {
         if (previous is String && previous.isNotEmpty) {
           await _tts!.setEngine(previous);
@@ -576,7 +580,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
       return saved;
     } catch (_) {
       if (previous is String && previous.isNotEmpty) {
-        try { await _tts!.setEngine(previous); } catch (_) {}
+        try {
+          await _tts!.setEngine(previous);
+        } catch (_) {}
       }
       return false;
     }
@@ -625,8 +631,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
   /// reports as local ("0"). Windows voices (SAPI/OneCore) are all local.
   Future<bool> _selectOfflineVoice() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
-    final savedEngine = (await SharedPreferences.getInstance())
-        .getString(_androidTtsEngineKey);
+    final savedEngine = (await SharedPreferences.getInstance()).getString(
+      _androidTtsEngineKey,
+    );
     if (savedEngine != null && savedEngine.isNotEmpty) {
       try {
         await _tts!.setEngine(savedEngine);
@@ -637,8 +644,13 @@ class VoiceNotifier extends Notifier<VoiceState> {
     String? preferredVoice;
     try {
       final current = await _tts!.getDefaultVoice;
-      if (current is Map && current['name'] is String && current['locale'] is String &&
-          (current['locale'] as String).split(RegExp(r'[-_]')).first.toLowerCase() ==
+      if (current is Map &&
+          current['name'] is String &&
+          current['locale'] is String &&
+          (current['locale'] as String)
+                  .split(RegExp(r'[-_]'))
+                  .first
+                  .toLowerCase() ==
               voiceLanguageForText(
                 ref.read(settingsProvider).localeCode,
                 _spokenText,

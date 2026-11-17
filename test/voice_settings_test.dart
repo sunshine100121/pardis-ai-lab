@@ -81,7 +81,13 @@ void main() {
   });
 
   test('legacy and new listening preferences survive settings decoding', () {
-    for (final value in ['', 'parakeet-v3', 'android-local', 'whisper-fa', 'vosk-fa']) {
+    for (final value in [
+      '',
+      'parakeet-v3',
+      'android-local',
+      'whisper-fa',
+      'vosk-fa',
+    ]) {
       final settings = InferenceSettings.fromJson({'listeningModel': value});
       expect(settings.listeningModel, value);
       expect(
@@ -234,25 +240,43 @@ void main() {
     },
   );
 
-  testWidgets('Vosk must be installed before selection and stays independent', (tester) async {
+  testWidgets('Vosk must be installed before selection and stays independent', (
+    tester,
+  ) async {
     final container = await pump(
       tester,
       ready: {VoiceModels.listening.id, VoiceModels.speaking.id},
-      settings: const InferenceSettings(localeCode: 'fa', readingVoice: 'supertonic-2'),
+      settings: const InferenceSettings(
+        localeCode: 'fa',
+        readingVoice: 'supertonic-2',
+      ),
     );
-    expect(tester.widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk'))).onSelected, isNull);
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk')))
+          .onSelected,
+      isNull,
+    );
     await tester.tap(find.byKey(const Key('vosk-download')));
     await tester.pump();
     final notifier = container.read(voiceModelsProvider.notifier) as _Packs;
     expect(notifier.downloaded, [VoiceModels.voskPersian]);
     await tester.pump();
-    expect(tester.widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk'))).onSelected, isNotNull);
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const Key('persian-stt-vosk')))
+          .onSelected,
+      isNotNull,
+    );
     await tester.tap(find.byKey(const Key('persian-stt-vosk')));
     await tester.pump();
     final settings = container.read(settingsProvider);
     expect(settings.listeningModel, 'vosk-fa');
     expect(settings.readingVoice, 'supertonic-2');
-    expect(InferenceSettings.fromJson(settings.toJson()).listeningModel, 'vosk-fa');
+    expect(
+      InferenceSettings.fromJson(settings.toJson()).listeningModel,
+      'vosk-fa',
+    );
   });
 
   testWidgets(

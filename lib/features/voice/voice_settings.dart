@@ -91,8 +91,10 @@ class _PersianEngines extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final packs = ref.watch(voiceModelsProvider);
-    final ready = packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
-    final voskReady = packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
+    final ready =
+        packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
+    final voskReady =
+        packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
     return SettingsRow(
       key: const Key('persian-voice-engines'),
       leading: const Icon(Icons.hearing_outlined),
@@ -105,15 +107,32 @@ class _PersianEngines extends ConsumerWidget {
             spacing: AppDesign.xs,
             children: [
               FutureBuilder<Map<String, dynamic>>(
-                future: OfflineDictation.capabilities().catchError((_) => <String, dynamic>{}),
+                future: OfflineDictation.capabilities().catchError(
+                  (_) => <String, dynamic>{},
+                ),
                 builder: (context, snapshot) {
-                  final available = snapshot.data?['androidOfflineAvailable'] == true;
+                  final available =
+                      snapshot.data?['androidOfflineAvailable'] == true;
                   return ChoiceChip(
                     key: const Key('persian-stt-android'),
-                    label: Text(available ? 'Android · آماده' : 'Android · آفلاین ناموجود'),
-                    selected: (settings.listeningModel == 'android-local' || settings.listeningModel.isEmpty) && available,
-                    onSelected: available ? (_) => ref.read(settingsProvider.notifier)
-                        .update(settings.copyWith(listeningModel: 'android-local')) : null,
+                    label: Text(
+                      available
+                          ? 'Android · آماده'
+                          : 'Android · آفلاین ناموجود',
+                    ),
+                    selected:
+                        (settings.listeningModel == 'android-local' ||
+                            settings.listeningModel.isEmpty) &&
+                        available,
+                    onSelected: available
+                        ? (_) => ref
+                              .read(settingsProvider.notifier)
+                              .update(
+                                settings.copyWith(
+                                  listeningModel: 'android-local',
+                                ),
+                              )
+                        : null,
                   );
                 },
               ),
@@ -131,10 +150,15 @@ class _PersianEngines extends ConsumerWidget {
               ),
               ChoiceChip(
                 key: const Key('persian-stt-vosk'),
-                label: Text(voskReady ? 'Vosk فارسی · آماده' : 'Vosk فارسی · نصب نشده'),
+                label: Text(
+                  voskReady ? 'Vosk فارسی · آماده' : 'Vosk فارسی · نصب نشده',
+                ),
                 selected: settings.listeningModel == 'vosk-fa' && voskReady,
-                onSelected: voskReady ? (_) => ref.read(settingsProvider.notifier)
-                    .update(settings.copyWith(listeningModel: 'vosk-fa')) : null,
+                onSelected: voskReady
+                    ? (_) => ref
+                          .read(settingsProvider.notifier)
+                          .update(settings.copyWith(listeningModel: 'vosk-fa'))
+                    : null,
               ),
             ],
           ),
@@ -152,37 +176,59 @@ class _VoskDownloadRow extends ConsumerWidget {
     const pack = VoiceModels.voskPersian;
     final state = ref.watch(voiceModelsProvider).of(pack);
     final notifier = ref.read(voiceModelsProvider.notifier);
-    final percent = (state.received * 100 / pack.sizeBytes).clamp(0, 100).round();
+    final percent = (state.received * 100 / pack.sizeBytes)
+        .clamp(0, 100)
+        .round();
     final Widget action = switch (state.status) {
       VoicePackStatus.ready => OutlinedButton.icon(
-        key: const Key('vosk-remove'), onPressed: () async {
+        key: const Key('vosk-remove'),
+        onPressed: () async {
           await notifier.delete(pack);
           final settings = ref.read(settingsProvider);
           if (settings.listeningModel == 'vosk-fa') {
-            await ref.read(settingsProvider.notifier).update(
-              settings.copyWith(listeningModel: ''),
-            );
+            await ref
+                .read(settingsProvider.notifier)
+                .update(settings.copyWith(listeningModel: ''));
           }
         },
-        icon: const Icon(Icons.delete_outline), label: const Text('حذف مدل')),
+        icon: const Icon(Icons.delete_outline),
+        label: const Text('حذف مدل'),
+      ),
       VoicePackStatus.downloading => OutlinedButton.icon(
-        key: const Key('vosk-pause'), onPressed: () => notifier.pause(pack),
-        icon: const Icon(Icons.pause), label: Text('توقف · $percent%')),
-      VoicePackStatus.unpacking => const OutlinedButton(onPressed: null, child: Text('آماده‌سازی مدل…')),
+        key: const Key('vosk-pause'),
+        onPressed: () => notifier.pause(pack),
+        icon: const Icon(Icons.pause),
+        label: Text('توقف · $percent%'),
+      ),
+      VoicePackStatus.unpacking => const OutlinedButton(
+        onPressed: null,
+        child: Text('آماده‌سازی مدل…'),
+      ),
       VoicePackStatus.missing => FilledButton.tonalIcon(
-        key: const Key('vosk-download'), onPressed: () => notifier.download(pack),
+        key: const Key('vosk-download'),
+        onPressed: () => notifier.download(pack),
         icon: const Icon(Icons.download_outlined),
-        label: Text(state.received > 0 ? 'ادامه دریافت · $percent%' : 'دریافت مدل Vosk · 51 MB')),
+        label: Text(
+          state.received > 0
+              ? 'ادامه دریافت · $percent%'
+              : 'دریافت مدل Vosk · 51 MB',
+        ),
+      ),
     };
     return SettingsRow(
       key: const Key('vosk-model-manager'),
       leading: const Icon(Icons.download_for_offline_outlined),
       title: const Text('مدل Vosk فارسی'),
-      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('مدل موبایل رسمی · Apache 2.0 · دانلود انتخابی'),
-        if (state.error != null) Text(state.error!, style: TextStyle(color: context.colors.warning)),
-        const SizedBox(height: AppDesign.xs), action,
-      ]),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('مدل موبایل رسمی · Apache 2.0 · دانلود انتخابی'),
+          if (state.error != null)
+            Text(state.error!, style: TextStyle(color: context.colors.warning)),
+          const SizedBox(height: AppDesign.xs),
+          action,
+        ],
+      ),
     );
   }
 }
@@ -190,7 +236,8 @@ class _VoskDownloadRow extends ConsumerWidget {
 class _AndroidPersianSttModel extends StatefulWidget {
   const _AndroidPersianSttModel();
   @override
-  State<_AndroidPersianSttModel> createState() => _AndroidPersianSttModelState();
+  State<_AndroidPersianSttModel> createState() =>
+      _AndroidPersianSttModelState();
 }
 
 class _AndroidPersianSttModelState extends State<_AndroidPersianSttModel> {
@@ -220,37 +267,57 @@ class _AndroidPersianSttModelState extends State<_AndroidPersianSttModel> {
           key: const Key('android-stt-model-status'),
           leading: const Icon(Icons.download_for_offline_outlined),
           title: const Text('مدل گفتار Android'),
-          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(pending ? 'دریافت مدل فارسی در انتظار سیستم است.' : 'فارسی پشتیبانی می‌شود؛ مدل دستگاه هنوز نصب نیست.'),
-            OutlinedButton.icon(
-              key: const Key('android-stt-download'),
-              onPressed: _busy || pending ? null : () async {
-                setState(() => _busy = true);
-                try {
-                  await OfflineDictation.requestAndroidPersianModel();
-                  await Future<void>.delayed(const Duration(seconds: 2));
-                  if (mounted) setState(() => _status = _read());
-                } catch (_) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('سیستم اندروید دریافت مدل فارسی را نپذیرفت.')),
-                  );
-                } finally {
-                  if (mounted) setState(() => _busy = false);
-                }
-              },
-              icon: const Icon(Icons.download_outlined),
-              label: Text(_busy ? 'درخواست دریافت…' : 'درخواست دریافت مدل دستگاه'),
-            ),
-          ]),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                pending
+                    ? 'دریافت مدل فارسی در انتظار سیستم است.'
+                    : 'فارسی پشتیبانی می‌شود؛ مدل دستگاه هنوز نصب نیست.',
+              ),
+              OutlinedButton.icon(
+                key: const Key('android-stt-download'),
+                onPressed: _busy || pending
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        try {
+                          await OfflineDictation.requestAndroidPersianModel();
+                          await Future<void>.delayed(
+                            const Duration(seconds: 2),
+                          );
+                          if (mounted) setState(() => _status = _read());
+                        } catch (_) {
+                          if (mounted)
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'سیستم اندروید دریافت مدل فارسی را نپذیرفت.',
+                                ),
+                              ),
+                            );
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
+                        }
+                      },
+                icon: const Icon(Icons.download_outlined),
+                label: Text(
+                  _busy ? 'درخواست دریافت…' : 'درخواست دریافت مدل دستگاه',
+                ),
+              ),
+            ],
+          ),
         );
       }
       return SettingsRow(
         key: const Key('android-stt-model-status'),
         leading: const Icon(Icons.info_outline),
         title: const Text('مدل گفتار Android'),
-        subtitle: Text(data.isEmpty
-            ? 'وضعیت زبان فارسی از این نسخه Android قابل بررسی نیست.'
-            : 'موتور نصب‌شده پشتیبانی آفلاین فارسی را اعلام نمی‌کند.'),
+        subtitle: Text(
+          data.isEmpty
+              ? 'وضعیت زبان فارسی از این نسخه Android قابل بررسی نیست.'
+              : 'موتور نصب‌شده پشتیبانی آفلاین فارسی را اعلام نمی‌کند.',
+        ),
       );
     },
   );
@@ -272,13 +339,17 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
     try {
       final tts = FlutterTts();
       final raw = await tts.getEngines;
-      final engines = raw is List ? raw.whereType<String>().toList() : <String>[];
+      final engines = raw is List
+          ? raw.whereType<String>().toList()
+          : <String>[];
       final prefs = await SharedPreferences.getInstance();
       final system = await tts.getDefaultEngine as String?;
       _selected = prefs.getString(_key) ?? system;
       if (!engines.contains(_selected)) _selected = null;
       return (engines, _selected);
-    } catch (_) { return (<String>[], null); }
+    } catch (_) {
+      return (<String>[], null);
+    }
   }
 
   @override
@@ -286,51 +357,89 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
     key: const Key('persian-tts-engine-manager'),
     leading: const Icon(Icons.record_voice_over_outlined),
     title: const Text('موتور گفتار فارسی'),
-    subtitle: FutureBuilder<(List<String>, String?)>(future: _engines, builder: (context, snapshot) {
-      final engines = snapshot.data?.$1 ?? const <String>[];
-      if (engines.isEmpty) return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('موتور گفتار سیستم در دسترس نیست یا هنوز نصب نشده است.'),
-          TextButton.icon(
-            key: const Key('open-tts-settings'),
-            onPressed: () => OfflineDictation.openSystemTtsSettings(),
-            icon: const Icon(Icons.settings_outlined),
-            label: const Text('مدیریت موتورهای گفتار Android'),
-          ),
-        ],
-      );
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        DropdownButton<String>(
-          key: const Key('persian-tts-engine'), isExpanded: true, value: _selected,
-          hint: const Text('موتور نصب‌شده را انتخاب کنید'),
-          items: [for (final engine in engines) DropdownMenuItem(
-            value: engine, child: Text(VoiceEngineCatalog.androidEngineName(engine))),],
-          onChanged: _busy ? null : (engine) async {
-            if (engine == null) return;
-            setState(() => _busy = true);
-            final ok = await ref.read(voiceProvider.notifier).setAndroidTtsEngine(engine);
-            if (!mounted) return;
-            setState(() { _busy = false; if (ok) _selected = engine; });
-            if (!ok) ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('این موتور صدای فارسی آفلاین ندارد؛ انتخاب قبلی حفظ شد.')),
-            );
-          },
-        ),
-        Text(_selected == null ? 'موتور پیش‌فرض فعلی سیستم حفظ شده است.' : 'موتور فعال: $_selected'),
-        TextButton.icon(
-          key: const Key('open-tts-settings'),
-          onPressed: () => OfflineDictation.openSystemTtsSettings(),
-          icon: const Icon(Icons.settings_outlined),
-          label: const Text('نصب یا مدیریت موتورهای Android'),
-        ),
-        TextButton.icon(
-          key: const Key('persian-tts-try'),
-          onPressed: () => ref.read(voiceProvider.notifier).speak('سلام، این یک آزمایش صدای فارسی است.', id: 'persian-voice-sample'),
-          icon: const Icon(Icons.play_arrow, size: 18), label: const Text('آزمایش صدا'),
-        ),
-      ]);
-    }),
+    subtitle: FutureBuilder<(List<String>, String?)>(
+      future: _engines,
+      builder: (context, snapshot) {
+        final engines = snapshot.data?.$1 ?? const <String>[];
+        if (engines.isEmpty)
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'موتور گفتار سیستم در دسترس نیست یا هنوز نصب نشده است.',
+              ),
+              TextButton.icon(
+                key: const Key('open-tts-settings'),
+                onPressed: () => OfflineDictation.openSystemTtsSettings(),
+                icon: const Icon(Icons.settings_outlined),
+                label: const Text('مدیریت موتورهای گفتار Android'),
+              ),
+            ],
+          );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButton<String>(
+              key: const Key('persian-tts-engine'),
+              isExpanded: true,
+              value: _selected,
+              hint: const Text('موتور نصب‌شده را انتخاب کنید'),
+              items: [
+                for (final engine in engines)
+                  DropdownMenuItem(
+                    value: engine,
+                    child: Text(VoiceEngineCatalog.androidEngineName(engine)),
+                  ),
+              ],
+              onChanged: _busy
+                  ? null
+                  : (engine) async {
+                      if (engine == null) return;
+                      setState(() => _busy = true);
+                      final ok = await ref
+                          .read(voiceProvider.notifier)
+                          .setAndroidTtsEngine(engine);
+                      if (!mounted) return;
+                      setState(() {
+                        _busy = false;
+                        if (ok) _selected = engine;
+                      });
+                      if (!ok)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'این موتور صدای فارسی آفلاین ندارد؛ انتخاب قبلی حفظ شد.',
+                            ),
+                          ),
+                        );
+                    },
+            ),
+            Text(
+              _selected == null
+                  ? 'موتور پیش‌فرض فعلی سیستم حفظ شده است.'
+                  : 'موتور فعال: $_selected',
+            ),
+            TextButton.icon(
+              key: const Key('open-tts-settings'),
+              onPressed: () => OfflineDictation.openSystemTtsSettings(),
+              icon: const Icon(Icons.settings_outlined),
+              label: const Text('نصب یا مدیریت موتورهای Android'),
+            ),
+            TextButton.icon(
+              key: const Key('persian-tts-try'),
+              onPressed: () => ref
+                  .read(voiceProvider.notifier)
+                  .speak(
+                    'سلام، این یک آزمایش صدای فارسی است.',
+                    id: 'persian-voice-sample',
+                  ),
+              icon: const Icon(Icons.play_arrow, size: 18),
+              label: const Text('آزمایش صدا'),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }
 

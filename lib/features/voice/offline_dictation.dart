@@ -6,7 +6,8 @@ class OfflineDictation {
   static const channel = MethodChannel('ondevice_llm/offline_dictation');
   static Future<Map<String, dynamic>> capabilities() async =>
       Map<String, dynamic>.from(
-        await channel.invokeMapMethod<String, dynamic>('capabilities') ?? const {},
+        await channel.invokeMapMethod<String, dynamic>('capabilities') ??
+            const {},
       );
   static Future<void> requestAndroidPersianModel() =>
       channel.invokeMethod<void>('downloadAndroidFa');
