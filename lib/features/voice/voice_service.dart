@@ -10,6 +10,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import '../../core/l10n/l10n.dart';
 import '../../core/platform/desktop_host.dart';
 import '../../core/utils/inference_admission.dart';
+import '../settings/domain/entities/inference_settings.dart';
 import '../settings/presentation/providers/settings_provider.dart';
 import 'desktop_voice_policy.dart';
 import 'offline_dictation.dart';
@@ -220,9 +221,20 @@ class VoiceNotifier extends Notifier<VoiceState> {
   }) async {
     if (state.listening) return stop();
     final epoch = ++_listenEpoch;
+    final selectedSettings = ref.read(settingsProvider);
+    final explicitWhisper = voiceLanguage(selectedSettings.localeCode) == 'fa' &&
+        selectedSettings.listeningModel == 'whisper-fa';
+    if (explicitWhisper && !_naturalListening()) {
+      state = state.copyWith(listening: false, error: 'مدل Whisper آماده نیست؛ وضعیت دانلود را بررسی کنید.');
+      return;
+    }
     if (_naturalListening()) {
       try {
         if (await _listenWhisper(onText, onFinal)) return;
+        if (explicitWhisper && _alive && epoch == _listenEpoch) {
+          state = state.copyWith(listening: false, error: 'شروع Whisper ناموفق بود؛ موتور دیگری به‌طور خودکار انتخاب نشد.');
+          return;
+        }
       } on PlatformException catch (e) {
         if (e.code == 'microphone_denied') {
           state = state.copyWith(
@@ -324,10 +336,20 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
   }
 
-  bool _naturalListening() => offlineVoiceReady(
-    enabled: ref.read(settingsProvider).naturalVoice,
-    installed: ref.read(voiceModelsProvider).canListen,
-  );
+  bool _naturalListening() {
+    final settings = ref.read(settingsProvider);
+    final packs = ref.read(voiceModelsProvider);
+    if (settings.listeningModel == 'android-local') return false;
+    if (voiceLanguage(settings.localeCode) == 'fa') {
+      if (settings.listeningModel == VoiceModels.parakeetSetting) return false;
+      return (settings.listeningModel == 'whisper-fa' || settings.naturalVoice) &&
+          packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
+    }
+    return offlineVoiceReady(
+      enabled: settings.naturalVoice,
+      installed: packs.canListen,
+    );
+  }
 
   bool _naturalSpeaking() =>
       naturalVoiceSpeaks(
@@ -709,10 +731,12 @@ final sherpaVoiceProvider = Provider<SherpaVoice>((ref) {
     settingsProvider.select((s) => s.readingVoice),
     (_, id) => voice.readingVoice = id,
   );
-  voice.listeningModel = ref.read(settingsProvider).listeningModel;
+  String effectiveListeningModel(InferenceSettings settings) =>
+      voiceLanguage(settings.localeCode) == 'fa' ? '' : settings.listeningModel;
+  voice.listeningModel = effectiveListeningModel(ref.read(settingsProvider));
   ref.listen(
-    settingsProvider.select((s) => s.listeningModel),
-    (_, id) => voice.listeningModel = id,
+    settingsProvider.select((s) => (s.listeningModel, s.localeCode)),
+    (_, values) => voice.listeningModel = effectiveListeningModel(ref.read(settingsProvider)),
   );
   return voice;
 });

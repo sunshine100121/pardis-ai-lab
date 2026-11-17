@@ -22,6 +22,7 @@ class NaturalVoiceSettings extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final n = ref.read(settingsProvider.notifier);
     final packs = ref.watch(voiceModelsProvider);
+    final persian = voiceLanguage(s.localeCode) == 'fa';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -40,13 +41,18 @@ class NaturalVoiceSettings extends ConsumerWidget {
           value: s.naturalVoice,
           onChanged: (v) => n.update(s.copyWith(naturalVoice: v)),
         ),
+        if (persian) ...[
+          const _PersianEngines(),
+          const _VoiceDownloadRow(),
+        ],
         if (s.naturalVoice) ...[
           if (naturalVoiceSpeaks(voiceLanguage(s.localeCode)))
             const _ReadingVoiceTile(),
-          const _VoiceDownloadRow(),
+          if (!persian) const _VoiceDownloadRow(),
           // Offered once the voice pack is in, or while Parakeet is.
-          if (packs.of(VoiceModels.listening).status == VoicePackStatus.ready ||
-              packs.of(VoiceModels.parakeet).status != VoicePackStatus.missing)
+          if (!persian &&
+              (packs.of(VoiceModels.listening).status == VoicePackStatus.ready ||
+                  packs.of(VoiceModels.parakeet).status != VoicePackStatus.missing))
             const _ListeningModelTile(),
           if (naturalVoiceSpeaks(voiceLanguage(s.localeCode)) &&
               packs.canSpeakWith(s.readingVoice))
@@ -65,6 +71,71 @@ class NaturalVoiceSettings extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _PersianEngines extends ConsumerWidget {
+  const _PersianEngines();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final state = ref.watch(voiceModelsProvider).of(VoiceModels.listening);
+    final ready = state.status == VoicePackStatus.ready;
+    final whisper = ready &&
+        settings.listeningModel != 'android-local' &&
+        settings.listeningModel != VoiceModels.parakeetSetting &&
+        (settings.listeningModel == 'whisper-fa' || settings.naturalVoice);
+    return SettingsRow(
+      key: const Key('persian-voice-engines'),
+      leading: const Icon(Icons.hearing_outlined),
+      title: const Text('موتورهای صدا'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('شنیدن'),
+          Wrap(
+            spacing: AppDesign.xs,
+            children: [
+              ChoiceChip(
+                key: const Key('persian-stt-android'),
+                label: const Text('اندروید آفلاین'),
+                selected: !whisper && settings.listeningModel != 'whisper-fa',
+                onSelected: (_) => ref.read(settingsProvider.notifier).update(
+                  settings.copyWith(listeningModel: 'android-local'),
+                ),
+              ),
+              ChoiceChip(
+                key: const Key('persian-stt-whisper'),
+                label: Text(ready ? 'Whisper · آماده' : 'Whisper · نصب نشده'),
+                selected: whisper,
+                onSelected: ready
+                    ? (_) => ref.read(settingsProvider.notifier).update(
+                        settings.copyWith(listeningModel: 'whisper-fa'),
+                      )
+                    : null,
+              ),
+              const ChoiceChip(
+                key: Key('persian-stt-vosk'),
+                label: Text('Vosk فارسی · آماده نیست'),
+                selected: false,
+                onSelected: null,
+              ),
+            ],
+          ),
+          const Text('خواندن: صدای فارسی آفلاین اندروید؛ موتور در تنظیمات اندروید انتخاب می‌شود.'),
+          TextButton.icon(
+            key: const Key('persian-tts-try'),
+            onPressed: () => ref.read(voiceProvider.notifier).speak(
+              'سلام، این یک آزمایش صدای فارسی است.',
+              id: 'persian-voice-sample',
+            ),
+            icon: const Icon(Icons.play_arrow, size: 18),
+            label: const Text('آزمایش صدا'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1569,9 +1569,12 @@ class InferenceSettings {
       spokenSentences: integer('spokenSentences', 3, 0, 20),
       readingSpeed: number('readingSpeed', 1.0, .6, 1.6),
       conversationModelId: text('conversationModelId', 200),
-      listeningModel: text('listeningModel', 32) == 'parakeet-v3'
-          ? 'parakeet-v3'
-          : '',
+      listeningModel: switch (text('listeningModel', 32)) {
+        'parakeet-v3' => 'parakeet-v3',
+        'android-local' => 'android-local',
+        'whisper-fa' => 'whisper-fa',
+        _ => '',
+      },
       localeCode: const {'fa', 'en', 'fr', 'es'}.contains(text('localeCode', 8))
           ? text('localeCode', 8)
           : '',

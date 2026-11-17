@@ -463,6 +463,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     );
     _natural =
         nativeSpeechSupported &&
+        settings.listeningModel != 'android-local' &&
         offlineVoiceReady(
           enabled: settings.naturalVoice,
           installed:

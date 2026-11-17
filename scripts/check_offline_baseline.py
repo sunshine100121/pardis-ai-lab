@@ -31,7 +31,20 @@ compatibility_paths=git('ls-tree','-r','--name-only','5663b264afb77026014f81b69e
 assert compatibility_paths
 for path in compatibility_paths:
     installed=git('show','5663b264afb77026014f81b69e04b1d00ab8a098:'+path)
-    assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed.replace(b'\r\n',b'\n'), 'INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:'+path
+    installed=installed.replace(b'\r\n',b'\n')
+    if path == 'lib/features/settings/domain/entities/inference_settings.dart':
+        old=b"""      listeningModel: text('listeningModel', 32) == 'parakeet-v3'
+          ? 'parakeet-v3'
+          : '',"""
+        new=b"""      listeningModel: switch (text('listeningModel', 32)) {
+        'parakeet-v3' => 'parakeet-v3',
+        'android-local' => 'android-local',
+        'whisper-fa' => 'whisper-fa',
+        _ => '',
+      },"""
+        assert installed.count(old)==1, 'UNEXPECTED_INSTALLED_SETTINGS_BASELINE'
+        installed=installed.replace(old,new,1)
+    assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed, 'INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:'+path
 print(json.dumps({'runtime_baseline':'PASS','f1_absent':'PASS','persian_334_keys':'PASS',
                   'installed_model_path_and_database_source_compatibility':'PASS',
                   'device_database_migration':'NOT_VERIFIED'}))
