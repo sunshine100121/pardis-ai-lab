@@ -119,6 +119,9 @@ class FolderLibrary {
     Set<String> questionTerms,
   ) async {
     if (questionTerms.isEmpty) return const [];
+    if (bytes.length > maxDocumentBytes) {
+      throw const FormatException('سند برای خواندن مستقیم بزرگ است');
+    }
     await pdfrxFlutterInitialize();
     final document = await PdfDocument.openData(bytes);
     try {
@@ -400,9 +403,11 @@ class FolderLibrary {
           terms.isNotEmpty &&
           now.size >= 0 &&
           now.size <= maxDocumentBytes &&
-          !(f['passages'] as List).any(
-            (p) => terms.any(normalize(p['text'] as String).contains),
-          )) {
+          !(f['passages'] as List).any((p) {
+            final excerpt = normalize(p['text'] as String);
+            final overlap = terms.where(excerpt.contains).length;
+            return overlap >= (terms.length == 1 ? 1 : 2);
+          })) {
         try {
           final source = await access.open(f['uri'] as String);
           late Uint8List bytes;
@@ -417,6 +422,28 @@ class FolderLibrary {
             await source.close();
           }
           final matches = await findPdfPages(bytes, terms);
+          // A SAF grant, file revision or project selection may change
+          // during a long scan; do not return evidence from a stale source.
+          final still = await access.list();
+          final currentFile = still.files.where(
+            (item) => item.uri == f['uri'],
+          ).firstOrNull;
+          final saved = await state();
+          final approved = (saved['files'] as List).whereType<Map>().any(
+            (row) =>
+                row['uri'] == f['uri'] &&
+                row['enabled'] == true &&
+                row['size'] == now.size &&
+                row['modified'] == now.modified,
+          );
+          if (!approved ||
+              currentFile == null ||
+              currentFile.size != now.size ||
+              currentFile.modified != now.modified ||
+              currentFile.name != now.name) {
+            checks.add({'file': f['name'], 'code': 'changed'});
+            continue;
+          }
           for (final hit in matches) {
             final id = sourceId(f['uri'] as String);
             found.add((
@@ -424,7 +451,8 @@ class FolderLibrary {
               SearchResult(
                 title: (f['name'] as String) + ' · صفحه ' +
                     hit.page.toString(),
-                url: 'pala-knowledge://' + id,
+                url: 'pala-knowledge://' + id +
+                    '?page=' + hit.page.toString(),
                 snippet: '',
                 source: 'پوشه AI Knowledge',
                 rank: hit.score,
@@ -441,7 +469,9 @@ class FolderLibrary {
           continue;
         } catch (_) {
           checks.add({'file': f['name'], 'code': 'pdf_page_scan_failed'});
-          // Retain the existing preview on a deep-read failure.
+          // Do not substitute potentially stale preview evidence after
+          // the source failed its live read or permission checks.
+          continue;
         }
       }
       for (final p in f['passages'] as List) {
