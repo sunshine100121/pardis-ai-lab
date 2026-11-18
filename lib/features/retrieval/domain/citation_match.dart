@@ -49,6 +49,37 @@ class CitationMatch {
     return lines.join('\n');
   }
 
+  /// A citation's number must point to evidence that supports its sentence.
+  /// A plausible-looking in-range number alone is not proof. Verify the
+  /// claim against all supplied passages and attach only the best supported
+  /// source. Claims lacking a supporting passage stay visibly uncited.
+  static String verifyEvidence(String answer, List<String> sources) {
+    if (sources.isEmpty) return stripUnknown(answer, 0);
+    final prepared = ClaimPassages.prepare(sources);
+    final lines = answer.split('\n');
+    var code = false;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.trimLeft().startsWith('```')) {
+        code = !code;
+        continue;
+      }
+      if (code || line.trimLeft().startsWith('|')) continue;
+      lines[i] = line.split(_sentence).map((sentence) {
+        if (!_marker.hasMatch(sentence)) return sentence;
+        final plain = sentence.replaceAll(_marker, '').trim();
+        final supported = EvidenceRanker.terms(plain).length >= minWords
+            ? ClaimPassages.best(plain, prepared)
+            : null;
+        final verified = supported != null && supported.states
+            ? '[' + (supported.source + 1).toString() + ']'
+            : '';
+        return sentence.replaceAll(_marker, verified);
+      }).join(' ');
+    }
+    return lines.join('\n');
+  }
+
   /// [answer] with " [n]" after each sentence a source of [sources]
   /// supports, numbered from 1 in [sources] order. Unchanged when the
   /// answer already cites or nothing matches; with [fill], an answer that
