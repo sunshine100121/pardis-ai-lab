@@ -14,10 +14,14 @@ class ZimIndexStorage {
   final int maxDatabaseBytes, reserveBytes;
   final Future<int?> Function() availableBytes;
 
-  ZimIndexStorage({required this.directory, required this.availableBytes,
+  ZimIndexStorage({
+    required this.directory,
+    required this.availableBytes,
     this.maxDatabaseBytes = 256 * 1024 * 1024,
-    this.reserveBytes = defaultReserveBytes}) {
-    if (maxDatabaseBytes < 1 || reserveBytes < 0) throw ArgumentError('Invalid storage limit');
+    this.reserveBytes = defaultReserveBytes,
+  }) {
+    if (maxDatabaseBytes < 1 || reserveBytes < 0)
+      throw ArgumentError('Invalid storage limit');
   }
 
   /// Android's path provider and native storageInfo use getExternalFilesDir.
@@ -27,14 +31,18 @@ class ZimIndexStorage {
     try {
       final dir = await getExternalStorageDirectory();
       if (dir == null || !await dir.exists()) return null;
-      return ZimIndexStorage(directory: dir, availableBytes: () async =>
-        (await DeviceStorage.read())?.availableBytes);
+      return ZimIndexStorage(
+        directory: dir,
+        availableBytes: () async =>
+            (await DeviceStorage.read())?.availableBytes,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  String get indexPath => path.join(directory.path, 'pala-zim-content-index-v1.sqlite');
+  String get indexPath =>
+      path.join(directory.path, 'pala-zim-content-index-v1.sqlite');
 
   Future<bool> hasHeadroom() async {
     try {
