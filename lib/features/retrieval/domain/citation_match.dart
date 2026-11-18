@@ -22,6 +22,33 @@ class CitationMatch {
 
   static bool hasCitations(String answer) => _marker.hasMatch(answer);
 
+  /// A model citation is valid only when actual fetched evidence has its ID.
+  /// Keep Markdown code examples unchanged.
+  static String stripUnknown(String answer, int sourceCount) {
+    if (sourceCount < 0) throw ArgumentError('Invalid source count');
+    final marker = RegExp(r'\[([0-9]+(?:\s*,\s*[0-9]+)*)\]');
+    var code = false;
+    final lines = answer.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trimLeft().startsWith('```')) {
+        code = !code;
+        continue;
+      }
+      if (code) continue;
+      lines[i] = lines[i].replaceAllMapped(marker, (match) {
+        final valid = <int>{};
+        for (final part in match.group(1)!.split(',')) {
+          final number = int.tryParse(part.trim());
+          if (number != null && number > 0 && number <= sourceCount) {
+            valid.add(number);
+          }
+        }
+        return valid.isEmpty ? '' : '[' + valid.join(', ') + ']';
+      });
+    }
+    return lines.join('\n');
+  }
+
   /// [answer] with " [n]" after each sentence a source of [sources]
   /// supports, numbered from 1 in [sources] order. Unchanged when the
   /// answer already cites or nothing matches; with [fill], an answer that
