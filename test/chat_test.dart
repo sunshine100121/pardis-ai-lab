@@ -2890,6 +2890,7 @@ void main() {
           duckDuckGoScraperProvider.overrideWithValue(search),
           webPageReaderProvider.overrideWithValue(GapReader()),
           wikipediaClientProvider.overrideWithValue(wiki),
+          zimWikipediaProvider.overrideWith((ref) async => null),
         ],
       );
       await container
@@ -2930,6 +2931,7 @@ void main() {
           duckDuckGoScraperProvider.overrideWithValue(search),
           webPageReaderProvider.overrideWithValue(TestReader()),
           wikipediaClientProvider.overrideWithValue(wiki),
+          zimWikipediaProvider.overrideWith((ref) async => null),
         ],
       );
       await container
@@ -2964,6 +2966,7 @@ void main() {
           duckDuckGoScraperProvider.overrideWithValue(TestSearch()),
           webPageReaderProvider.overrideWithValue(TestReader()),
           wikipediaClientProvider.overrideWithValue(FakeWikipedia()),
+          zimWikipediaProvider.overrideWith((ref) async => null),
         ],
       );
       await container
