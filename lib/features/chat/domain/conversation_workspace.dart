@@ -142,7 +142,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       instructions: instructions.trim(),
       collection: collection.trim(),
       memoryNotes: notes.trim(),
-      sourceIds: List.unmodifiable(sourceIds ?? previous?.sourceIds ?? const []),
+      sourceIds: List.unmodifiable(
+        sourceIds ?? previous?.sourceIds ?? const [],
+      ),
     );
     return ConversationWorkspace(
       projects: [...s.projects.where((p) => p.id != id), project],

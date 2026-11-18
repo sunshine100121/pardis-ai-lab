@@ -34,7 +34,9 @@ class _Paths extends PathProviderPlatform {
 }
 
 void main() {
-  test('owner-edited project notes persist without mixing project scopes', () async {
+  test(
+    'owner-edited project notes persist without mixing project scopes',
+    () async {
     SharedPreferences.setMockInitialValues({});
     final first = ProviderContainer();
     addTearDown(first.dispose);
@@ -52,20 +54,20 @@ void main() {
     addTearDown(second.dispose);
     final restored = second.read(conversationWorkspaceProvider.notifier);
     await restored.ready;
-    expect(
-      second.read(conversationWorkspaceProvider).projectFor('garden-chat')?.memoryNotes,
-      'در این باغ آزمایشی یک درخت گردو وجود دارد.',
-    );
-    expect(
-      second.read(conversationWorkspaceProvider).projects.last.memoryNotes,
-      isEmpty,
-    );
-    await restored.saveProject(id: garden.id, name: garden.name);
-    expect(
-      second.read(conversationWorkspaceProvider).projectFor('garden-chat')?.memoryNotes,
-      'در این باغ آزمایشی یک درخت گردو وجود دارد.',
-    );
-  });
+      final stored = second.read(conversationWorkspaceProvider);
+      expect(
+        stored.projectFor('garden-chat')?.memoryNotes,
+        'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+      );
+      expect(stored.projects.last.memoryNotes, isEmpty);
+      await restored.saveProject(id: garden.id, name: garden.name);
+      final updated = second.read(conversationWorkspaceProvider);
+      expect(
+        updated.projectFor('garden-chat')?.memoryNotes,
+        'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+      );
+    },
+  );
 
   testWidgets('project tabs isolate drafts and scope the drawer history', (
     tester,
