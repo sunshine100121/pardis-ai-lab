@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:ondevice_llm/features/voice/voice_models.dart';
 import 'package:ondevice_llm/features/voice/offline_dictation.dart';
 import 'package:ondevice_llm/features/voice/voice_models_provider.dart';
 import 'package:ondevice_llm/features/voice/voice_settings.dart';
+import 'package:ondevice_llm/features/voice/voice_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Settings extends SettingsNotifier {
@@ -69,6 +71,7 @@ class _Packs extends VoiceModelsNotifier {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -78,6 +81,79 @@ void main() {
           }
           return null;
         });
+  });
+
+  test('failed TTS change restores the saved engine, not system default', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    SharedPreferences.setMockInitialValues({
+      'pala_voice_android_tts_engine_v1': 'saved.engine',
+    });
+    const channel = MethodChannel('flutter_tts');
+    final engines = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'setEngine') engines.add(call.arguments as String);
+          if (call.method == 'getDefaultEngine') return 'system.engine';
+          if (call.method == 'getVoices') return <Map<String, String>>[];
+          return 1;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        settingsProvider.overrideWith(() => _Settings(const InferenceSettings())),
+      ],
+    );
+    addTearDown(container.dispose);
+    expect(
+      await container.read(voiceProvider.notifier).setAndroidTtsEngine('bad.engine'),
+      isFalse,
+    );
+    expect(engines, ['bad.engine', 'saved.engine']);
+    expect(
+      (await SharedPreferences.getInstance()).getString('pala_voice_android_tts_engine_v1'),
+      'saved.engine',
+    );
+  });
+
+  test('selecting a Persian TTS engine persists independently of STT', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    const channel = MethodChannel('flutter_tts');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'getDefaultEngine') return 'system.engine';
+          if (call.method == 'getVoices') {
+            return [
+              {'locale': 'fa-IR', 'name': 'voice', 'network_required': '0'},
+            ];
+          }
+          return 1;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        settingsProvider.overrideWith(
+          () => _Settings(const InferenceSettings(listeningModel: 'vosk-fa')),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    expect(
+      await container.read(voiceProvider.notifier).setAndroidTtsEngine('fa.engine'),
+      isTrue,
+    );
+    expect(container.read(settingsProvider).listeningModel, 'vosk-fa');
+    expect(
+      (await SharedPreferences.getInstance()).getString('pala_voice_android_tts_engine_v1'),
+      'fa.engine',
+    );
   });
 
   test('legacy and new listening preferences survive settings decoding', () {
@@ -131,6 +207,22 @@ void main() {
     await tester.pump();
     return container;
   }
+
+  testWidgets('Persian voice settings remain scrollable with installed packs', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      ready: {VoiceModels.listening.id, VoiceModels.voskPersian.id},
+      settings: const InferenceSettings(localeCode: 'fa', naturalVoice: true),
+    );
+    tester.view.physicalSize = const Size(360, 640);
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('voice-remove')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('voice-remove')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Parakeet is offered as a download and chosen only when there', (
     tester,

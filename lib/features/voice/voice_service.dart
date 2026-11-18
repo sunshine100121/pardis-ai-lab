@@ -548,9 +548,13 @@ class VoiceNotifier extends Notifier<VoiceState> {
   /// Persian voice. An incompatible choice leaves the current engine intact.
   Future<bool> setAndroidTtsEngine(String engine) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
-    await _initTts();
-    final previous = await _tts!.getDefaultEngine as String?;
+    String? previous;
     try {
+      await _initTts();
+      final prefs = await SharedPreferences.getInstance();
+      previous =
+          prefs.getString(_androidTtsEngineKey) ??
+          await _tts!.getDefaultEngine as String?;
       await _tts!.setEngine(engine);
       final voices = await _tts!.getVoices;
       final hasOfflinePersian =
@@ -572,7 +576,6 @@ class VoiceNotifier extends Notifier<VoiceState> {
         }
         return false;
       }
-      final prefs = await SharedPreferences.getInstance();
       final saved = await prefs.setString(_androidTtsEngineKey, engine);
       if (!saved && previous is String && previous.isNotEmpty) {
         await _tts!.setEngine(previous);
