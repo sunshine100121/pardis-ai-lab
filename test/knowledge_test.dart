@@ -94,7 +94,7 @@ void main() {
       );
       expect(results, hasLength(1));
       expect(results.single.title, 'best.txt');
-      expect(results.single.pageText, 'walnut irrigation evidence');
+      expect(results.single.pageText, 'Passage 1\nwalnut irrigation evidence');
       expect(await store.search('fixture', 'walnut', maxPassages: 0), isEmpty);
     },
   );
