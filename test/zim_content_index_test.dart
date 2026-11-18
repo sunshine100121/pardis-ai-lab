@@ -166,4 +166,16 @@ void main() {
     expect(index.progress(garden, fingerprint), isNull);
     expect(index.search('long', {garden: fingerprint}), isEmpty);
   });
+
+  test('database page quota refuses an oversized batch atomically', () {
+    final db = sqlite3.openInMemory();
+    addTearDown(db.close);
+    final index = ZimContentIndex(db, maxDatabaseBytes: 64 * 1024);
+    final text = List.filled(80 * 1024, 'x').join();
+    expect(() => index.commit(sourceId: garden, fingerprint: fingerprint,
+      expectedCursor: 0,
+      batch: ZimContentBatch([(entry: 0, title: 'test', text: text)], 1, 1, 0, false),
+      allowed: () => true), throwsStateError);
+    expect(index.progress(garden, fingerprint), isNull);
+  });
 }

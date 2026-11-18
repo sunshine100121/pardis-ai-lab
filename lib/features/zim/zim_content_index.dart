@@ -9,18 +9,26 @@ import 'zim_content_batches.dart';
 /// app storage. No archive paths or source files are copied into it.
 ///
 /// This is not yet connected to chat or to an index-management UI. Its byte
-/// limit counts UTF-8 text, not SQLite/FTS overhead or free disk space.
+/// limits count UTF-8 text and SQLite pages; temporary journals and free disk
+/// space need an additional platform-specific check before production use.
 class ZimContentIndex {
   final Database db;
-  final int maxTextBytes;
-  ZimContentIndex(this.db, {this.maxTextBytes = 64 * 1024 * 1024}) {
-    if (maxTextBytes < 1) throw ArgumentError('Invalid index quota');
+  final int maxTextBytes, maxDatabaseBytes;
+  ZimContentIndex(this.db, {this.maxTextBytes = 64 * 1024 * 1024,
+    this.maxDatabaseBytes = 256 * 1024 * 1024}) {
+    if (maxTextBytes < 1 || maxDatabaseBytes < 1) throw ArgumentError('Invalid index quota');
     db.execute(
       'CREATE TABLE IF NOT EXISTS zim_index_sources ('
       'source_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, '
       'cursor INTEGER NOT NULL, total INTEGER NOT NULL, '
       'skipped INTEGER NOT NULL, text_bytes INTEGER NOT NULL)',
     );
+  }
+
+  int get databaseBytes {
+    final pages = db.select('PRAGMA page_count').single.values.first as int;
+    final size = db.select('PRAGMA page_size').single.values.first as int;
+    return pages * size;
   }
 
   static void _checkId(String id) {
@@ -141,6 +149,9 @@ class ZimContentIndex {
           (old?.textBytes ?? 0) + addedBytes,
         ],
       );
+      if (databaseBytes > maxDatabaseBytes) {
+        throw StateError('سقف صفحات پایگاه نمایه پر است');
+      }
       db.execute('COMMIT');
     } catch (_) {
       db.execute('ROLLBACK');
