@@ -455,6 +455,12 @@ class ZimArchive {
     return null;
   }
 
+  /// Presence only: using this embedded Xapian index requires a compatible
+  /// search implementation; this reader does not treat it as searchable.
+  Future<bool> hasEmbeddedFullTextIndex() => _run(() async =>
+      await _findPath('X', 'fulltext/xapian') != null ||
+      await _findPath('Z', '/fulltextIndex/xapian') != null);
+
   Future<String?> metadata(String name) => _run(() async {
     final e = await _findPath('M', name);
     if (e == null) return null;

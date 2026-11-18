@@ -35,7 +35,7 @@ class SparseZimSource implements ZimSource {
   Future<void> close() async { closed=true; }
 }
 
-SparseZimSource persianZim({bool large=false,bool shortText=false,String archive='دانشنامهٔ فارسی آزمون'}) {
+SparseZimSource persianZim({bool large=false,bool shortText=false,bool embeddedIndex=false,bool englishGarden=false,String archive='دانشنامهٔ فارسی آزمون'}) {
   final entries=<Map<String,dynamic>>[
     {'ns':'C','url':'Behbahan','title':'بهبهان','text':'<html><body><h1>بهبهان</h1><p>بهبهان شهری در استان خوزستان در جنوب غربی ایران است. این مقاله متن ساختگی آزمون برای بررسی خواندن و استناد واقعی از دانشنامه است و دادهٔ مالک نیست.</p></body></html>'},
     {'ns':'C','url':'Mars','title':'بهرام (سیاره)','text':'<html><body><h1>بهرام (سیاره)</h1><p>مریخ یا بهرام چهارمین سیاره از خورشید است. این متن فارسیِ ساختگی برای آزمون بازیابی مقاله و تبدیل HTML به شاهد قابل‌استناد در برنامه استفاده می‌شود.</p></body></html>'},
@@ -45,6 +45,15 @@ SparseZimSource persianZim({bool large=false,bool shortText=false,String archive
     {'ns':'M','url':'Date','title':'Date','text':'2026-11-15'},
     {'ns':'X','url':'listing/titleOrdered/v1','title':'listing/titleOrdered/v1'},
   ]..sort((a,b)=>'${a['ns']}${a['url']}'.compareTo('${b['ns']}${b['url']}'));
+  if (embeddedIndex) {
+    entries.add({'ns':'X','url':'fulltext/xapian','title':'fulltext/xapian'});
+    entries.sort((a,b)=>'${a['ns']}${a['url']}'.compareTo('${b['ns']}${b['url']}'));
+  }
+  if (englishGarden) {
+    final entry = entries.firstWhere((e) => e['url'] == 'Behbahan');
+    entry['title'] = 'Plant care';
+    entry['text'] = '<html><body><h1>Plant care</h1><p>Deep watering of a mature walnut tree depends on soil drainage and seasonal rainfall. In dry weather irrigation should reach the root zone without leaving the soil waterlogged.</p></body></html>';
+  }
   if(shortText) {
     for(final entry in entries.where((e)=>e['ns']=='C' && !e.containsKey('redirect'))) {
       entry['text']='<html><body>کوتاه</body></html>';
