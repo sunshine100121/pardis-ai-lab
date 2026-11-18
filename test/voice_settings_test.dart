@@ -322,6 +322,7 @@ void main() {
     await tester.pump();
     expect(calls, contains('stop'));
     expect(container.read(voiceProvider).listening, isFalse);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('STT test cannot start an uninstalled selected model', (
