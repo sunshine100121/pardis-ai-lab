@@ -130,6 +130,50 @@ void main() {
     expect(revoked.sources, isEmpty);
     expect(opened, ['garden.zim']);
   });
+  test('specialist English evidence wins an equally supported multilingual query',
+      () async {
+    final dir = await Directory.systemTemp.createTemp('pala-evidence-rank-');
+    addTearDown(() => dir.delete(recursive: true));
+    final folder = FixtureFolder({
+      'general.zim': persianZim(
+        englishGarden: true,
+        archive: 'General encyclopedia fixture',
+      ),
+      'garden.zim': persianZim(
+        englishGarden: true,
+        archive: 'Gardening reference fixture',
+      ),
+    });
+    final library = FolderLibrary(access: folder);
+    await library.refresh();
+    final storage = ZimIndexStorage(
+      directory: dir,
+      maxDatabaseBytes: 2 * 1024 * 1024,
+      reserveBytes: 1,
+      availableBytes: () async => 16 * 1024 * 1024,
+    );
+    final service = ZimIndexService(library, storage);
+    await service.run(uri: 'general.zim', allowed: () => true);
+    await service.run(uri: 'garden.zim', allowed: () => true);
+    final ids = {
+      FolderLibrary.sourceId('general.zim'),
+      FolderLibrary.sourceId('garden.zim'),
+    };
+    final result = await ZimIndexedProjectSearch(library, storage).search(
+      question: 'آبیاری درخت گردو چگونه است؟',
+      sourceIds: ids,
+      allowed: ids.contains,
+      cancelled: () => false,
+      engine: FakeLocalQueryEngine(['walnut tree watering irrigation']),
+      settings: const InferenceSettings(),
+      fallbackTemplate: '',
+    );
+    expect(result.sources, isNotEmpty);
+    expect(result.sources.first.source, 'Gardening reference fixture');
+    expect(result.sources.map((s) => s.url).toSet().length,
+        result.sources.length);
+  });
+
   test('indexed Persian evidence skips unnecessary Qwen translation', () async {
     final dir = await Directory.systemTemp.createTemp('pala-persian-search-');
     addTearDown(() => dir.delete(recursive: true));
