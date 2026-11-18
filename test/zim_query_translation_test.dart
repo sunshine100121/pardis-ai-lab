@@ -10,6 +10,7 @@ import 'package:ondevice_llm/features/zim/zim_content_index.dart';
 import 'package:ondevice_llm/features/zim/zim_index_step.dart';
 import 'package:ondevice_llm/features/zim/zim_query_translation.dart';
 import 'package:ondevice_llm/inference/engine/llama_engine.dart';
+
 import 'support/persian_zim_fixture.dart';
 
 class FakeLocalQueryEngine extends LlamaEngine {
@@ -19,78 +20,151 @@ class FakeLocalQueryEngine extends LlamaEngine {
   InferenceSettings? received;
   FakeLocalQueryEngine(this.chunks);
   @override
-  Stream<String> generate({required List<Map<String, Object>> messages,
-    required String fallbackTemplate, required InferenceSettings settings,
-    String assistantPrefix = '', List<ToolSpec> tools = const [],
-    String toolChoice = 'auto'}) async* {
+  Stream<String> generate({
+    required List<Map<String, Object>> messages,
+    required String fallbackTemplate,
+    required InferenceSettings settings,
+    String assistantPrefix = '',
+    List<ToolSpec> tools = const [],
+    String toolChoice = 'auto',
+  }) async* {
     calls++;
     received = settings;
-    for (final chunk in chunks) { yield chunk; }
+    for (final chunk in chunks) {
+      yield chunk;
+    }
   }
+
   @override
-  void cancel() { stopped = true; }
+  void cancel() {
+    stopped = true;
+  }
 }
 
 class HangingLocalQueryEngine extends FakeLocalQueryEngine {
   HangingLocalQueryEngine() : super(const []);
   @override
-  Stream<String> generate({required List<Map<String, Object>> messages,
-    required String fallbackTemplate, required InferenceSettings settings,
-    String assistantPrefix = '', List<ToolSpec> tools = const [],
-    String toolChoice = 'auto'}) => Stream<String>.fromFuture(Completer<String>().future);
+  Stream<String> generate({
+    required List<Map<String, Object>> messages,
+    required String fallbackTemplate,
+    required InferenceSettings settings,
+    String assistantPrefix = '',
+    List<ToolSpec> tools = const [],
+    String toolChoice = 'auto',
+  }) => Stream<String>.fromFuture(Completer<String>().future);
 }
 
 void main() {
-  const medical = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  const fingerprint = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
-  test('local translated Persian query retrieves only the allowed English source', () async {
-    final db = sqlite3.openInMemory();
-    addTearDown(db.close);
-    final index = ZimContentIndex(db);
-    final source = persianZim(englishGarden: true);
-    final garden = FolderLibrary.sourceId('garden.zim');
-    final gardenFingerprint = ZimContentIndex.fingerprint(
-      archiveId: '01000000000000000000000000000000', size: source.size, modified: 1);
-    final job = ZimIndexStep(index);
-    var cursor = 0, total = 1;
-    while (cursor < total) {
-      final result = await job.run(uri: 'garden.zim', size: source.size, modified: 1,
-        allowed: () => true, sourceUnchanged: () async => true,
-        hasStorageHeadroom: () async => true, limit: 2,
-        openSource: (_) async => source.fresh());
-      cursor = result.cursor;
-      total = result.total;
-    }
-    index.commit(sourceId: medical, fingerprint: fingerprint, expectedCursor: 0,
-      batch: const ZimContentBatch([(entry: 0, title: 'Clinical',
-        text: 'Walnut allergy is a medical condition.')], 1, 1, 0, false),
-      allowed: () => true);
-    final engine = FakeLocalQueryEngine(['<think>private reasoning</think>walnut ', 'tree watering']);
-    final query = await ZimQueryTranslation.englishTerms('آبیاری درخت گردو',
-      engine: engine, settings: const InferenceSettings(), fallbackTemplate: '',
-      cancelled: () => false);
-    expect(query, 'walnut tree watering');
-    expect(engine.received?.thinkingModeEnabled, isFalse);
-    expect(engine.received?.remoteEnabled, isFalse);
-    final hits = index.search(query!, {garden: gardenFingerprint});
-    expect(hits.single.sourceId, garden);
-    expect(hits.single.title, 'Plant care');
-    expect(hits.single.text, contains('walnut'));
-  });
+  const medical =
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const fingerprint =
+      'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+  test(
+    'local translated Persian query retrieves only the allowed English source',
+    () async {
+      final db = sqlite3.openInMemory();
+      addTearDown(db.close);
+      final index = ZimContentIndex(db);
+      final source = persianZim(englishGarden: true);
+      final garden = FolderLibrary.sourceId('garden.zim');
+      final gardenFingerprint = ZimContentIndex.fingerprint(
+        archiveId: '01000000000000000000000000000000',
+        size: source.size,
+        modified: 1,
+      );
+      final job = ZimIndexStep(index);
+      var cursor = 0, total = 1;
+      while (cursor < total) {
+        final result = await job.run(
+          uri: 'garden.zim',
+          size: source.size,
+          modified: 1,
+          allowed: () => true,
+          sourceUnchanged: () async => true,
+          hasStorageHeadroom: () async => true,
+          limit: 2,
+          openSource: (_) async => source.fresh(),
+        );
+        cursor = result.cursor;
+        total = result.total;
+      }
+      index.commit(
+        sourceId: medical,
+        fingerprint: fingerprint,
+        expectedCursor: 0,
+        batch: const ZimContentBatch(
+          [
+            (
+              entry: 0,
+              title: 'Clinical',
+              text: 'Walnut allergy is a medical condition.',
+            ),
+          ],
+          1,
+          1,
+          0,
+          false,
+        ),
+        allowed: () => true,
+      );
+      final engine = FakeLocalQueryEngine([
+        '<think>private reasoning</think>walnut ',
+        'tree watering',
+      ]);
+      final query = await ZimQueryTranslation.englishTerms(
+        'آبیاری درخت گردو',
+        engine: engine,
+        settings: const InferenceSettings(),
+        fallbackTemplate: '',
+        cancelled: () => false,
+      );
+      expect(query, 'walnut tree watering');
+      expect(engine.received?.thinkingModeEnabled, isFalse);
+      expect(engine.received?.remoteEnabled, isFalse);
+      final hits = index.search(query!, {garden: gardenFingerprint});
+      expect(hits.single.sourceId, garden);
+      expect(hits.single.title, 'Plant care');
+      expect(hits.single.text, contains('walnut'));
+    },
+  );
 
-  test('English bypasses generation and incomplete thinking is rejected', () async {
-    final engine = FakeLocalQueryEngine(['<think>unfinished']);
-    expect(await ZimQueryTranslation.englishTerms('walnut watering', engine: engine,
-      settings: const InferenceSettings(), fallbackTemplate: '', cancelled: () => false), 'walnut watering');
-    expect(engine.calls, 0);
-    expect(await ZimQueryTranslation.englishTerms('آبیاری گردو', engine: engine,
-      settings: const InferenceSettings(), fallbackTemplate: '', cancelled: () => false), isNull);
-  });
+  test(
+    'English bypasses generation and incomplete thinking is rejected',
+    () async {
+      final engine = FakeLocalQueryEngine(['<think>unfinished']);
+      expect(
+        await ZimQueryTranslation.englishTerms(
+          'walnut watering',
+          engine: engine,
+          settings: const InferenceSettings(),
+          fallbackTemplate: '',
+          cancelled: () => false,
+        ),
+        'walnut watering',
+      );
+      expect(engine.calls, 0);
+      expect(
+        await ZimQueryTranslation.englishTerms(
+          'آبیاری گردو',
+          engine: engine,
+          settings: const InferenceSettings(),
+          fallbackTemplate: '',
+          cancelled: () => false,
+        ),
+        isNull,
+      );
+    },
+  );
   test('idle translation cancels the local engine', () async {
     final engine = HangingLocalQueryEngine();
-    final result = await ZimQueryTranslation.englishTerms('آبیاری گردو', engine: engine,
-      settings: const InferenceSettings(), fallbackTemplate: '', cancelled: () => false,
-      timeout: const Duration(milliseconds: 20));
+    final result = await ZimQueryTranslation.englishTerms(
+      'آبیاری گردو',
+      engine: engine,
+      settings: const InferenceSettings(),
+      fallbackTemplate: '',
+      cancelled: () => false,
+      timeout: const Duration(milliseconds: 20),
+    );
     expect(result, isNull);
     expect(engine.stopped, isTrue);
   });
