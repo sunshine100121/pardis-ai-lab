@@ -1373,6 +1373,10 @@ class ChatNotifier extends _ChatBase
       final language = asked == 'fr' ? 'French' : 'Spanish';
       turnNotes.write('\nThe user writes in $language: answer in $language.');
     }
+    if (_projectId != null && RegExp(r'[\u0600-\u06ff]').hasMatch(input) &&
+        !RegExp(r'به\s+(?:زبان\s+)?انگلیسی|in\s+english', caseSensitive: false).hasMatch(input)) {
+      turnNotes.write('\nThe user asks in Persian. Answer in Persian even when the source is in another language.');
+    }
     if (planned.selfQuestion) {
       turnNotes.write(
         settings.webSearchEnabled &&

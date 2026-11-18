@@ -222,6 +222,7 @@ void main() {
       expect(opened.every((uri) => uri == 'garden.zim'), isTrue);
       expect(engine.receivedMessages.toString(), contains('walnut'));
       expect(engine.receivedMessages.toString(), contains('Gardening fixture'));
+      expect(engine.receivedMessages.toString(), contains('Answer in Persian'));
       expect(engine.receivedMessages.toString(), isNot(contains('Medical fixture')));
       final answer = container.read(chatProvider).messages.last;
       final citations = jsonDecode(answer.sourcesJson) as List;
