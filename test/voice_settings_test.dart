@@ -211,7 +211,9 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
-        settingsProvider.overrideWith(() => _Settings(const InferenceSettings())),
+        settingsProvider.overrideWith(
+          () => _Settings(const InferenceSettings()),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -304,7 +306,10 @@ void main() {
     final container = await pump(
       tester,
       ready: {},
-      settings: const InferenceSettings(localeCode: 'fa', listeningModel: 'android-local'),
+      settings: const InferenceSettings(
+        localeCode: 'fa',
+        listeningModel: 'android-local',
+      ),
     );
     await tester.pump();
     expect(calls, isNot(contains('listen')));
@@ -319,15 +324,22 @@ void main() {
     expect(container.read(voiceProvider).listening, isFalse);
   });
 
-  testWidgets('STT test cannot start an uninstalled selected model', (tester) async {
+  testWidgets('STT test cannot start an uninstalled selected model', (
+    tester,
+  ) async {
     await pump(
       tester,
       ready: {},
-      settings: const InferenceSettings(localeCode: 'fa', listeningModel: 'vosk-fa'),
+      settings: const InferenceSettings(
+        localeCode: 'fa',
+        listeningModel: 'vosk-fa',
+      ),
     );
     await tester.pump();
     expect(
-      tester.widget<TextButton>(find.byKey(const Key('persian-stt-try'))).onPressed,
+      tester
+          .widget<TextButton>(find.byKey(const Key('persian-stt-try')))
+          .onPressed,
       isNull,
     );
   });

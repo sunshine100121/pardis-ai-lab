@@ -200,9 +200,12 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
       future: _capabilities,
       builder: (context, snapshot) {
         final ready = switch (settings.listeningModel) {
-          'whisper-fa' => packs.of(VoiceModels.listening).status == VoicePackStatus.ready,
-          'vosk-fa' => packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready,
-          '' || 'android-local' => snapshot.data?['androidOfflineAvailable'] == true,
+          'whisper-fa' =>
+            packs.of(VoiceModels.listening).status == VoicePackStatus.ready,
+          'vosk-fa' =>
+            packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready,
+          '' ||
+          'android-local' => snapshot.data?['androidOfflineAvailable'] == true,
           _ => false,
         };
         return Column(
@@ -210,7 +213,8 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
           children: [
             TextButton.icon(
               key: const Key('persian-stt-try'),
-              onPressed: (!ready && !(voice.listening && _ownsSession)) ||
+              onPressed:
+                  (!ready && !(voice.listening && _ownsSession)) ||
                       (voice.listening && !_ownsSession)
                   ? null
                   : () async {
@@ -237,8 +241,14 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
                         if (mounted) setState(() => _startFailed = true);
                       }
                     },
-              icon: Icon(voice.listening && _ownsSession ? Icons.stop : Icons.mic),
-              label: Text(voice.listening && _ownsSession ? 'پایان آزمایش' : 'آزمایش شنیدن'),
+              icon: Icon(
+                voice.listening && _ownsSession ? Icons.stop : Icons.mic,
+              ),
+              label: Text(
+                voice.listening && _ownsSession
+                    ? 'پایان آزمایش'
+                    : 'آزمایش شنیدن',
+              ),
             ),
             if (_started && voice.partial.isNotEmpty) Text(voice.partial),
             if (_started && voice.error != null) Text(voice.error!),
