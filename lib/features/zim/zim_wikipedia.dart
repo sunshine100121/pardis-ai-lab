@@ -108,6 +108,11 @@ class ZimWikipedia {
   static const _persianQuestionWords = {
     'کجاست',
     'کجا',
+    'چگونه',
+    'چطور',
+    'چجوری',
+    'چقدر',
+    'برای',
     'چیست',
     'چیه',
     'چی',

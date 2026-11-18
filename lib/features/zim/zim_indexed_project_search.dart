@@ -193,7 +193,7 @@ class ZimIndexedProjectSearch {
           errors: errors,
         );
       final citations = ZimIndexCitations(index);
-      final original = citations.search(question, authorized);
+      final original = citations.search(ZimWikipedia.subjectQuery(question), authorized);
       final translated = query != null && query.trim() != question.trim()
           ? citations.search(query, authorized)
           : <SearchResult>[];

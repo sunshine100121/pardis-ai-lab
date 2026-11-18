@@ -68,7 +68,7 @@ void main() {
     var allowed = true;
     final search = ZimIndexedProjectSearch(library, storage);
     final result = await search.search(
-      question: 'آبیاری درخت گردو',
+      question: 'آبیاری درخت گردو چگونه است؟',
       sourceIds: {id},
       allowed: (source) => allowed && source == id,
       cancelled: () => false,
