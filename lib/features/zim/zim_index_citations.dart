@@ -27,18 +27,20 @@ class ZimIndexCitations {
     return [
       for (final hit in hits)
         if (authorized[hit.sourceId] case final source?)
-          _citation(hit.entry, hit.title, hit.text, source, query),
+          _citation(hit.sourceId, hit.entry, hit.title, hit.text, source, query),
     ];
   }
 
   SearchResult _citation(
+    String sourceId,
     int entry,
     String title,
     String text,
     ZimIndexedSource source,
     String query,
   ) {
-    if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(source.archiveId) ||
+    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sourceId) ||
+        !RegExp(r'^[0-9a-f]{32}$').hasMatch(source.archiveId) ||
         source.name.trim().isEmpty ||
         title.trim().isEmpty ||
         entry < 0) {
@@ -72,7 +74,7 @@ class ZimIndexCitations {
       end++;
     final body = trimmed.substring(start, end);
     final url =
-        'zim://${source.archiveId}/${Uri.encodeComponent(title.replaceAll(' ', '_'))}?entry=$entry';
+        'zim://${source.archiveId}/${Uri.encodeComponent(title.replaceAll(' ', '_'))}?entry=$entry&source=$sourceId';
     return SearchResult(
       title: '$title — ${source.name}',
       url: url,

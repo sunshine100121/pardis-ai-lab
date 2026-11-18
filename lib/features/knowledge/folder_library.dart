@@ -399,16 +399,20 @@ class FolderLibrary {
         uri.host != archiveId ||
         uri.pathSegments.length != 1 ||
         uri.hasFragment ||
-        uri.queryParametersAll.keys.any((key) => key != 'entry') ||
-        (uri.queryParametersAll['entry']?.length ?? 0) > 1)
+        uri.queryParametersAll.keys.any((key) => key != 'entry' && key != 'source') ||
+        (uri.queryParametersAll['entry']?.length ?? 0) > 1 ||
+        (uri.queryParametersAll['source']?.length ?? 0) > 1)
       return null;
     final entryText = uri.queryParameters['entry'];
     final entry = entryText == null ? null : int.tryParse(entryText);
     if (entryText != null && (entry == null || entry < 0)) return null;
+    final sourceId = uri.queryParameters['source'];
+    if (sourceId != null && (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sourceId) || entry == null)) return null;
     final listing = await access.list();
     final live = {for (final f in listing.files) f.uri: f};
     final data = await state();
     for (final row in data['files'] as List) {
+      if (sourceId != null && FolderLibrary.sourceId(row['uri'] as String) != sourceId) continue;
       if (allowSource != null && !allowSource(row['uri'] as String)) continue;
       final file = live[row['uri']];
       if (row['enabled'] != true ||

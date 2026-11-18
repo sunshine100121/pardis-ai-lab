@@ -79,6 +79,9 @@ class ZimArticlePage extends ConsumerWidget {
     if (date != archiveDate || !inScope('')) return null;
     final parsed = Uri.tryParse(url);
     if (parsed == null || parsed.scheme != 'zim') return null;
+    // An indexed folder citation identifies an exact folder source; it must
+    // not fall back to a different legacy archive with a coincident UUID.
+    if (parsed.queryParameters.containsKey('source')) return null;
     final entryText = parsed.queryParameters['entry'];
     final entry = entryText == null ? null : int.tryParse(entryText);
     if (entryText != null &&

@@ -82,15 +82,16 @@ void main() {
     expect(result.sources.single.pageText, contains('walnut'));
     expect(
       result.sources.single.url,
-      'zim://01000000000000000000000000000000/Plant_care?entry=0',
+      'zim://01000000000000000000000000000000/Plant_care?entry=0&source=$id',
     );
     final reopened = await library.article(
       result.sources.single.url,
       result.sources.single.archiveId!,
       result.sources.single.archiveDate,
-      allowSource: (uri) => uri == 'garden.zim',
+      allowSource: (_) => true,
     );
     expect(reopened?.pageText, contains('walnut'));
+    expect(reopened?.source, 'Gardening fixture');
     final other = await library.article(
       result.sources.single.url.replaceFirst('entry=0', 'entry=1'),
       result.sources.single.archiveId!,
