@@ -35,37 +35,76 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
   }
 
   Future<void> _indexArchive(String uri) async {
-    setState(() { _busy = true; _error = null; _indexMessage = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+      _indexMessage = null;
+    });
     try {
       final storage = await ref.read(zimIndexStorageProvider.future);
       if (!mounted) return;
       if (storage == null) {
-        setState(() => _indexMessage = 'فضای مناسب برای نمایه‌سازی در دسترس نیست.');
+        setState(
+          () => _indexMessage = 'فضای مناسب برای نمایه‌سازی در دسترس نیست.',
+        );
         return;
       }
-      final limit = await showDialog<int>(context: context, builder: (dialog) => AlertDialog(
-        title: const Text('سقف فضای نمایه'),
-        content: const Text('برای فایل نمایه سقف انتخاب کنید. برنامه پیش از هر دسته فضای آزاد کافی برای پایگاه، فایل موقت و ذخیره احتیاطی را بررسی می‌کند. فایل اصلی کپی نمی‌شود.'),
-        actions: [
-          for (final item in [(256, '۲۵۶ MiB'), (1024, '۱ GiB'), (4096, '۴ GiB'), (16384, '۱۶ GiB')])
-            TextButton(onPressed: () => Navigator.pop(dialog, item.$1 * 1024 * 1024), child: Text(item.$2)),
-          TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('انصراف')),
-        ],
-      ));
+      final limit = await showDialog<int>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('سقف فضای نمایه'),
+          content: const Text(
+            'برای فایل نمایه سقف انتخاب کنید. برنامه پیش از هر دسته فضای آزاد کافی برای پایگاه، فایل موقت و ذخیره احتیاطی را بررسی می‌کند. فایل اصلی کپی نمی‌شود.',
+          ),
+          actions: [
+            for (final item in [
+              (256, '۲۵۶ MiB'),
+              (1024, '۱ GiB'),
+              (4096, '۴ GiB'),
+              (16384, '۱۶ GiB'),
+            ])
+              TextButton(
+                onPressed: () => Navigator.pop(dialog, item.$1 * 1024 * 1024),
+                child: Text(item.$2),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('انصراف'),
+            ),
+          ],
+        ),
+      );
       if (!mounted || limit == null) return;
-      final service = ZimIndexService(ref.read(folderLibraryProvider), storage.withDatabaseLimit(limit));
+      final service = ZimIndexService(
+        ref.read(folderLibraryProvider),
+        storage.withDatabaseLimit(limit),
+      );
       setState(() => _indexService = service);
-      final result = await service.run(uri: uri, allowed: () => mounted,
+      final result = await service.run(
+        uri: uri,
+        allowed: () => mounted,
         onProgress: (cursor, total, skipped) {
-          if (mounted) setState(() => _indexMessage = 'نمایه‌سازی: $cursor از $total مدخل؛ موارد ردشده: $skipped');
-        });
-      if (mounted) setState(() => _indexMessage = result.cancelled
-        ? 'نمایه‌سازی متوقف شد؛ ادامه از مدخل ${result.cursor} ممکن است.'
-        : 'نمایه‌سازی به پایان رسید؛ موارد ردشده: ${result.skipped}.');
+          if (mounted)
+            setState(
+              () => _indexMessage =
+                  'نمایه‌سازی: $cursor از $total مدخل؛ موارد ردشده: $skipped',
+            );
+        },
+      );
+      if (mounted)
+        setState(
+          () => _indexMessage = result.cancelled
+              ? 'نمایه‌سازی متوقف شد؛ ادامه از مدخل ${result.cursor} ممکن است.'
+              : 'نمایه‌سازی به پایان رسید؛ موارد ردشده: ${result.skipped}.',
+        );
     } on StateError catch (e) {
       if (mounted) setState(() => _indexMessage = '${e.message}');
     } catch (_) {
-      if (mounted) setState(() => _indexMessage = 'نمایه‌سازی انجام نشد؛ فضا، فایل و دسترسی را بررسی کنید.');
+      if (mounted)
+        setState(
+          () => _indexMessage =
+              'نمایه‌سازی انجام نشد؛ فضا، فایل و دسترسی را بررسی کنید.',
+        );
     } finally {
       _indexService = null;
       if (mounted) setState(() => _busy = false);
@@ -184,21 +223,33 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
           if (_error != null) Text(_error!),
           if (_indexMessage != null) Text(_indexMessage!),
           if (_indexService != null)
-            TextButton(onPressed: () => _indexService?.stop(), child: const Text('توقف نمایه‌سازی')),
+            TextButton(
+              onPressed: () => _indexService?.stop(),
+              child: const Text('توقف نمایه‌سازی'),
+            ),
           Text(
             'حجم نمایهٔ مشتق‌شده: $_bytes بایت از ${FolderLibrary.maxIndexBytes}',
           ),
           const Text(
             'نمایهٔ اسناد حداکثر ۲۴ قطعه از ابتدای هر سند است؛ نبود نتیجه به معنی نبود مطلب در کل کتاب نیست. PDF اسکن‌شده در این مسیر OCR نمی‌شود.',
           ),
-          const Text('نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف فضای پایگاه انتخابی است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.'),
+          const Text(
+            'نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف فضای پایگاه انتخابی است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.',
+          ),
           for (final f in files)
             SwitchListTile(
               title: Text(f['name'] as String),
               secondary: (f['name'] as String).toLowerCase().endsWith('.zim')
-                  ? IconButton(key: ValueKey('index-${FolderLibrary.sourceId(f['uri'] as String)}'),
-                      tooltip: 'نمایه‌سازی متن دانشنامه', icon: const Icon(Icons.manage_search),
-                      onPressed: _busy || f['enabled'] != true ? null : () => _indexArchive(f['uri'] as String))
+                  ? IconButton(
+                      key: ValueKey(
+                        'index-${FolderLibrary.sourceId(f['uri'] as String)}',
+                      ),
+                      tooltip: 'نمایه‌سازی متن دانشنامه',
+                      icon: const Icon(Icons.manage_search),
+                      onPressed: _busy || f['enabled'] != true
+                          ? null
+                          : () => _indexArchive(f['uri'] as String),
+                    )
                   : null,
               subtitle: Text(
                 '${_sourceStatus(f, counts, verified)} · ${f['size']} بایت',

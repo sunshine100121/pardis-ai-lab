@@ -74,42 +74,92 @@ class ZimWikipedia {
 
   /// Opens an indexed entry by its exact archive position, preventing a
   /// duplicate title from resolving to another article.
-  Future<SearchResult?> articleAt(int entryIndex, {required String expectedTitle}) async {
+  Future<SearchResult?> articleAt(
+    int entryIndex, {
+    required String expectedTitle,
+  }) async {
     final zim = await _open();
     if (entryIndex < 0 || entryIndex >= zim.entryCount) return null;
     final entry = await zim.entry(entryIndex);
     if (!entry.isArticle || entry.title != expectedTitle) return null;
-    return _resultFromText(entry.title,
-      ZimContentBatches.extractBody(utf8.decode(await zim.content(entry), allowMalformed: true)), await name(),
-      archiveDate: await zim.metadata('Date'), archiveId: zim.identity,
-      language: await zim.metadata('Language'), limit: false);
+    return _resultFromText(
+      entry.title,
+      ZimContentBatches.extractBody(
+        utf8.decode(await zim.content(entry), allowMalformed: true),
+      ),
+      await name(),
+      archiveDate: await zim.metadata('Date'),
+      archiveId: zim.identity,
+      language: await zim.metadata('Language'),
+      limit: false,
+    );
   }
 
   /// Titles the question could name, longest first: "Nikon Z30", "Eiffel
   /// Tower", "Paris". Each run of up to four words is tried as written, in
   /// Title Case and with only its first letter capitalised, which is how
   /// Wikipedia titles are written.
-  static String normalize(String text) =>
-      text.replaceAll('ي', 'ی').replaceAll('ك', 'ک').replaceAll('‌', ' ')
-        .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0640]'), '');
+  static String normalize(String text) => text
+      .replaceAll('ي', 'ی')
+      .replaceAll('ك', 'ک')
+      .replaceAll('‌', ' ')
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0640]'), '');
 
   static const _persianQuestionWords = {
-    'کجاست','کجا','چیست','چیه','چی','است','هست','درباره','درمورد','مورد',
-    'توضیح','بده','بگو','لطفا','لطفاً','را','رو','به','از','در','با','و','طبق',
-    'بر','اساس','پاسخ','مستند','استناد','منبع','منابع','دانشنامه','ویکی','پدیا',
-    'ویکیپدیا','کن','کنید','دهید','چیستند',
+    'کجاست',
+    'کجا',
+    'چیست',
+    'چیه',
+    'چی',
+    'است',
+    'هست',
+    'درباره',
+    'درمورد',
+    'مورد',
+    'توضیح',
+    'بده',
+    'بگو',
+    'لطفا',
+    'لطفاً',
+    'را',
+    'رو',
+    'به',
+    'از',
+    'در',
+    'با',
+    'و',
+    'طبق',
+    'بر',
+    'اساس',
+    'پاسخ',
+    'مستند',
+    'استناد',
+    'منبع',
+    'منابع',
+    'دانشنامه',
+    'ویکی',
+    'پدیا',
+    'ویکیپدیا',
+    'کن',
+    'کنید',
+    'دهید',
+    'چیستند',
   };
 
   static String subjectQuery(String query) {
     if (!RegExp(r'[\u0600-\u06FF]').hasMatch(query)) return query;
-    return normalize(query).split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
-        .where((s) => s.isNotEmpty && !_persianQuestionWords.contains(s)).join(' ');
+    return normalize(query)
+        .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
+        .where((s) => s.isNotEmpty && !_persianQuestionWords.contains(s))
+        .join(' ');
   }
 
   static bool requiresEncyclopedia(String question) {
     final q = normalize(question).toLowerCase();
     return RegExp(r'ویکی\s*پدیا|دانشنامه|wikipedia|encyclop').hasMatch(q) &&
-      RegExp(r'استناد|مستند|طبق|بر اساس|با توجه|(?:^|\s)از(?:\s|$)|according|source|based on').hasMatch(q);
+        RegExp(
+          r'استناد|مستند|طبق|بر اساس|با توجه|(?:^|\s)از(?:\s|$)|according|source|based on',
+        ).hasMatch(q);
   }
 
   static List<String> candidates(String query) {
@@ -153,7 +203,8 @@ class ZimWikipedia {
     for (final title in List<String>.of(out)) {
       add(normalize(title));
       add(title.replaceAll('ی', 'ي').replaceAll('ک', 'ك'));
-      if(RegExp(r'[\u0600-\u06FF]').hasMatch(title)) add(title.replaceAll(' ', '\u200c'));
+      if (RegExp(r'[\u0600-\u06FF]').hasMatch(title))
+        add(title.replaceAll(' ', '\u200c'));
     }
     return out;
   }
@@ -169,7 +220,11 @@ class ZimWikipedia {
       if (_closed) throw StateError('Offline Wikipedia is closed');
       // Validate the matched alias, not the resolved redirect title. A real
       // exact redirect can legitimately have a different canonical name.
-      if (WikipediaClient.bestTitle(normalize(subjectQuery(query)), [normalize(title)]) == null) continue;
+      if (WikipediaClient.bestTitle(normalize(subjectQuery(query)), [
+            normalize(title),
+          ]) ==
+          null)
+        continue;
       final e = await zim.findByTitle(title);
       if (e == null || !e.isArticle || !tried.add(e.index)) continue;
       onStage?.call('content');
@@ -187,7 +242,10 @@ class ZimWikipedia {
         archiveId: zim.identity,
         language: language,
       );
-      if (result != null) { onStage?.call('complete'); return result; }
+      if (result != null) {
+        onStage?.call('complete');
+        return result;
+      }
       onStage?.call('text_unusable');
     }
     return null;
@@ -204,12 +262,24 @@ class ZimWikipedia {
     String? language,
   }) {
     var (_, text) = WebPageReader.extract(html);
-    return _resultFromText(title, text, file, archiveDate: archiveDate,
-      archiveId: archiveId, language: language);
+    return _resultFromText(
+      title,
+      text,
+      file,
+      archiveDate: archiveDate,
+      archiveId: archiveId,
+      language: language,
+    );
   }
 
-  static SearchResult? _resultFromText(String title, String text, String file, {
-    String? archiveDate, String? archiveId, String? language, bool limit = true,
+  static SearchResult? _resultFromText(
+    String title,
+    String text,
+    String file, {
+    String? archiveDate,
+    String? archiveId,
+    String? language,
+    bool limit = true,
   }) {
     text = text.trim();
     if (text.length < 80 || RegExp(r'may refer to:').hasMatch(text)) {

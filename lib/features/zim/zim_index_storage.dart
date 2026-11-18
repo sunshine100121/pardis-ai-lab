@@ -50,8 +50,10 @@ class ZimIndexStorage {
       path.join(directory.path, 'pala-zim-content-index-v1.sqlite');
 
   ZimIndexStorage withDatabaseLimit(int bytes) => ZimIndexStorage(
-    directory: directory, availableBytes: availableBytes,
-    maxDatabaseBytes: bytes, reserveBytes: reserveBytes,
+    directory: directory,
+    availableBytes: availableBytes,
+    maxDatabaseBytes: bytes,
+    reserveBytes: reserveBytes,
   );
 
   Future<bool> hasHeadroom() async {

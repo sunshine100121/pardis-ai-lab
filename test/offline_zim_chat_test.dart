@@ -43,15 +43,26 @@ class ProjectTestSettings extends AlwaysWebSettings {
 
 class ProjectTranslateEngine extends TestEngine {
   @override
-  Stream<String> generate({required List<Map<String, Object>> messages,
-    required String fallbackTemplate, required InferenceSettings settings,
-    String assistantPrefix = '', List<ToolSpec> tools = const [], String toolChoice = 'auto'}) async* {
+  Stream<String> generate({
+    required List<Map<String, Object>> messages,
+    required String fallbackTemplate,
+    required InferenceSettings settings,
+    String assistantPrefix = '',
+    List<ToolSpec> tools = const [],
+    String toolChoice = 'auto',
+  }) async* {
     if ('${messages.first['content']}'.contains('short English search query')) {
       yield 'walnut tree watering irrigation';
       return;
     }
-    yield* super.generate(messages: messages, fallbackTemplate: fallbackTemplate,
-      settings: settings, assistantPrefix: assistantPrefix, tools: tools, toolChoice: toolChoice);
+    yield* super.generate(
+      messages: messages,
+      fallbackTemplate: fallbackTemplate,
+      settings: settings,
+      assistantPrefix: assistantPrefix,
+      tools: tools,
+      toolChoice: toolChoice,
+    );
   }
 }
 
@@ -186,35 +197,56 @@ void main() {
     final directory = await Directory.systemTemp.createTemp('pala-chat-index-');
     addTearDown(() => directory.delete(recursive: true));
     final folder = FixtureFolder({
-      'medical.zim': persianZim(englishGarden: true, archive: 'Medical fixture'),
-      'garden.zim': persianZim(englishGarden: true, archive: 'Gardening fixture'),
+      'medical.zim': persianZim(
+        englishGarden: true,
+        archive: 'Medical fixture',
+      ),
+      'garden.zim': persianZim(
+        englishGarden: true,
+        archive: 'Gardening fixture',
+      ),
     });
     final opened = <String>[];
-    folder.overrideOpen = (uri) async { opened.add(uri); return folder.files[uri]!.fresh(); };
+    folder.overrideOpen = (uri) async {
+      opened.add(uri);
+      return folder.files[uri]!.fresh();
+    };
     final library = FolderLibrary(access: folder);
     await library.refresh();
-    final storage = ZimIndexStorage(directory: directory, maxDatabaseBytes: 2 * 1024 * 1024,
-      reserveBytes: 1, availableBytes: () async => 16 * 1024 * 1024);
+    final storage = ZimIndexStorage(
+      directory: directory,
+      maxDatabaseBytes: 2 * 1024 * 1024,
+      reserveBytes: 1,
+      availableBytes: () async => 16 * 1024 * 1024,
+    );
     final service = ZimIndexService(library, storage);
     await service.run(uri: 'garden.zim', allowed: () => true);
     await service.run(uri: 'medical.zim', allowed: () => true);
     opened.clear();
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final engine = ProjectTranslateEngine();
-    final container = ProviderContainer(overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-      llamaEngineProvider.overrideWithValue(engine),
-      settingsProvider.overrideWith(ProjectTestSettings.new),
-      modelManagerProvider.overrideWith(TestModels.new),
-      offlineKnowledgeProvider.overrideWithValue(OfflineKnowledge(library)),
-      zimIndexStorageProvider.overrideWith((ref) async => storage),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(ProjectTestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+        offlineKnowledgeProvider.overrideWithValue(OfflineKnowledge(library)),
+        zimIndexStorageProvider.overrideWith((ref) async => storage),
+      ],
+    );
     try {
       final workspace = container.read(conversationWorkspaceProvider.notifier);
       await workspace.ready;
-      await workspace.saveProject(name: 'باغ ساختگی',
-        sourceIds: [FolderLibrary.sourceId('garden.zim')]);
-      final id = container.read(conversationWorkspaceProvider).projects.single.id;
+      await workspace.saveProject(
+        name: 'باغ ساختگی',
+        sourceIds: [FolderLibrary.sourceId('garden.zim')],
+      );
+      final id = container
+          .read(conversationWorkspaceProvider)
+          .projects
+          .single
+          .id;
       final chat = container.read(chatProvider.notifier);
       chat.newChat(projectId: id);
       expect(await chat.send('آبیاری درخت گردو چگونه است؟'), isTrue);
@@ -223,7 +255,10 @@ void main() {
       expect(engine.receivedMessages.toString(), contains('walnut'));
       expect(engine.receivedMessages.toString(), contains('Gardening fixture'));
       expect(engine.receivedMessages.toString(), contains('Answer in Persian'));
-      expect(engine.receivedMessages.toString(), isNot(contains('Medical fixture')));
+      expect(
+        engine.receivedMessages.toString(),
+        isNot(contains('Medical fixture')),
+      );
       final answer = container.read(chatProvider).messages.last;
       final citations = jsonDecode(answer.sourcesJson) as List;
       expect(citations.single['title'], 'Plant care — Gardening fixture');

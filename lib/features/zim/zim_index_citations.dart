@@ -40,7 +40,8 @@ class ZimIndexCitations {
   ) {
     if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(source.archiveId) ||
         source.name.trim().isEmpty ||
-        title.trim().isEmpty || entry < 0) {
+        title.trim().isEmpty ||
+        entry < 0) {
       throw const FormatException('مشخصات استناد دانشنامه معتبر نیست');
     }
     final trimmed = text.trim();

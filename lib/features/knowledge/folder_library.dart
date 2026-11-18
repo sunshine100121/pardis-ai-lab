@@ -397,7 +397,8 @@ class FolderLibrary {
     if (uri == null ||
         uri.scheme != 'zim' ||
         uri.host != archiveId ||
-        uri.pathSegments.length != 1 || uri.hasFragment ||
+        uri.pathSegments.length != 1 ||
+        uri.hasFragment ||
         uri.queryParametersAll.keys.any((key) => key != 'entry') ||
         (uri.queryParametersAll['entry']?.length ?? 0) > 1)
       return null;
@@ -430,7 +431,8 @@ class FolderLibrary {
             await wiki.archiveMetadata('Date') != date)
           continue;
         final title = uri.pathSegments.single.replaceAll('_', ' ');
-        return entry == null ? await wiki.article(title)
+        return entry == null
+            ? await wiki.article(title)
             : await wiki.articleAt(entry, expectedTitle: title);
       } catch (_) {
         /* Keep the saved excerpt if access was revoked. */

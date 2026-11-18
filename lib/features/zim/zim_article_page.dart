@@ -81,12 +81,17 @@ class ZimArticlePage extends ConsumerWidget {
     if (parsed == null || parsed.scheme != 'zim') return null;
     final entryText = parsed.queryParameters['entry'];
     final entry = entryText == null ? null : int.tryParse(entryText);
-    if (entryText != null && (entry == null || entry < 0 ||
-        parsed.host != archiveId || parsed.pathSegments.length != 1)) return null;
+    if (entryText != null &&
+        (entry == null ||
+            entry < 0 ||
+            parsed.host != archiveId ||
+            parsed.pathSegments.length != 1))
+      return null;
     final name = entry == null
         ? Uri.decodeComponent(url.substring(6)).replaceAll('_', ' ')
         : parsed.pathSegments.single.replaceAll('_', ' ');
-    final result = entry == null ? await wiki.article(name)
+    final result = entry == null
+        ? await wiki.article(name)
         : await wiki.articleAt(entry, expectedTitle: name);
     return inScope('') ? result : null;
   }

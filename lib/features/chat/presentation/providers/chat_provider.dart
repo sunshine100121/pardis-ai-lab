@@ -1373,9 +1373,15 @@ class ChatNotifier extends _ChatBase
       final language = asked == 'fr' ? 'French' : 'Spanish';
       turnNotes.write('\nThe user writes in $language: answer in $language.');
     }
-    if (_projectId != null && RegExp(r'[\u0600-\u06ff]').hasMatch(input) &&
-        !RegExp(r'به\s+(?:زبان\s+)?انگلیسی|in\s+english', caseSensitive: false).hasMatch(input)) {
-      turnNotes.write('\nThe user asks in Persian. Answer in Persian even when the source is in another language.');
+    if (_projectId != null &&
+        RegExp(r'[\u0600-\u06ff]').hasMatch(input) &&
+        !RegExp(
+          r'به\s+(?:زبان\s+)?انگلیسی|in\s+english',
+          caseSensitive: false,
+        ).hasMatch(input)) {
+      turnNotes.write(
+        '\nThe user asks in Persian. Answer in Persian even when the source is in another language.',
+      );
     }
     if (planned.selfQuestion) {
       turnNotes.write(
@@ -1550,30 +1556,61 @@ class ChatNotifier extends _ChatBase
       final indexedSources = <SearchResult>[];
       final indexedChecks = <Map<String, dynamic>>[];
       final scopedProjectId = _projectId;
-      if (scopedProjectId != null && project != null && engine is LlamaEngine &&
-          projectSourceIds.isNotEmpty && !RetrievalPlan.smallTalk(input) &&
+      if (scopedProjectId != null &&
+          project != null &&
+          engine is LlamaEngine &&
+          projectSourceIds.isNotEmpty &&
+          !RetrievalPlan.smallTalk(input) &&
           !RetrievalPlan.localTask(input)) {
         bool allowed(String id) {
           final workspace = ref.read(conversationWorkspaceProvider);
-          if (!_alive || _cancelled || !workspace.readable || _projectId != scopedProjectId) return false;
-          return workspace.projects.any((p) => p.id == scopedProjectId && p.sourceIds.contains(id));
+          if (!_alive ||
+              _cancelled ||
+              !workspace.readable ||
+              _projectId != scopedProjectId)
+            return false;
+          return workspace.projects.any(
+            (p) => p.id == scopedProjectId && p.sourceIds.contains(id),
+          );
         }
+
         try {
           final storage = await ref.read(zimIndexStorageProvider.future);
           if (storage != null && !_cancelled && _alive) {
-            final indexed = await ZimIndexedProjectSearch(localKnowledge.library, storage).search(
-              question: input, sourceIds: projectSourceIds, allowed: allowed,
-              cancelled: () => _cancelled || !_alive, engine: engine,
-              settings: settings, fallbackTemplate: model.family.fallbackTemplate);
+            final indexed =
+                await ZimIndexedProjectSearch(
+                  localKnowledge.library,
+                  storage,
+                ).search(
+                  question: input,
+                  sourceIds: projectSourceIds,
+                  allowed: allowed,
+                  cancelled: () => _cancelled || !_alive,
+                  engine: engine,
+                  settings: settings,
+                  fallbackTemplate: model.family.fallbackTemplate,
+                );
             indexedSources.addAll(indexed.sources);
             if (indexed.incomplete > 0 || indexed.skipped > 0) {
-              indexedChecks.add({'file': 'نمایه متن پروژه', 'code': 'index_partial',
-                'incomplete': indexed.incomplete, 'skipped': indexed.skipped});
+              indexedChecks.add({
+                'file': 'نمایه متن پروژه',
+                'code': 'index_partial',
+                'incomplete': indexed.incomplete,
+                'skipped': indexed.skipped,
+              });
             }
-            if (indexed.errors > 0) indexedChecks.add({'file': 'نمایه متن پروژه', 'code': 'index_error'});
+            if (indexed.errors > 0)
+              indexedChecks.add({
+                'file': 'نمایه متن پروژه',
+                'code': 'index_error',
+              });
             for (final source in indexed.sources) {
-              indexedChecks.add({'file': source.source, 'code': 'found',
-                'stage': 'complete', 'article': source.title});
+              indexedChecks.add({
+                'file': source.source,
+                'code': 'found',
+                'stage': 'complete',
+                'article': source.title,
+              });
             }
           }
         } catch (_) {
@@ -1597,7 +1634,9 @@ class ChatNotifier extends _ChatBase
               !currentIds.containsAll(projectSourceIds));
       t.sources = [
         if (!scopeChanged)
-          ...indexedSources.where((s) => !local.sources.any((other) => other.url == s.url)),
+          ...indexedSources.where(
+            (s) => !local.sources.any((other) => other.url == s.url),
+          ),
         if (!scopeChanged)
           ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
         if (!scopeChanged) ...t.sources,
