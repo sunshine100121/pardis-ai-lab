@@ -267,9 +267,25 @@ class ProjectMemoryGate {
     unicode: true,
   );
   static const _common = <String>{
-    'the', 'and', 'what', 'have', 'your', 'that',
-    'من', 'ما', 'برای', 'چند', 'چطور', 'است', 'هست', 'دارم',
-    'داریم', 'این', 'اون', 'یادداشت', 'حافظه',
+    'the',
+    'and',
+    'what',
+    'have',
+    'your',
+    'that',
+    'من',
+    'ما',
+    'برای',
+    'چند',
+    'چطور',
+    'است',
+    'هست',
+    'دارم',
+    'داریم',
+    'این',
+    'اون',
+    'یادداشت',
+    'حافظه',
   };
 
   static bool relevant(String question, String ownerNotes) {

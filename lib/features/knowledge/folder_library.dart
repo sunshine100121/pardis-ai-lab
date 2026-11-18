@@ -271,6 +271,11 @@ class FolderLibrary {
     String question, {
     Set<String>? sourceIds,
   }) async {
+    // An empty project has explicitly approved ZERO sources. Skip even SAF
+    // directory enumeration, which can be slow on Android content providers.
+    if (sourceIds != null && sourceIds.isEmpty) {
+      return const KnowledgeReadReport([], []);
+    }
     final data = await state();
     if (data['tree'] == null) return const KnowledgeReadReport([], []);
     final live = await access

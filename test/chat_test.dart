@@ -828,6 +828,42 @@ void main() {
   });
 
   test(
+    'owner fact question reaches local Qwen, unrelated unsourced fact does not',
+    () async {
+      final workspace = container.read(conversationWorkspaceProvider.notifier);
+      await workspace.ready;
+      await workspace.saveProject(
+        name: 'Garden owner facts',
+        memoryNotes: 'در باغ من ۵ درخت گردو وجود دارد.',
+      );
+        final projectId = container
+            .read(conversationWorkspaceProvider)
+            .projects
+            .single
+            .id;
+      final chat = container.read(chatProvider.notifier);
+      chat.newChat(projectId: projectId);
+      engine.receivedMessages = null;
+      await chat.send('در باغ من چند درخت گردو وجود دارد؟');
+      expect(container.read(chatProvider).error, isNull);
+      expect(engine.receivedMessages, isNotNull);
+      expect(
+        engine.receivedMessages!.first['content'],
+        contains('در باغ من ۵ درخت گردو وجود دارد.'),
+      );
+
+      chat.newChat(projectId: projectId);
+      engine.receivedMessages = null;
+      await chat.send('Who invented the telephone?');
+      expect(engine.receivedMessages, isNull);
+      expect(
+        container.read(chatProvider).messages.last.content,
+        contains('در منابع متصل به این پروژه شاهد مرتبطی پیدا نشد'),
+      );
+    },
+  );
+
+  test(
     'opening an earlier news story respects the shared read and tool allowance',
     () async {
       container.dispose();

@@ -37,27 +37,27 @@ void main() {
   test(
     'only an owner-specific matching note can justify a no-source answer',
     () {
-    expect(
-      ProjectMemoryGate.relevant(
-        'در باغ من چند درخت گردو وجود دارد؟',
-        'در باغ من ۵ درخت گردو وجود دارد.',
-      ),
-      isTrue,
-    );
-    expect(
-      ProjectMemoryGate.relevant(
-        'آبیاری درخت گردو طبق تحقیقات علمی چگونه است؟',
-        'در باغ من ۵ درخت گردو وجود دارد.',
-      ),
-      isFalse,
-    );
-    expect(
-      ProjectMemoryGate.relevant(
-        'در باغ من چند درخت گردو وجود دارد؟',
-        'گلخانه این پروژه فقط کاکتوس دارد.',
-      ),
-      isFalse,
-    );
+      expect(
+        ProjectMemoryGate.relevant(
+          'در باغ من چند درخت گردو وجود دارد؟',
+          'در باغ من ۵ درخت گردو وجود دارد.',
+        ),
+        isTrue,
+      );
+      expect(
+        ProjectMemoryGate.relevant(
+          'آبیاری درخت گردو طبق تحقیقات علمی چگونه است؟',
+          'در باغ من ۵ درخت گردو وجود دارد.',
+        ),
+        isFalse,
+      );
+      expect(
+        ProjectMemoryGate.relevant(
+          'در باغ من چند درخت گردو وجود دارد؟',
+          'گلخانه این پروژه فقط کاکتوس دارد.',
+        ),
+        isFalse,
+      );
     },
   );
 

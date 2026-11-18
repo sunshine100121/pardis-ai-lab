@@ -16,6 +16,7 @@ import 'support/persian_zim_fixture.dart';
 class FixtureFolder implements FolderAccess {
   final Map<String, SparseZimSource> files;
   final List<ZimSource> opened = [];
+  int listCalls = 0;
   bool revoked = false;
   Future<ZimSource> Function(String)? overrideOpen;
   FixtureFolder(this.files);
@@ -23,6 +24,7 @@ class FixtureFolder implements FolderAccess {
   Future<bool> pick() async => true;
   @override
   Future<({String? tree, List<LibraryFile> files})> list() async {
+    listCalls++;
     if (revoked) throw StateError('revoked');
     return (
       tree: 'content://fixture/tree/knowledge',
@@ -125,9 +127,11 @@ void main() {
         [gardenId],
       );
       opened.clear();
+      final before = folder.listCalls;
       final empty = await library.searchDetailed('مریخ', sourceIds: {});
       expect(empty.sources, isEmpty);
       expect(opened, isEmpty);
+      expect(folder.listCalls, before);
     },
   );
   test(

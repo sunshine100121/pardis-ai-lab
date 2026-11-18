@@ -156,12 +156,12 @@ class ZimIndexedProjectSearch {
       final query = nativePersianEvidence
           ? null
           : await ZimQueryTranslation.englishTerms(
-        question,
-        engine: engine,
-        settings: settings,
-        fallbackTemplate: fallbackTemplate,
-        cancelled: cancelled,
-      );
+              question,
+              engine: engine,
+              settings: settings,
+              fallbackTemplate: fallbackTemplate,
+              cancelled: cancelled,
+            );
       if (query == null && !nativePersianEvidence) errors++;
       if (cancelled())
         return (

@@ -34,9 +34,7 @@ extension _ChatScreenActions on _ChatScreenState {
     if (approved == null || !mounted) return;
     if (ref.read(chatProvider).chatId != chatId) return;
     try {
-      await ref
-          .read(conversationWorkspaceProvider.notifier)
-          .rememberChatMessage(
+      await ref.read(conversationWorkspaceProvider.notifier).rememberChatMessage(
         projectId: project.id,
         chatId: chatId,
         messageId: message.id,
