@@ -61,7 +61,7 @@ void main() {
       expect(
         ProjectMemoryGate.relevant(
           'در باغ من چند درخت گردو وجود دارد؟',
-          'در باغ من درخت سیب داریم.\nگردو فقط در فهرست خرید است.',
+          'در باغ من سیب داریم.\nگردو فقط در فهرست خرید است.',
         ),
         isFalse,
         reason: 'Unrelated memory lines must not combine into evidence',
