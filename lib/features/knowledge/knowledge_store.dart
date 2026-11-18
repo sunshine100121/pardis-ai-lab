@@ -611,6 +611,8 @@ class KnowledgeStore {
               ..limit(1))
             .getSingleOrNull();
     if (last == null) return const [];
+    // Keep passage memory bounded even when FTS is unavailable. The initial
+    // upper key bounds the scan to keys no later than its starting maximum.
     String? cursor;
     const pageSize = 128;
     final scored = <(int, KnowledgeChunk)>[];

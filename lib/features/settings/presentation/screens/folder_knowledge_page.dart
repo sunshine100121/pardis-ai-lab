@@ -44,8 +44,27 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
     catch(_) { if(mounted) setState(()=>_error='پوشه خوانده نشد؛ دسترسی یا محدودیت حجم/تعداد منابع را بررسی کنید.'); }
     finally { if(mounted) setState(()=>_busy=false); }
   }
+  String _sourceStatus(Map<dynamic, dynamic> file, Map<(Object?, Object?, Object?), int> counts,
+      Set<(Object?, Object?, Object?)> verified) {
+    final key = (file['name'], file['size'], file['modified']);
+    if (file['enabled'] == true && counts[key] == 1 && verified.contains(key)) {
+      return 'آخرین آزمایش، بازیابی مقاله را تأیید کرد';
+    }
+    return '${file['status']}';
+  }
   @override
-  Widget build(BuildContext context)=>Scaffold(
+  Widget build(BuildContext context) {
+    final files = (_data['files'] as List).whereType<Map>().toList();
+    final counts = <(Object?, Object?, Object?), int>{};
+    for (final file in files) {
+      final key = (file['name'], file['size'], file['modified']);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    final verified = <(Object?, Object?, Object?)>{
+      for (final check in _checks.whereType<Map>())
+        if (check['code'] == 'found') (check['file'], check['fileSize'], check['fileModified']),
+    };
+    return Scaffold(
     appBar:AppBar(title:const Text('پوشه دانش')),
     body:ListView(padding:const EdgeInsets.all(16),children:[
       const Text('پوشه موجود AI Knowledge را یک‌بار انتخاب کنید. مدل GGUF وارد نمایه نمی‌شود و فایل اصلی تغییر نمی‌کند.'),
@@ -57,8 +76,8 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
       if(_error!=null) Text(_error!),
       Text('حجم نمایهٔ مشتق‌شده: $_bytes بایت از ${FolderLibrary.maxIndexBytes}'),
       const Text('نمایهٔ اسناد حداکثر ۲۴ قطعه از ابتدای هر سند است؛ نبود نتیجه به معنی نبود مطلب در کل کتاب نیست. PDF اسکن‌شده در این مسیر OCR نمی‌شود.'),
-      for(final f in _data['files'] as List) SwitchListTile(
-        title:Text(f['name'] as String),subtitle:Text('${f['status']} · ${f['size']} بایت'),value:f['enabled']==true,
+      for(final f in files) SwitchListTile(
+        title:Text(f['name'] as String),subtitle:Text('${_sourceStatus(f, counts, verified)} · ${f['size']} بایت'),value:f['enabled']==true,
         onChanged:_busy?null:(v) async { await ref.read(folderLibraryProvider).setEnabled(f['uri'] as String,v); await _load(); },
       ),
       ExpansionTile(title:const Text('پیشرفته'),children:[
@@ -73,6 +92,7 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
       ]),
     ]),
   );
+  }
 }
 
 class HaReadSettingsPage extends StatefulWidget {

@@ -9,9 +9,26 @@ import 'package:ondevice_llm/features/settings/presentation/screens/folder_knowl
 import 'package:ondevice_llm/features/chat/presentation/widgets/chat_bubble.dart';
 import 'package:ondevice_llm/l10n/app_localizations.dart';
 import 'offline_folder_library_test.dart' show TestFolder;
+import 'offline_zim_reliability_test.dart' show FixtureFolder;
+import 'support/persian_zim_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('successful archive check is visible after reopening the page', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final folder = FixtureFolder({'fa.zim': persianZim()});
+    final library = FolderLibrary(access: folder);
+    await library.refresh();
+    final report = await library.searchDetailed('مریخ');
+    expect(report.checks.single['code'], 'found');
+    await tester.pumpWidget(ProviderScope(
+      overrides: [folderLibraryProvider.overrideWithValue(library)],
+      child: const MaterialApp(home: FolderKnowledgePage()),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('آخرین آزمایش، بازیابی مقاله را تأیید کرد'), findsOneWidget);
+    expect(find.text('fa.zim'), findsOneWidget);
+  });
   testWidgets('local citation opens its evidence without a technical URL or browser action',(tester) async {
     await tester.pumpWidget(MaterialApp(locale:const Locale('fa'),
       localizationsDelegates:AppLocalizations.localizationsDelegates,supportedLocales:AppLocalizations.supportedLocales,

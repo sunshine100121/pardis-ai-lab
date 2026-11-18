@@ -307,6 +307,7 @@ class FolderLibrary {
           'stage': 'open',
           'code': 'not_found',
           'fileSize': now.size,
+          'fileModified': now.modified,
           'readCalls': 0,
           'readBytes': 0,
           'highestOffset': 0,
