@@ -25,7 +25,9 @@ import 'chat_test.dart' show TestEngine, TestModels, TestSettings;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  testWidgets('project citation opens only its selected archive', (tester) async {
+  testWidgets('project citation opens only its selected archive', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final folder = FixtureFolder({
       'medical.zim': persianZim(archive: 'پزشکی ساختگی'),
@@ -38,34 +40,53 @@ void main() {
     };
     final library = FolderLibrary(access: folder);
     await library.refresh();
-    final citation = (await library.searchDetailed('بهبهان', sourceIds: {
-      FolderLibrary.sourceId('garden.zim'),
-    })).sources.single;
+    final citation = (await library.searchDetailed(
+      'بهبهان',
+      sourceIds: {FolderLibrary.sourceId('garden.zim')},
+    )).sources.single;
     opened.clear();
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final container = ProviderContainer(overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-      folderLibraryProvider.overrideWithValue(library),
-      llamaEngineProvider.overrideWithValue(TestEngine()),
-      settingsProvider.overrideWith(TestSettings.new),
-      modelManagerProvider.overrideWith(TestModels.new),
-    ]);
-    addTearDown(() async { container.dispose(); await db.close(); });
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        folderLibraryProvider.overrideWithValue(library),
+        llamaEngineProvider.overrideWithValue(TestEngine()),
+        settingsProvider.overrideWith(TestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await db.close();
+    });
     final workspace = container.read(conversationWorkspaceProvider.notifier);
     await workspace.ready;
-    await workspace.saveProject(name: 'باغ ساختگی', sourceIds: [FolderLibrary.sourceId('garden.zim')]);
-    final project = container.read(conversationWorkspaceProvider).projects.single;
+    await workspace.saveProject(
+      name: 'باغ ساختگی',
+      sourceIds: [FolderLibrary.sourceId('garden.zim')],
+    );
+    final project = container
+        .read(conversationWorkspaceProvider)
+        .projects
+        .single;
     container.read(chatProvider.notifier).newChat(projectId: project.id);
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        locale: const Locale('fa'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: ZimArticlePage(url: citation.url, title: citation.title,
-          excerpt: 'متن ذخیره‌شده', archiveId: citation.archiveId, archiveDate: citation.archiveDate),
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: const Locale('fa'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ZimArticlePage(
+            url: citation.url,
+            title: citation.title,
+            excerpt: 'متن ذخیره‌شده',
+            archiveId: citation.archiveId,
+            archiveDate: citation.archiveDate,
+          ),
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     expect(opened, ['garden.zim']);
     expect(find.textContaining('خوزستان'), findsOneWidget);

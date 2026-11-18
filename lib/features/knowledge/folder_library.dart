@@ -411,12 +411,15 @@ class FolderLibrary {
           file.size != row['size'] ||
           file.modified != row['modified'])
         continue;
-      final wiki = ZimWikipedia(file.uri, openSource: (uri) {
-        if (allowSource != null && !allowSource(uri)) {
-          throw StateError('محدوده منابع پروژه تغییر کرده است.');
-        }
-        return access.open(uri);
-      });
+      final wiki = ZimWikipedia(
+        file.uri,
+        openSource: (uri) {
+          if (allowSource != null && !allowSource(uri)) {
+            throw StateError('محدوده منابع پروژه تغییر کرده است.');
+          }
+          return access.open(uri);
+        },
+      );
       try {
         if (await wiki.archiveIdentity() != archiveId ||
             await wiki.archiveMetadata('Date') != date)

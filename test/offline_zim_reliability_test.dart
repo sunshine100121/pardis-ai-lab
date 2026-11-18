@@ -185,33 +185,47 @@ void main() {
     );
     expect(article?.pageText, contains('خوزستان'));
   });
-  test('reopening a citation opens only sources allowed by the project', () async {
-    final access = FixtureFolder({
-      'medical.zim': persianZim(archive: 'آرشیو پزشکی ساختگی'),
-      'garden.zim': persianZim(archive: 'آرشیو باغ ساختگی'),
-    });
-    final opened = <String>[];
-    access.overrideOpen = (uri) async {
-      opened.add(uri);
-      return access.files[uri]!.fresh();
-    };
-    final library = FolderLibrary(access: access);
-    await library.refresh();
-    final result = await library.searchDetailed('بهبهان',
-        sourceIds: {FolderLibrary.sourceId('garden.zim')});
-    final citation = result.sources.single;
-    opened.clear();
-    final article = await library.article(
-      citation.url, citation.archiveId!, citation.archiveDate,
-      allowSource: (uri) => uri == 'garden.zim',
-    );
-    expect(article?.source, 'آرشیو باغ ساختگی');
-    expect(opened, ['garden.zim']);
-    opened.clear();
-    expect(await library.article(citation.url, citation.archiveId!,
-        citation.archiveDate, allowSource: (_) => false), isNull);
-    expect(opened, isEmpty);
-  });
+  test(
+    'reopening a citation opens only sources allowed by the project',
+    () async {
+      final access = FixtureFolder({
+        'medical.zim': persianZim(archive: 'آرشیو پزشکی ساختگی'),
+        'garden.zim': persianZim(archive: 'آرشیو باغ ساختگی'),
+      });
+      final opened = <String>[];
+      access.overrideOpen = (uri) async {
+        opened.add(uri);
+        return access.files[uri]!.fresh();
+      };
+      final library = FolderLibrary(access: access);
+      await library.refresh();
+      final result = await library.searchDetailed(
+        'بهبهان',
+        sourceIds: {FolderLibrary.sourceId('garden.zim')},
+      );
+      final citation = result.sources.single;
+      opened.clear();
+      final article = await library.article(
+        citation.url,
+        citation.archiveId!,
+        citation.archiveDate,
+        allowSource: (uri) => uri == 'garden.zim',
+      );
+      expect(article?.source, 'آرشیو باغ ساختگی');
+      expect(opened, ['garden.zim']);
+      opened.clear();
+      expect(
+        await library.article(
+          citation.url,
+          citation.archiveId!,
+          citation.archiveDate,
+          allowSource: (_) => false,
+        ),
+        isNull,
+      );
+      expect(opened, isEmpty);
+    },
+  );
   for (final question in [
     'مریخ',
     'بهبهان',

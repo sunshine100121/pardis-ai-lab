@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/l10n/l10n.dart';
 import '../../core/providers/shared_providers.dart';
 import '../../data/network/web_search/search_models.dart';
@@ -32,25 +33,41 @@ class ZimArticlePage extends ConsumerWidget {
         : workspace.memberships[chatId];
     bool inScope(String uri) {
       final current = ref.read(conversationWorkspaceProvider);
-      if (!current.loaded || !current.readable || ref.read(chatProvider).chatId != chatId) return false;
+      if (!current.loaded ||
+          !current.readable ||
+          ref.read(chatProvider).chatId != chatId)
+        return false;
       final activeProject = chatId == null
           ? ref.read(newChatProjectProvider)
           : current.memberships[chatId];
       if (activeProject != projectId) return false;
       if (projectId == null) return true;
       final id = FolderLibrary.sourceId(uri);
-      return current.projects.any((p) => p.id == projectId && p.sourceIds.contains(id));
+      return current.projects.any(
+        (p) => p.id == projectId && p.sourceIds.contains(id),
+      );
     }
+
     if (archiveId != null) {
       try {
         String? openedUri;
-        final direct = await ref.read(folderLibraryProvider).article(url, archiveId!, archiveDate, allowSource: (uri) {
-          final allowed = inScope(uri);
-          if (allowed) openedUri = uri;
-          return allowed;
-        });
-        if (direct != null && openedUri != null && inScope(openedUri!)) return direct;
-      } catch (_) { /* Retain the saved excerpt when folder access is absent. */ }
+        final direct = await ref
+            .read(folderLibraryProvider)
+            .article(
+              url,
+              archiveId!,
+              archiveDate,
+              allowSource: (uri) {
+                final allowed = inScope(uri);
+                if (allowed) openedUri = uri;
+                return allowed;
+              },
+            );
+        if (direct != null && openedUri != null && inScope(openedUri!))
+          return direct;
+      } catch (_) {
+        /* Retain the saved excerpt when folder access is absent. */
+      }
     }
     // The legacy imported archive has no project source identity. Never open
     // it on behalf of a scoped project or after the active chat has changed.
