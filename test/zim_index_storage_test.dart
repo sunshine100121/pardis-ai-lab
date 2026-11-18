@@ -17,6 +17,9 @@ void main() {
     expect(await guard.hasHeadroom(), isFalse);
     available = 400;
     expect(await guard.hasHeadroom(), isTrue);
+    final larger = guard.withDatabaseLimit(101);
+    expect(larger.indexPath, guard.indexPath);
+    expect(await larger.hasHeadroom(), isFalse);
     available = null;
     expect(await guard.hasHeadroom(), isFalse);
     expect(guard.indexPath, startsWith(dir.path));

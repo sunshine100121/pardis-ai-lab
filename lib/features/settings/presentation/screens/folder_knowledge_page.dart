@@ -43,7 +43,17 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
         setState(() => _indexMessage = 'فضای مناسب برای نمایه‌سازی در دسترس نیست.');
         return;
       }
-      final service = ZimIndexService(ref.read(folderLibraryProvider), storage);
+      final limit = await showDialog<int>(context: context, builder: (dialog) => AlertDialog(
+        title: const Text('سقف فضای نمایه'),
+        content: const Text('برای فایل نمایه سقف انتخاب کنید. برنامه پیش از هر دسته فضای آزاد کافی برای پایگاه، فایل موقت و ذخیره احتیاطی را بررسی می‌کند. فایل اصلی کپی نمی‌شود.'),
+        actions: [
+          for (final item in [(256, '۲۵۶ MiB'), (1024, '۱ GiB'), (4096, '۴ GiB'), (16384, '۱۶ GiB')])
+            TextButton(onPressed: () => Navigator.pop(dialog, item.$1 * 1024 * 1024), child: Text(item.$2)),
+          TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('انصراف')),
+        ],
+      ));
+      if (!mounted || limit == null) return;
+      final service = ZimIndexService(ref.read(folderLibraryProvider), storage.withDatabaseLimit(limit));
       setState(() => _indexService = service);
       final result = await service.run(uri: uri, allowed: () => mounted,
         onProgress: (cursor, total, skipped) {
@@ -181,7 +191,7 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
           const Text(
             'نمایهٔ اسناد حداکثر ۲۴ قطعه از ابتدای هر سند است؛ نبود نتیجه به معنی نبود مطلب در کل کتاب نیست. PDF اسکن‌شده در این مسیر OCR نمی‌شود.',
           ),
-          const Text('نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف صفحات پایگاه ۲۵۶ MiB است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.'),
+          const Text('نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف فضای پایگاه انتخابی است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.'),
           for (final f in files)
             SwitchListTile(
               title: Text(f['name'] as String),

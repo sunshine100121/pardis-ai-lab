@@ -49,6 +49,11 @@ class ZimIndexStorage {
   String get indexPath =>
       path.join(directory.path, 'pala-zim-content-index-v1.sqlite');
 
+  ZimIndexStorage withDatabaseLimit(int bytes) => ZimIndexStorage(
+    directory: directory, availableBytes: availableBytes,
+    maxDatabaseBytes: bytes, reserveBytes: reserveBytes,
+  );
+
   Future<bool> hasHeadroom() async {
     try {
       if (!await directory.exists()) return false;

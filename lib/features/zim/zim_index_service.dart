@@ -88,6 +88,7 @@ class ZimIndexService {
       final index = ZimContentIndex(
         db,
         maxDatabaseBytes: storage.maxDatabaseBytes,
+        maxTextBytes: (storage.maxDatabaseBytes ~/ 2).clamp(1, storage.maxDatabaseBytes),
       );
       final step = ZimIndexStep(index);
       var result = (cursor: 0, total: 0, skipped: 0, cancelled: false);
