@@ -2786,9 +2786,9 @@ class ChatNotifier extends _ChatBase
       final plain = AnswerCleanup.dropCitations(t.answer.toString());
       if (plain.length < t.answer.length) t.replaceAnswer(plain);
     } else {
-      final checked = CitationMatch.stripUnknown(
+      final checked = CitationMatch.verifyEvidence(
         t.answer.toString(),
-        t.sources.length,
+        t.sourceTexts(),
       );
       if (checked != t.answer.toString()) t.replaceAnswer(checked);
     }
