@@ -150,39 +150,41 @@ void main() {
       expect(ZimWikipedia.requiresEncyclopedia('بهبهان کجاست'), false);
     },
   );
-  test(
-    'ninth active archive is searched and its article can be reopened',
-    () async {
-      final access = FixtureFolder({
-        for (var i = 0; i < 8; i++) 'short-$i.zim': persianZim(shortText: true),
-        'ninth.zim': persianZim(large: true, archive: 'دانشنامهٔ نهم آزمون'),
-      });
-      final library = FolderLibrary(access: access);
-      await library.refresh();
-      final rssBefore = ProcessInfo.currentRss;
-      final timer = Stopwatch()..start();
-      final result = await library.searchDetailed('بهبهان کجاست');
-      timer.stop();
-      final rssAfter = ProcessInfo.currentRss;
-      final bytesRead = result.checks.fold<int>(0, (sum, check) => sum + ((check['readBytes'] as int?) ?? 0));
-      print('synthetic nine-archive lookup: ${timer.elapsedMilliseconds} ms, $bytesRead bytes read, RSS before $rssBefore and after $rssAfter bytes; not a peak or device measurement');
-      expect(result.checks, hasLength(9));
-      expect(result.checks.last['code'], 'found');
-      expect(access.opened, hasLength(9));
-      expect(
-        access.opened.every((source) => (source as SparseZimSource).closed),
-        isTrue,
-      );
-      final citation = result.sources.single;
-      expect(citation.source, 'دانشنامهٔ نهم آزمون');
-      final article = await library.article(
-        citation.url,
-        citation.archiveId!,
-        citation.archiveDate,
-      );
-      expect(article?.pageText, contains('خوزستان'));
-    },
-  );
+  test('ninth active archive is searched and its article can be reopened', () async {
+    final access = FixtureFolder({
+      for (var i = 0; i < 8; i++) 'short-$i.zim': persianZim(shortText: true),
+      'ninth.zim': persianZim(large: true, archive: 'دانشنامهٔ نهم آزمون'),
+    });
+    final library = FolderLibrary(access: access);
+    await library.refresh();
+    final rssBefore = ProcessInfo.currentRss;
+    final timer = Stopwatch()..start();
+    final result = await library.searchDetailed('بهبهان کجاست');
+    timer.stop();
+    final rssAfter = ProcessInfo.currentRss;
+    final bytesRead = result.checks.fold<int>(
+      0,
+      (sum, check) => sum + ((check['readBytes'] as int?) ?? 0),
+    );
+    print(
+      'synthetic nine-archive lookup: ${timer.elapsedMilliseconds} ms, $bytesRead bytes read, RSS before $rssBefore and after $rssAfter bytes; not a peak or device measurement',
+    );
+    expect(result.checks, hasLength(9));
+    expect(result.checks.last['code'], 'found');
+    expect(access.opened, hasLength(9));
+    expect(
+      access.opened.every((source) => (source as SparseZimSource).closed),
+      isTrue,
+    );
+    final citation = result.sources.single;
+    expect(citation.source, 'دانشنامهٔ نهم آزمون');
+    final article = await library.article(
+      citation.url,
+      citation.archiveId!,
+      citation.archiveDate,
+    );
+    expect(article?.pageText, contains('خوزستان'));
+  });
   for (final question in [
     'مریخ',
     'بهبهان',

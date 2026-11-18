@@ -70,16 +70,28 @@ void main() {
       );
       await db.insertKnowledgeDoc(
         KnowledgeDocsCompanion.insert(
-          id: 'best-doc', collection: 'fixture', name: 'best.txt', addedAt: now,
+          id: 'best-doc',
+          collection: 'fixture',
+          name: 'best.txt',
+          addedAt: now,
         ),
-        [KnowledgeChunksCompanion.insert(
-          id: '0299', docId: 'best-doc', ordinal: 0,
-          content: 'walnut irrigation evidence',
-        )],
+        [
+          KnowledgeChunksCompanion.insert(
+            id: '0299',
+            docId: 'best-doc',
+            ordinal: 0,
+            content: 'walnut irrigation evidence',
+          ),
+        ],
       );
       db.knowledgeFtsAvailable = false;
       final store = KnowledgeStore(db);
-      final results = await store.search('fixture', 'walnut irrigation', maxPassages: 1, maxDocs: 1);
+      final results = await store.search(
+        'fixture',
+        'walnut irrigation',
+        maxPassages: 1,
+        maxDocs: 1,
+      );
       expect(results, hasLength(1));
       expect(results.single.title, 'best.txt');
       expect(results.single.pageText, 'walnut irrigation evidence');

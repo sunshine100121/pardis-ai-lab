@@ -1,12 +1,14 @@
 import 'dart:typed_data';
 import 'dart:io';
 import 'dart:isolate';
+
 import 'package:path/path.dart' as p;
 
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:crypto/crypto.dart';
+
 import '../../core/utils/search_terms.dart';
 
 import '../../data/local/database/app_database.dart';
@@ -335,9 +337,8 @@ class KnowledgeStore {
       if (derived != null && await derived.exists()) await derived.delete();
       rethrow;
     }
-    return (await _db.knowledgeDocsIn(
-      collection.trim(),
-    )).firstWhere((d) => d.id == id);
+    return (await _db.knowledgeDocsIn(collection.trim()))
+        .firstWhere((d) => d.id == id);
   }
 
   Future<ExtractedDocument> _mediaText(
@@ -488,9 +489,9 @@ class KnowledgeStore {
     await _db.transaction(() async {
       await _db.deleteKnowledgeDoc(docId);
       if (doc.active) {
-        final remaining = (await _db.knowledgeDocsIn(
-          doc.collection,
-        )).where((d) => d.name == doc.name).toList();
+        final remaining = (await _db.knowledgeDocsIn(doc.collection))
+            .where((d) => d.name == doc.name)
+            .toList();
         if (remaining.isNotEmpty) await activate(remaining.first);
       }
     });
@@ -565,37 +566,50 @@ class KnowledgeStore {
     String query, {
     required int limit,
   }) async {
-    final docs = {for (final d in await _db.knowledgeDocsIn(collection)) if (d.active) d.id: d};
+    final docs = {
+      for (final d in await _db.knowledgeDocsIn(collection))
+        if (d.active) d.id: d,
+    };
     if (docs.isEmpty || limit <= 0) return const [];
     final ids = docs.keys.toList();
     if (_db.knowledgeFtsAvailable) {
       final queryText = AppDatabase.ftsAnyQuery(query);
       if (queryText.isEmpty) return const [];
       try {
-        final rows = await _db.customSelect(
-          'SELECT chunk_id FROM knowledge_fts WHERE knowledge_fts MATCH ? '
-          'AND doc_id IN (${List.filled(ids.length, '?').join(',')}) '
-          'ORDER BY bm25(knowledge_fts) LIMIT ?',
-          variables: [
-            drift.Variable.withString(queryText),
-            for (final id in ids) drift.Variable.withString(id),
-            drift.Variable.withInt(limit),
-          ],
-        ).get();
+        final rows = await _db
+            .customSelect(
+              'SELECT chunk_id FROM knowledge_fts WHERE knowledge_fts MATCH ? '
+              'AND doc_id IN (${List.filled(ids.length, '?').join(',')}) '
+              'ORDER BY bm25(knowledge_fts) LIMIT ?',
+              variables: [
+                drift.Variable.withString(queryText),
+                for (final id in ids) drift.Variable.withString(id),
+                drift.Variable.withInt(limit),
+              ],
+            )
+            .get();
         final order = [for (final row in rows) row.read<String>('chunk_id')];
         final chunks = await _db.knowledgeChunksByIds(order);
         final byId = {for (final chunk in chunks) chunk.id: chunk};
-        return [for (final id in order) if (byId[id] case final chunk?) (chunk, docs[chunk.docId]!)];
+        return [
+          for (final id in order)
+            if (byId[id] case final chunk?) (chunk, docs[chunk.docId]!),
+        ];
       } catch (_) {
         // A missing or unusable FTS index falls through to a bounded scan.
       }
     }
-    final terms = unicodeWords(query, cjkBigrams: true).where((word) => word.length > 1).toSet();
+    final terms = unicodeWords(
+      query,
+      cjkBigrams: true,
+    ).where((word) => word.length > 1).toSet();
     if (terms.isEmpty) return const [];
-    final last = await (_db.select(_db.knowledgeChunks)
-          ..where((t) => t.docId.isIn(ids))
-          ..orderBy([(t) => drift.OrderingTerm.desc(t.id)])
-          ..limit(1)).getSingleOrNull();
+    final last =
+        await (_db.select(_db.knowledgeChunks)
+              ..where((t) => t.docId.isIn(ids))
+              ..orderBy([(t) => drift.OrderingTerm.desc(t.id)])
+              ..limit(1))
+            .getSingleOrNull();
     if (last == null) return const [];
     String? cursor;
     const pageSize = 128;
@@ -605,7 +619,8 @@ class KnowledgeStore {
         ..where((t) => t.docId.isIn(ids) & t.id.isSmallerOrEqualValue(last.id))
         ..orderBy([(t) => drift.OrderingTerm.asc(t.id)])
         ..limit(pageSize);
-      if (cursor != null) pageQuery.where((t) => t.id.isBiggerThanValue(cursor!));
+      if (cursor != null)
+        pageQuery.where((t) => t.id.isBiggerThanValue(cursor!));
       final page = await pageQuery.get();
       if (page.isEmpty) break;
       for (final chunk in page) {

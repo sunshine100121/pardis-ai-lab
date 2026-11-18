@@ -78,24 +78,41 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test('unreadable workspace stops a turn without querying or overwriting metadata', () async {
-    SharedPreferences.setMockInitialValues({ConversationWorkspaceNotifier.key: '{invalid'});
+    SharedPreferences.setMockInitialValues({
+      ConversationWorkspaceNotifier.key: '{invalid',
+    });
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final engine = TestEngine();
     final folder = FixtureFolder({'garden.zim': persianZim()});
-    final container = ProviderContainer(overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-      llamaEngineProvider.overrideWithValue(engine),
-      settingsProvider.overrideWith(TestSettings.new),
-      modelManagerProvider.overrideWith(TestModels.new),
-      offlineKnowledgeProvider.overrideWithValue(OfflineKnowledge(FolderLibrary(access: folder))),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(TestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+        offlineKnowledgeProvider.overrideWithValue(
+          OfflineKnowledge(FolderLibrary(access: folder)),
+        ),
+      ],
+    );
     try {
-      expect(await container.read(chatProvider.notifier).send('پرسش ساختگی'), isFalse);
-      expect(container.read(chatProvider).error, contains('اطلاعات محدوده پروژه‌ها'));
+      expect(
+        await container.read(chatProvider.notifier).send('پرسش ساختگی'),
+        isFalse,
+      );
+      expect(
+        container.read(chatProvider).error,
+        contains('اطلاعات محدوده پروژه‌ها'),
+      );
       expect(engine.receivedMessages, isNull);
       expect(folder.opened, isEmpty);
       expect(await db.allChats(), isEmpty);
-      expect((await SharedPreferences.getInstance()).getString(ConversationWorkspaceNotifier.key), '{invalid');
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          ConversationWorkspaceNotifier.key,
+        ),
+        '{invalid',
+      );
     } finally {
       container.dispose();
       await db.close();
