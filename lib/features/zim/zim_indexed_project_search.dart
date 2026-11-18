@@ -93,9 +93,8 @@ class ZimIndexedProjectSearch {
       }
       final query = await ZimQueryTranslation.englishTerms(question, engine: engine,
         settings: settings, fallbackTemplate: fallbackTemplate, cancelled: cancelled);
-      if (query == null || cancelled()) {
-        return (sources: <SearchResult>[], incomplete: incomplete, skipped: skipped, errors: errors + 1);
-      }
+      if (query == null) errors++;
+      if (cancelled()) return (sources: <SearchResult>[], incomplete: incomplete, skipped: skipped, errors: errors);
       final latest = await library.state();
       final current = await library.access.list();
       for (final id in authorized.keys.toList()) {
@@ -111,8 +110,20 @@ class ZimIndexedProjectSearch {
         }
       }
       if (cancelled()) return (sources: <SearchResult>[], incomplete: incomplete, skipped: skipped, errors: errors);
-      return (sources: ZimIndexCitations(index).search(query, authorized),
-        incomplete: incomplete, skipped: skipped, errors: errors);
+      final citations = ZimIndexCitations(index);
+      final original = citations.search(question, authorized);
+      final translated = query != null && query.trim() != question.trim()
+          ? citations.search(query, authorized) : <SearchResult>[];
+      // Do not let one language fill the result limit before the other has
+      // a chance. Both queries search only the same permitted sources.
+      final seen = <String>{};
+      final combined = <SearchResult>[];
+      for (var i = 0; i < 4; i++) {
+        for (final list in [original, translated]) {
+          if (i < list.length && seen.add(list[i].url) && combined.length < 4) combined.add(list[i]);
+        }
+      }
+      return (sources: combined, incomplete: incomplete, skipped: skipped, errors: errors);
     } finally {
       db.close();
     }
