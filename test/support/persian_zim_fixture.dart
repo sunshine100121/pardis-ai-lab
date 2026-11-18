@@ -47,6 +47,7 @@ SparseZimSource persianZim({
   bool shortText = false,
   bool embeddedIndex = false,
   bool englishGarden = false,
+  bool duplicateGardenTitle = false,
   String archive = 'دانشنامهٔ فارسی آزمون',
 }) {
   final entries = <Map<String, dynamic>>[
@@ -89,6 +90,9 @@ SparseZimSource persianZim({
     )['text'] = 'eng';
     entry['title'] = 'Plant care';
     entry['text'] = '<html><body><h1>Plant care</h1><article><p>How can I care for this tree through a dry season?</p></article><article><p>Deep watering of a mature walnut tree depends on soil drainage and seasonal rainfall. In dry weather irrigation should reach the root zone without leaving the soil waterlogged.</p></article></body></html>';
+  }
+  if (duplicateGardenTitle) {
+    entries.firstWhere((e) => e['url'] == 'Mars')['title'] = 'Plant care';
   }
   if (shortText) {
     for (final entry in entries.where(

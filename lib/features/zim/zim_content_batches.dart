@@ -101,7 +101,7 @@ class ZimContentBatches {
           if (raw.length > maxArticleBytes) {
             skipped++;
           } else {
-            final text = _bodyText(utf8.decode(raw, allowMalformed: true));
+            final text = extractBody(utf8.decode(raw, allowMalformed: true));
             final size = utf8.encode(text).length;
             if (size > maxBatchTextBytes) {
               skipped++;
@@ -127,7 +127,7 @@ class ZimContentBatches {
     return ZimContentBatch(articles, index, archive.entryCount, skipped, false);
   }
 
-  static String _bodyText(String markup) {
+  static String extractBody(String markup) {
     final document = html.parse(markup);
     final root = document.body ?? document.documentElement;
     if (root == null) return '';

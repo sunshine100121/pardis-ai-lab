@@ -8,6 +8,7 @@ import '../../data/network/web_search/web_page_reader.dart';
 import '../../data/network/web_search/wikipedia_client.dart';
 import '../retrieval/domain/evidence.dart';
 import 'zim_archive.dart';
+import 'zim_content_batches.dart';
 import 'zim_source.dart';
 
 /// Offline Wikipedia from a Kiwix ZIM file the tester imported (tester
@@ -69,6 +70,19 @@ class ZimWikipedia {
       archiveId: zim.identity,
       language: await zim.metadata('Language'),
     );
+  }
+
+  /// Opens an indexed entry by its exact archive position, preventing a
+  /// duplicate title from resolving to another article.
+  Future<SearchResult?> articleAt(int entryIndex, {required String expectedTitle}) async {
+    final zim = await _open();
+    if (entryIndex < 0 || entryIndex >= zim.entryCount) return null;
+    final entry = await zim.entry(entryIndex);
+    if (!entry.isArticle || entry.title != expectedTitle) return null;
+    return _resultFromText(entry.title,
+      ZimContentBatches.extractBody(utf8.decode(await zim.content(entry), allowMalformed: true)), await name(),
+      archiveDate: await zim.metadata('Date'), archiveId: zim.identity,
+      language: await zim.metadata('Language'), limit: false);
   }
 
   /// Titles the question could name, longest first: "Nikon Z30", "Eiffel
@@ -190,11 +204,18 @@ class ZimWikipedia {
     String? language,
   }) {
     var (_, text) = WebPageReader.extract(html);
+    return _resultFromText(title, text, file, archiveDate: archiveDate,
+      archiveId: archiveId, language: language);
+  }
+
+  static SearchResult? _resultFromText(String title, String text, String file, {
+    String? archiveDate, String? archiveId, String? language, bool limit = true,
+  }) {
     text = text.trim();
     if (text.length < 80 || RegExp(r'may refer to:').hasMatch(text)) {
       return null;
     }
-    if (text.length > WikipediaClient.maxChars) {
+    if (limit && text.length > WikipediaClient.maxChars) {
       text = text.substring(0, WikipediaClient.maxChars);
     }
     final lead = text

@@ -32,7 +32,7 @@ void main() {
   test('project search translates and cites an indexed English article without opening medical source', () async {
     final dir = await Directory.systemTemp.createTemp('pala-project-search-');
     addTearDown(() => dir.delete(recursive: true));
-    final garden = persianZim(englishGarden: true, archive: 'Gardening fixture');
+    final garden = persianZim(englishGarden: true, duplicateGardenTitle: true, archive: 'Gardening fixture');
     final medical = persianZim(englishGarden: true, archive: 'Medical fixture');
     final folder = FixtureFolder({'medical.zim': medical, 'garden.zim': garden});
     final opened = <String>[];
@@ -56,7 +56,17 @@ void main() {
     expect(result.sources.single.source, 'Gardening fixture');
     expect(result.sources.single.title, 'Plant care — Gardening fixture');
     expect(result.sources.single.pageText, contains('walnut'));
-    expect(result.sources.single.url, 'zim://01000000000000000000000000000000/Plant_care');
+    expect(result.sources.single.url, 'zim://01000000000000000000000000000000/Plant_care?entry=0');
+    final reopened = await library.article(result.sources.single.url,
+      result.sources.single.archiveId!, result.sources.single.archiveDate,
+      allowSource: (uri) => uri == 'garden.zim');
+    expect(reopened?.pageText, contains('walnut'));
+    final other = await library.article(result.sources.single.url.replaceFirst('entry=0', 'entry=1'),
+      result.sources.single.archiveId!, result.sources.single.archiveDate,
+      allowSource: (uri) => uri == 'garden.zim');
+    expect(other?.pageText, contains('مریخ'));
+    expect(other?.pageText, isNot(contains('walnut')));
+    expect(opened.every((uri) => uri == 'garden.zim'), isTrue);
     expect(result.incomplete, 0);
     opened.clear();
     final revoked = await search.search(question: 'آبیاری درخت گردو', sourceIds: {id},

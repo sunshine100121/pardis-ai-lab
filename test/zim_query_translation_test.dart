@@ -154,7 +154,7 @@ void main() {
       expect(citations.single.title, 'Plant care — Gardening fixture');
       expect(
         citations.single.url,
-        'zim://01000000000000000000000000000000/Plant_care',
+        'zim://01000000000000000000000000000000/Plant_care?entry=0',
       );
       expect(citations.single.pageText, contains('walnut'));
     },

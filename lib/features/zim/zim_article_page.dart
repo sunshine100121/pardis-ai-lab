@@ -77,8 +77,17 @@ class ZimArticlePage extends ConsumerWidget {
     if (await wiki.archiveIdentity() != archiveId || !inScope('')) return null;
     final date = await wiki.archiveMetadata('Date');
     if (date != archiveDate || !inScope('')) return null;
-    final name = Uri.decodeComponent(url.substring(6)).replaceAll('_', ' ');
-    final result = await wiki.article(name);
+    final parsed = Uri.tryParse(url);
+    if (parsed == null || parsed.scheme != 'zim') return null;
+    final entryText = parsed.queryParameters['entry'];
+    final entry = entryText == null ? null : int.tryParse(entryText);
+    if (entryText != null && (entry == null || entry < 0 ||
+        parsed.host != archiveId || parsed.pathSegments.length != 1)) return null;
+    final name = entry == null
+        ? Uri.decodeComponent(url.substring(6)).replaceAll('_', ' ')
+        : parsed.pathSegments.single.replaceAll('_', ' ');
+    final result = entry == null ? await wiki.article(name)
+        : await wiki.articleAt(entry, expectedTitle: name);
     return inScope('') ? result : null;
   }
 
