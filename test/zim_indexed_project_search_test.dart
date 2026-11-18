@@ -64,6 +64,21 @@ void main() {
     await service.run(uri: 'medical.zim', allowed: () => true);
     opened.clear();
     final id = FolderLibrary.sourceId('garden.zim');
+    final invalidEngine = FakeLocalQueryEngine(['unused']);
+    for (final invalid in ['  ', List.filled(2001, 'گ').join()]) {
+      final skipped = await ZimIndexedProjectSearch(library, storage).search(
+        question: invalid,
+        sourceIds: {id},
+        allowed: (source) => source == id,
+        cancelled: () => false,
+        engine: invalidEngine,
+        settings: const InferenceSettings(),
+        fallbackTemplate: '',
+      );
+      expect(skipped.sources, isEmpty);
+    }
+    expect(opened, isEmpty);
+    expect(invalidEngine.calls, 0);
     final engine = FakeLocalQueryEngine(['walnut tree watering irrigation']);
     var allowed = true;
     final search = ZimIndexedProjectSearch(library, storage);

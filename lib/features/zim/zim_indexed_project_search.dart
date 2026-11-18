@@ -40,7 +40,10 @@ class ZimIndexedProjectSearch {
       skipped: 0,
       errors: 0,
     );
-    if (sourceIds.isEmpty ||
+    // Invalid questions must not open project archives or wake local Qwen.
+    if (question.trim().isEmpty ||
+        question.length > 2000 ||
+        sourceIds.isEmpty ||
         cancelled() ||
         !await File(storage.indexPath).exists())
       return empty;
