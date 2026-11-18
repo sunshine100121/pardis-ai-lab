@@ -67,8 +67,14 @@ void main() {
       final db = sqlite3.openInMemory();
       addTearDown(db.close);
       final index = ZimContentIndex(db);
-      final source = persianZim(englishGarden: true, archive: 'Gardening fixture');
-      final wiki = ZimWikipedia('garden.zim', openSource: (_) async => source.fresh());
+      final source = persianZim(
+        englishGarden: true,
+        archive: 'Gardening fixture',
+      );
+      final wiki = ZimWikipedia(
+        'garden.zim',
+        openSource: (_) async => source.fresh(),
+      );
       final actualName = await wiki.name();
       final actualId = await wiki.archiveIdentity();
       final actualDate = await wiki.archiveMetadata('Date');
