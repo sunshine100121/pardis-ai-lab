@@ -5,6 +5,9 @@ import '../../core/providers/shared_providers.dart';
 import '../../data/network/web_search/search_models.dart';
 import '../../core/design/app_design.dart';
 import '../knowledge/folder_library.dart';
+import '../chat/domain/conversation_workspace.dart';
+import '../chat/presentation/providers/chat_provider.dart';
+import '../settings/presentation/providers/effective_settings_provider.dart';
 
 /// Local article links stay inside the imported archive. The saved excerpt
 /// remains available if that archive has since been replaced or removed.
@@ -20,19 +23,46 @@ class ZimArticlePage extends ConsumerWidget {
     this.archiveId,
   });
   Future<SearchResult?> _article(WidgetRef ref) async {
+    await ref.read(conversationWorkspaceProvider.notifier).ready;
+    final chatId = ref.read(chatProvider).chatId;
+    final workspace = ref.read(conversationWorkspaceProvider);
+    if (!workspace.loaded || !workspace.readable) return null;
+    final projectId = chatId == null
+        ? ref.read(newChatProjectProvider)
+        : workspace.memberships[chatId];
+    bool inScope(String uri) {
+      final current = ref.read(conversationWorkspaceProvider);
+      if (!current.loaded || !current.readable || ref.read(chatProvider).chatId != chatId) return false;
+      final activeProject = chatId == null
+          ? ref.read(newChatProjectProvider)
+          : current.memberships[chatId];
+      if (activeProject != projectId) return false;
+      if (projectId == null) return true;
+      final id = FolderLibrary.sourceId(uri);
+      return current.projects.any((p) => p.id == projectId && p.sourceIds.contains(id));
+    }
     if (archiveId != null) {
       try {
-        final direct = await ref.read(folderLibraryProvider).article(url, archiveId!, archiveDate);
-        if (direct != null) return direct;
+        String? openedUri;
+        final direct = await ref.read(folderLibraryProvider).article(url, archiveId!, archiveDate, allowSource: (uri) {
+          final allowed = inScope(uri);
+          if (allowed) openedUri = uri;
+          return allowed;
+        });
+        if (direct != null && openedUri != null && inScope(openedUri!)) return direct;
       } catch (_) { /* Retain the saved excerpt when folder access is absent. */ }
     }
+    // The legacy imported archive has no project source identity. Never open
+    // it on behalf of a scoped project or after the active chat has changed.
+    if (projectId != null || !inScope('')) return null;
     final wiki = await ref.read(zimWikipediaProvider.future);
-    if (wiki == null || archiveId == null) return null;
-    if (await wiki.archiveIdentity() != archiveId) return null;
+    if (wiki == null || archiveId == null || !inScope('')) return null;
+    if (await wiki.archiveIdentity() != archiveId || !inScope('')) return null;
     final date = await wiki.archiveMetadata('Date');
-    if (date != archiveDate) return null;
+    if (date != archiveDate || !inScope('')) return null;
     final name = Uri.decodeComponent(url.substring(6)).replaceAll('_', ' ');
-    return wiki.article(name);
+    final result = await wiki.article(name);
+    return inScope('') ? result : null;
   }
 
   @override

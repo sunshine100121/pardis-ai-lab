@@ -390,8 +390,9 @@ class FolderLibrary {
   Future<SearchResult?> article(
     String url,
     String archiveId,
-    String? date,
-  ) async {
+    String? date, {
+    bool Function(String uri)? allowSource,
+  }) async {
     final uri = Uri.tryParse(url);
     if (uri == null ||
         uri.scheme != 'zim' ||
@@ -402,6 +403,7 @@ class FolderLibrary {
     final live = {for (final f in listing.files) f.uri: f};
     final data = await state();
     for (final row in data['files'] as List) {
+      if (allowSource != null && !allowSource(row['uri'] as String)) continue;
       final file = live[row['uri']];
       if (row['enabled'] != true ||
           file == null ||
@@ -409,7 +411,12 @@ class FolderLibrary {
           file.size != row['size'] ||
           file.modified != row['modified'])
         continue;
-      final wiki = ZimWikipedia(file.uri, openSource: access.open);
+      final wiki = ZimWikipedia(file.uri, openSource: (uri) {
+        if (allowSource != null && !allowSource(uri)) {
+          throw StateError('محدوده منابع پروژه تغییر کرده است.');
+        }
+        return access.open(uri);
+      });
       try {
         if (await wiki.archiveIdentity() != archiveId ||
             await wiki.archiveMetadata('Date') != date)
