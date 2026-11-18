@@ -762,6 +762,7 @@ class _EchoEngine extends TestEngine {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late AppDatabase db;
   late ProviderContainer container;
   late TestEngine engine;
@@ -1445,7 +1446,7 @@ void main() {
   test('no-source model answers are marked as model knowledge', () async {
     final n = container.read(chatProvider.notifier);
     await n.send('What is Mars?');
-    expect(container.read(chatProvider).notice, contains('Source [0]'));
+    expect(container.read(chatProvider).notice, contains('منبع [۰]'));
     expect(container.read(chatProvider).messages.last.sourcesJson, '[]');
   });
 
@@ -1722,7 +1723,7 @@ void main() {
     final n = container.read(chatProvider.notifier);
     engine.metrics = {'tokens': 100, 'tokensPerSecond': 50.0};
     await n.send('One');
-    expect(container.read(chatProvider).notice, isNull);
+    expect(container.read(chatProvider).notice, contains('منبع [۰]'));
     engine.metrics = {'tokens': 100, 'tokensPerSecond': 20.0};
     await n.send('Two');
     expect(container.read(chatProvider).notice, contains('Speed dropped 60%'));

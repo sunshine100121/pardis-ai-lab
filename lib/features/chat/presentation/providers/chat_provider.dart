@@ -3058,6 +3058,7 @@ class ChatNotifier extends _ChatBase
       notice: _cancelled
           ? _t.noticeStopped
           : outputNote ??
+                (grounding == _t.noticeModelKnowledge ? throttle : null) ??
                 grounding ??
                 (trimmed > 0
                     ? _t.noticeTrimmed(trimmed)
