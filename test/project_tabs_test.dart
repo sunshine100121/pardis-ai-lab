@@ -34,6 +34,39 @@ class _Paths extends PathProviderPlatform {
 }
 
 void main() {
+  test('owner-edited project notes persist without mixing project scopes', () async {
+    SharedPreferences.setMockInitialValues({});
+    final first = ProviderContainer();
+    addTearDown(first.dispose);
+    final workspace = first.read(conversationWorkspaceProvider.notifier);
+    await workspace.ready;
+    await workspace.saveProject(
+      name: 'باغبانی آزمایشی',
+      memoryNotes: 'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+    );
+    await workspace.saveProject(name: 'سلامت آزمایشی');
+    final garden = first.read(conversationWorkspaceProvider).projects.first;
+    await workspace.assign(['garden-chat'], garden.id);
+
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    final restored = second.read(conversationWorkspaceProvider.notifier);
+    await restored.ready;
+    expect(
+      second.read(conversationWorkspaceProvider).projectFor('garden-chat')?.memoryNotes,
+      'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+    );
+    expect(
+      second.read(conversationWorkspaceProvider).projects.last.memoryNotes,
+      isEmpty,
+    );
+    await restored.saveProject(id: garden.id, name: garden.name);
+    expect(
+      second.read(conversationWorkspaceProvider).projectFor('garden-chat')?.memoryNotes,
+      'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+    );
+  });
+
   testWidgets('project tabs isolate drafts and scope the drawer history', (
     tester,
   ) async {

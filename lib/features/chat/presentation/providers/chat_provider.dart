@@ -3379,6 +3379,12 @@ class ChatNotifier extends _ChatBase
     if (project != null && project.instructions.isNotEmpty) {
       baseSystem.write('\nProject instructions:\n${project.instructions}');
     }
+    if (project != null && project.memoryNotes.isNotEmpty) {
+      baseSystem.write(
+        '\nOwner-confirmed facts for this project only; these are not live '
+        'sensor readings or current weather:\n${project.memoryNotes}',
+      );
+    }
     baseSystem.write('\n${settings.systemPrompt}');
     if (extraSystem != null && extraSystem.trim().isNotEmpty) {
       baseSystem.write('\n${extraSystem.trim()}');

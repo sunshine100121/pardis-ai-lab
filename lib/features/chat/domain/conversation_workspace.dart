@@ -5,13 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 class ChatProject {
-  final String id, name, instructions, collection;
+  final String id, name, instructions, collection, memoryNotes;
   final List<String> sourceIds;
   const ChatProject(
     this.id,
     this.name, {
     this.instructions = '',
     this.collection = '',
+    this.memoryNotes = '',
     this.sourceIds = const [],
   });
   Map<String, dynamic> toJson() => {
@@ -19,6 +20,7 @@ class ChatProject {
     'name': name,
     'instructions': instructions,
     'collection': collection,
+    'memoryNotes': memoryNotes,
     'sourceIds': sourceIds,
   };
 }
@@ -71,6 +73,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
                 p['name'],
                 instructions: p['instructions'] as String? ?? '',
                 collection: p['collection'] as String? ?? '',
+                memoryNotes: p['memoryNotes'] is String
+                    ? p['memoryNotes'] as String
+                    : '',
                 sourceIds:
                     (p['sourceIds'] is List ? p['sourceIds'] as List : const [])
                         .whereType<String>()
@@ -116,12 +121,16 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     required String name,
     String instructions = '',
     String collection = '',
+    String? memoryNotes,
     List<String>? sourceIds,
   }) => _change((s) {
+    final previous = s.projects.where((p) => p.id == id).firstOrNull;
+    final notes = memoryNotes ?? previous?.memoryNotes ?? '';
     if (name.trim().isEmpty ||
         name.length > 100 ||
         instructions.length > 4000 ||
-        collection.length > 200) {
+        collection.length > 200 ||
+        notes.length > 6000) {
       throw const FormatException('Invalid project name or instructions.');
     }
     if (id == null && s.projects.length >= 32) {
@@ -132,11 +141,8 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       name.trim(),
       instructions: instructions.trim(),
       collection: collection.trim(),
-      sourceIds: List.unmodifiable(
-        sourceIds ??
-            s.projects.where((p) => p.id == id).firstOrNull?.sourceIds ??
-            const [],
-      ),
+      memoryNotes: notes.trim(),
+      sourceIds: List.unmodifiable(sourceIds ?? previous?.sourceIds ?? const []),
     );
     return ConversationWorkspace(
       projects: [...s.projects.where((p) => p.id != id), project],

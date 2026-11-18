@@ -36,6 +36,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
       text: project?.instructions ?? '',
     );
     final collection = TextEditingController(text: project?.collection ?? '');
+    final notes = TextEditingController(text: project?.memoryNotes ?? '');
     final selectedSources = {...?project?.sourceIds};
     try {
       List<Map<String, dynamic>> sources = [];
@@ -83,9 +84,19 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                       labelText: dialog.l10n.knowledgeCollectionName,
                     ),
                   ),
+                  TextField(
+                    controller: notes,
+                    minLines: 2,
+                    maxLines: 6,
+                    maxLength: 6000,
+                    decoration: const InputDecoration(
+                      labelText: 'حافظه پروژه',
+                      helperText: 'فقط اطلاعات ثابت و تأییدشده؛ نه داده زنده',
+                    ),
+                  ),
                   const Text('منابع پوشه دانش این پروژه'),
                   const Text(
-                    'حافظه مستقل و جست‌وجوی بیرون از پروژه هنوز آماده نیست؛ داده‌ها حذف نمی‌شوند.',
+                    'یادداشت‌های بالا فقط در همین پروژه استفاده می‌شوند؛ حافظه خودکار هنوز آماده نیست.',
                   ),
                   if (sources.isEmpty)
                     const Text('منبعی برای انتخاب در پوشه دانش پیدا نشد.'),
@@ -133,6 +144,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                 id: project?.id,
                 name: name.text,
                 instructions: instructions.text,
+                memoryNotes: notes.text,
                 collection: collection.text,
                 sourceIds: selectedSources.toList(),
               ),
@@ -144,6 +156,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
       name.dispose();
       instructions.dispose();
       collection.dispose();
+      notes.dispose();
     }
   }
 
