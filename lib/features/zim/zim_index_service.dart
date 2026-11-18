@@ -27,19 +27,24 @@ class ZimIndexService {
   }) async {
     if (_running) throw StateError('نمایه‌سازی دیگری در حال اجراست');
     if (!allowed()) throw StateError('منبع خارج از محدوده پروژه است');
-    if (entriesPerBatch < 1 || entriesPerBatch > ZimContentBatches.maxEntriesPerBatch) {
+    if (entriesPerBatch < 1 ||
+        entriesPerBatch > ZimContentBatches.maxEntriesPerBatch) {
       throw ArgumentError('Invalid batch size');
     }
     _running = true;
     _stop = false;
     Database? db;
     try {
-      if (!await storage.hasHeadroom()) throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
+      if (!await storage.hasHeadroom())
+        throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
       if (!allowed()) throw StateError('محدوده منابع تغییر کرد');
       final state = await library.state();
-      final entries = (state['files'] as List).whereType<Map>()
-          .where((row) => row['uri'] == uri && row['enabled'] == true).toList();
-      if (entries.length != 1 || entries.single['name'] is! String ||
+      final entries = (state['files'] as List)
+          .whereType<Map>()
+          .where((row) => row['uri'] == uri && row['enabled'] == true)
+          .toList();
+      if (entries.length != 1 ||
+          entries.single['name'] is! String ||
           !(entries.single['name'] as String).toLowerCase().endsWith('.zim')) {
         throw StateError('دانشنامه فعال و یکتا پیدا نشد');
       }
@@ -49,33 +54,65 @@ class ZimIndexService {
       Future<bool> unchanged() async {
         if (!allowed()) return false;
         final current = await library.state();
-        final selected = (current['files'] as List).whereType<Map>()
-            .where((r) => r['uri'] == uri && r['enabled'] == true &&
-                r['size'] == size && r['modified'] == modified).toList();
+        final selected = (current['files'] as List)
+            .whereType<Map>()
+            .where(
+              (r) =>
+                  r['uri'] == uri &&
+                  r['enabled'] == true &&
+                  r['size'] == size &&
+                  r['modified'] == modified,
+            )
+            .toList();
         if (selected.length != 1) return false;
         final live = await library.access.list();
-        return live.files.where((f) => f.uri == uri && f.size == size &&
-            f.modified == modified && f.name == row['name']).length == 1;
+        return live.files
+                .where(
+                  (f) =>
+                      f.uri == uri &&
+                      f.size == size &&
+                      f.modified == modified &&
+                      f.name == row['name'],
+                )
+                .length ==
+            1;
       }
-      if (!await unchanged() || !allowed()) throw StateError('مشخصات منبع تغییر کرده است');
-      if (!await storage.hasHeadroom()) throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
+
+      if (!await unchanged() || !allowed())
+        throw StateError('مشخصات منبع تغییر کرده است');
+      if (!await storage.hasHeadroom())
+        throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
       if (!allowed()) throw StateError('محدوده منابع تغییر کرد');
       if (_stop) return (cursor: 0, total: 0, skipped: 0, cancelled: true);
       db = sqlite3.open(storage.indexPath);
-      final index = ZimContentIndex(db, maxDatabaseBytes: storage.maxDatabaseBytes);
+      final index = ZimContentIndex(
+        db,
+        maxDatabaseBytes: storage.maxDatabaseBytes,
+      );
       final step = ZimIndexStep(index);
       var result = (cursor: 0, total: 0, skipped: 0, cancelled: false);
       while (!_stop) {
-        result = await step.run(uri: uri, size: size, modified: modified,
-          allowed: allowed, sourceUnchanged: unchanged,
-          hasStorageHeadroom: storage.hasHeadroom, openSource: library.access.open,
-          cancelled: () => _stop, limit: entriesPerBatch);
+        result = await step.run(
+          uri: uri,
+          size: size,
+          modified: modified,
+          allowed: allowed,
+          sourceUnchanged: unchanged,
+          hasStorageHeadroom: storage.hasHeadroom,
+          openSource: library.access.open,
+          cancelled: () => _stop,
+          limit: entriesPerBatch,
+        );
         onProgress?.call(result.cursor, result.total, result.skipped);
         if (result.cancelled || result.cursor >= result.total) break;
         await Future<void>.delayed(Duration.zero);
       }
-      return (cursor: result.cursor, total: result.total, skipped: result.skipped,
-        cancelled: result.cancelled || _stop);
+      return (
+        cursor: result.cursor,
+        total: result.total,
+        skipped: result.skipped,
+        cancelled: result.cancelled || _stop,
+      );
     } finally {
       db?.close();
       _running = false;
