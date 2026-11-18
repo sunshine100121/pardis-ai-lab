@@ -165,7 +165,15 @@ void main() {
         isTrue,
       );
       expect(container.read(settingsProvider).listeningModel, 'vosk-fa');
-      final available = await container
+      final reopened = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _Settings(const InferenceSettings(listeningModel: 'vosk-fa')),
+          ),
+        ],
+      );
+      addTearDown(reopened.dispose);
+      final available = await reopened
           .read(voiceProvider.notifier)
           .androidTtsEngines();
       expect(available.$1, ['fa.engine']);
@@ -178,6 +186,40 @@ void main() {
       );
     },
   );
+
+  test('failed TTS initialization can be retried', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    const channel = MethodChannel('flutter_tts');
+    var attempts = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'awaitSpeakCompletion' && attempts++ == 0) {
+            throw PlatformException(code: 'init_failed');
+          }
+          if (call.method == 'getDefaultEngine') return 'system.engine';
+          if (call.method == 'getVoices') {
+            return [
+              {'locale': 'fa-IR', 'name': 'voice', 'network_required': '0'},
+            ];
+          }
+          return 1;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        settingsProvider.overrideWith(() => _Settings(const InferenceSettings())),
+      ],
+    );
+    addTearDown(container.dispose);
+    final voice = container.read(voiceProvider.notifier);
+    expect(await voice.setAndroidTtsEngine('fa.engine'), isFalse);
+    expect(await voice.setAndroidTtsEngine('fa.engine'), isTrue);
+    expect(attempts, 2);
+  });
 
   test('legacy and new listening preferences survive settings decoding', () {
     for (final value in [
@@ -245,6 +287,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('voice-remove')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('STT test starts and stops only on user action', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final calls = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(OfflineDictation.channel, (call) async {
+          calls.add(call.method);
+          if (call.method == 'capabilities') {
+            return {'androidOfflineAvailable': true, 'apiLevel': 35};
+          }
+          return null;
+        });
+    final container = await pump(
+      tester,
+      ready: {},
+      settings: const InferenceSettings(localeCode: 'fa', listeningModel: 'android-local'),
+    );
+    await tester.pump();
+    expect(calls, isNot(contains('listen')));
+    await tester.ensureVisible(find.byKey(const Key('persian-stt-try')));
+    await tester.tap(find.byKey(const Key('persian-stt-try')));
+    await tester.pump();
+    expect(calls, contains('listen'));
+    expect(container.read(voiceProvider).listening, isTrue);
+    await tester.tap(find.byKey(const Key('persian-stt-try')));
+    await tester.pump();
+    expect(calls, contains('stop'));
+    expect(container.read(voiceProvider).listening, isFalse);
+  });
+
+  testWidgets('STT test cannot start an uninstalled selected model', (tester) async {
+    await pump(
+      tester,
+      ready: {},
+      settings: const InferenceSettings(localeCode: 'fa', listeningModel: 'vosk-fa'),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<TextButton>(find.byKey(const Key('persian-stt-try'))).onPressed,
+      isNull,
+    );
   });
 
   testWidgets('Parakeet is offered as a download and chosen only when there', (

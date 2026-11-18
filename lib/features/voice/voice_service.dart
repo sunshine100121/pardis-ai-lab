@@ -65,6 +65,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
   static const _androidTtsEngineKey = 'pala_voice_android_tts_engine_v1';
   SpeechToText? _stt;
   FlutterTts? _tts;
+  Future<void>? _ttsInitialization;
 
   /// True while a system-voice speak() is pending. flutter_tts on Windows
   /// answers the pending speak() inside stop() without a null check, so a
@@ -526,7 +527,20 @@ class VoiceNotifier extends Notifier<VoiceState> {
   }
 
   Future<void> _initTts() async {
-    if (_tts != null) return;
+    final running = _ttsInitialization;
+    if (running != null) return running;
+    final initialization = _initializeTts();
+    _ttsInitialization = initialization;
+    try {
+      await initialization;
+    } catch (_) {
+      _ttsInitialization = null;
+      _tts = null;
+      rethrow;
+    }
+  }
+
+  Future<void> _initializeTts() async {
     _tts = FlutterTts();
     await _tts!.awaitSpeakCompletion(true);
     _tts!.setProgressHandler((text, start, end, word) {

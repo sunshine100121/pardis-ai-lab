@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -161,8 +163,89 @@ class _PersianEngines extends ConsumerWidget {
             ],
           ),
           const Text('شنیدن و خواندن گفتار، انتخاب‌ها و موتورهای مستقل دارند.'),
+          const _PersianSttTest(),
         ],
       ),
+    );
+  }
+}
+
+class _PersianSttTest extends ConsumerStatefulWidget {
+  const _PersianSttTest();
+
+  @override
+  ConsumerState<_PersianSttTest> createState() => _PersianSttTestState();
+}
+
+class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
+  late final VoiceNotifier _voice = ref.read(voiceProvider.notifier);
+  late final Future<Map<String, dynamic>> _capabilities =
+      OfflineDictation.capabilities().catchError((_) => <String, dynamic>{});
+  bool _started = false;
+  bool _ownsSession = false;
+  bool _startFailed = false;
+
+  @override
+  void dispose() {
+    if (_ownsSession) unawaited(_voice.stop());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final voice = ref.watch(voiceProvider);
+    final settings = ref.watch(settingsProvider);
+    final packs = ref.watch(voiceModelsProvider);
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _capabilities,
+      builder: (context, snapshot) {
+        final ready = switch (settings.listeningModel) {
+          'whisper-fa' => packs.of(VoiceModels.listening).status == VoicePackStatus.ready,
+          'vosk-fa' => packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready,
+          '' || 'android-local' => snapshot.data?['androidOfflineAvailable'] == true,
+          _ => false,
+        };
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextButton.icon(
+              key: const Key('persian-stt-try'),
+              onPressed: (!ready && !(voice.listening && _ownsSession)) ||
+                      (voice.listening && !_ownsSession)
+                  ? null
+                  : () async {
+                      if (_ownsSession && voice.listening) {
+                        _ownsSession = false;
+                        await _voice.stop();
+                        return;
+                      }
+                      setState(() {
+                        _started = true;
+                        _startFailed = false;
+                        _ownsSession = true;
+                      });
+                      try {
+                        await _voice.listen(
+                          onText: (_) {},
+                          onFinal: (_) => _ownsSession = false,
+                        );
+                        if (mounted && !ref.read(voiceProvider).listening) {
+                          setState(() => _ownsSession = false);
+                        }
+                      } catch (_) {
+                        _ownsSession = false;
+                        if (mounted) setState(() => _startFailed = true);
+                      }
+                    },
+              icon: Icon(voice.listening && _ownsSession ? Icons.stop : Icons.mic),
+              label: Text(voice.listening && _ownsSession ? 'پایان آزمایش' : 'آزمایش شنیدن'),
+            ),
+            if (_started && voice.partial.isNotEmpty) Text(voice.partial),
+            if (_started && voice.error != null) Text(voice.error!),
+            if (_startFailed) const Text('آزمایش شنیدن شروع نشد.'),
+          ],
+        );
+      },
     );
   }
 }
