@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,131 +10,235 @@ import 'package:ondevice_llm/features/knowledge/folder_library.dart';
 import 'package:ondevice_llm/features/zim/zim_source.dart';
 
 class TestFolder implements FolderAccess {
-  List<LibraryFile> files=[];
-  int picks=0, opens=0;
-  bool revoked=false;
-  final bytes=<String,Uint8List>{};
+  List<LibraryFile> files = [];
+  int picks = 0, opens = 0;
+  bool revoked = false;
+  final bytes = <String, Uint8List>{};
   @override
-  Future<bool> pick() async { picks++; return true; }
-  @override
-  Future<({String? tree,List<LibraryFile> files})> list() async {
-    if(revoked) throw StateError('permission revoked');
-    return (tree:'content://test/tree/knowledge',files:files);
+  Future<bool> pick() async {
+    picks++;
+    return true;
   }
+
+  @override
+  Future<({String? tree, List<LibraryFile> files})> list() async {
+    if (revoked) throw StateError('permission revoked');
+    return (tree: 'content://test/tree/knowledge', files: files);
+  }
+
   @override
   Future<ZimSource> open(String uri) async {
     opens++;
-    return bytes.containsKey(uri) ? MemorySource(bytes[uri]!) : ZimSource.open(uri);
+    return bytes.containsKey(uri)
+        ? MemorySource(bytes[uri]!)
+        : ZimSource.open(uri);
   }
-  void add(String name,Uint8List data) {
-    bytes[name]=data;
-    files.add((uri:name,name:name,size:data.length,modified:1));
+
+  void add(String name, Uint8List data) {
+    bytes[name] = data;
+    files.add((uri: name, name: name, size: data.length, modified: 1));
   }
 }
+
 class MemorySource implements ZimSource {
   final Uint8List bytes;
-  bool closed=false;
+  bool closed = false;
   MemorySource(this.bytes);
   @override
-  Future<int> length() async=>bytes.length;
+  Future<int> length() async => bytes.length;
   @override
-  Future<Uint8List> readAt(int offset,int count) async=>Uint8List.sublistView(bytes,offset,(offset+count).clamp(0,bytes.length));
+  Future<Uint8List> readAt(int offset, int count) async =>
+      Uint8List.sublistView(
+        bytes,
+        offset,
+        (offset + count).clamp(0, bytes.length),
+      );
   @override
-  Future<void> close() async { closed=true; }
+  Future<void> close() async {
+    closed = true;
+  }
 }
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(()=>SharedPreferences.setMockInitialValues({}));
-  test('project source filter excludes unrelated PDF passages before ranking', () async {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'project source filter excludes unrelated PDF passages before ranking',
+    () async {
+      final folder = TestFolder()
+        ..add('garden.pdf', Uint8List.fromList(utf8.encode('garden fixture')))
+        ..add(
+          'medical.pdf',
+          Uint8List.fromList(utf8.encode('medical fixture')),
+        );
+      final library = FolderLibrary(
+        access: folder,
+        pdfText: (bytes) async => utf8.decode(bytes).startsWith('garden')
+            ? '--- Page 1 ---\nWalnut irrigation garden evidence.'
+            : '--- Page 1 ---\nWalnut irrigation medical unrelated evidence.',
+      );
+      await library.refresh();
+      final before = folder.opens;
+      final report = await library.searchDetailed(
+        'walnut irrigation',
+        sourceIds: {FolderLibrary.sourceId('garden.pdf')},
+      );
+      expect(report.sources, hasLength(1));
+      expect(report.sources.single.title, contains('garden.pdf'));
+      expect(report.sources.single.pageText, isNot(contains('medical')));
+      expect(folder.opens, before);
+      expect(
+        folder.bytes['garden.pdf'],
+        Uint8List.fromList(utf8.encode('garden fixture')),
+      );
+      expect(
+        folder.bytes['medical.pdf'],
+        Uint8List.fromList(utf8.encode('medical fixture')),
+      );
+    },
+  );
+  test('one tree grant, refresh discovers new files, no original copies and disabled source isolated', () async {
     final folder = TestFolder()
-      ..add('garden.pdf', Uint8List.fromList(utf8.encode('garden fixture')))
-      ..add('medical.pdf', Uint8List.fromList(utf8.encode('medical fixture')));
+      ..add(
+        'notes.txt',
+        Uint8List.fromList(utf8.encode('orchid nutrient concentration is 42.')),
+      )
+      ..add('model.gguf', Uint8List.fromList([1, 2, 3]));
+    final library = FolderLibrary(access: folder);
+    await library.refresh(pick: true);
+    expect(folder.picks, 1);
+    expect(folder.opens, 1);
+    expect(await library.search('orchid concentration'), isNotEmpty);
+    folder.add(
+      'second.md',
+      Uint8List.fromList(utf8.encode('orchid nutrient concentration is 51.')),
+    );
+    await library.refresh();
+    expect(folder.picks, 1);
+    expect((await library.state())['files'], hasLength(2));
+    await library.setEnabled('notes.txt', false);
+    expect(
+      (await library.search('orchid concentration')).single.pageText,
+      contains('51'),
+    );
+    final reopened = FolderLibrary(access: folder);
+    expect(
+      (await reopened.search('orchid concentration')).single.pageText,
+      contains('51'),
+    );
+    expect(await reopened.indexBytes(), lessThan(FolderLibrary.maxIndexBytes));
+    expect(
+      folder.bytes['notes.txt'],
+      Uint8List.fromList(utf8.encode('orchid nutrient concentration is 42.')),
+    );
+    folder.revoked = true;
+    await expectLater(
+      reopened.search('orchid concentration'),
+      throwsStateError,
+    );
+  });
+  test('PDF reader receives bounded bytes and page citation is preserved; EPUB chapter retained', () async {
+    final folder = TestFolder()
+      ..add('small.pdf', Uint8List.fromList(utf8.encode('%PDF fixture')));
+    final zip = Archive()
+      ..addFile(
+        ArchiveFile.string(
+          'OEBPS/chapter.xhtml',
+          '<html><head><title>Orchids</title></head><body><p>Orchid nutrient concentration is 73.</p></body></html>',
+        ),
+      );
+    folder.add('book.epub', Uint8List.fromList(ZipEncoder().encode(zip)));
     final library = FolderLibrary(
       access: folder,
-      pdfText: (bytes) async => utf8.decode(bytes).startsWith('garden')
-          ? '--- Page 1 ---\nWalnut irrigation garden evidence.'
-          : '--- Page 1 ---\nWalnut irrigation medical unrelated evidence.',
+      pdfText: (bytes) async {
+        expect(utf8.decode(bytes), startsWith('%PDF'));
+        return '--- Page 2 ---\nOrchid nutrient concentration is 42.';
+      },
     );
-    await library.refresh();
-    final before = folder.opens;
-    final report = await library.searchDetailed(
-      'walnut irrigation',
-      sourceIds: {FolderLibrary.sourceId('garden.pdf')},
+    await library.refresh(pick: true);
+    final results = await library.search('orchid nutrient');
+    expect(
+      results.any(
+        (s) => s.title.contains('صفحه 2') && s.pageText!.contains('42'),
+      ),
+      true,
     );
-    expect(report.sources, hasLength(1));
-    expect(report.sources.single.title, contains('garden.pdf'));
-    expect(report.sources.single.pageText, isNot(contains('medical')));
-    expect(folder.opens, before);
-    expect(folder.bytes['garden.pdf'], Uint8List.fromList(utf8.encode('garden fixture')));
-    expect(folder.bytes['medical.pdf'], Uint8List.fromList(utf8.encode('medical fixture')));
+    expect(
+      results.any(
+        (s) => s.title.contains('فصل Orchids') && s.pageText!.contains('73'),
+      ),
+      true,
+    );
   });
-  test('one tree grant, refresh discovers new files, no original copies and disabled source isolated',() async {
-    final folder=TestFolder()..add('notes.txt',Uint8List.fromList(utf8.encode('orchid nutrient concentration is 42.')))
-      ..add('model.gguf',Uint8List.fromList([1,2,3]));
-    final library=FolderLibrary(access:folder);
-    await library.refresh(pick:true);
-    expect(folder.picks,1); expect(folder.opens,1);
-    expect(await library.search('orchid concentration'),isNotEmpty);
-    folder.add('second.md',Uint8List.fromList(utf8.encode('orchid nutrient concentration is 51.')));
-    await library.refresh();
-    expect(folder.picks,1);
-    expect((await library.state())['files'],hasLength(2));
-    await library.setEnabled('notes.txt',false);
-    expect((await library.search('orchid concentration')).single.pageText,contains('51'));
-    final reopened=FolderLibrary(access:folder);
-    expect((await reopened.search('orchid concentration')).single.pageText,contains('51'));
-    expect(await reopened.indexBytes(),lessThan(FolderLibrary.maxIndexBytes));
-    expect(folder.bytes['notes.txt'],Uint8List.fromList(utf8.encode('orchid nutrient concentration is 42.')));
-    folder.revoked=true;
-    await expectLater(reopened.search('orchid concentration'),throwsStateError);
-  });
-  test('PDF reader receives bounded bytes and page citation is preserved; EPUB chapter retained',() async {
-    final folder=TestFolder()..add('small.pdf',Uint8List.fromList(utf8.encode('%PDF fixture')));
-    final zip=Archive()..addFile(ArchiveFile.string('OEBPS/chapter.xhtml','<html><head><title>Orchids</title></head><body><p>Orchid nutrient concentration is 73.</p></body></html>'));
-    folder.add('book.epub',Uint8List.fromList(ZipEncoder().encode(zip)));
-    final library=FolderLibrary(access:folder,pdfText:(bytes)async {
-      expect(utf8.decode(bytes),startsWith('%PDF')); return '--- Page 2 ---\nOrchid nutrient concentration is 42.';
-    });
-    await library.refresh(pick:true);
-    final results=await library.search('orchid nutrient');
-    expect(results.any((s)=>s.title.contains('صفحه 2') && s.pageText!.contains('42')),true);
-    expect(results.any((s)=>s.title.contains('فصل Orchids') && s.pageText!.contains('73')),true);
-  });
-  test('two direct ZIM files are independent and remain byte-identical',() async {
-    final dir=await Directory.systemTemp.createTemp('pala-library-two-zim-');
-    addTearDown(()=>dir.delete(recursive:true));
-    // Two valid small archives with the same article and distinct UUIDs.
-    // The unrelated upstream modern fixture does not contain Paris.
-    final second=await File('test/fixtures/zim/mini.zim').readAsBytes();
-    second[8]^=1;
-    final checksum=ByteData.sublistView(second).getUint64(72,Endian.little);
-    second.setRange(checksum,checksum+16,md5.convert(second.sublist(0,checksum)).bytes);
-    final other=await File('${dir.path}/second.zim').writeAsBytes(second);
-    final paths=['test/fixtures/zim/mini.zim',other.path];
-    final before=[for(final p in paths) await File(p).readAsBytes()];
-    final folder=TestFolder();
-    for(final p in paths) { folder.files.add((uri:p,name:p,size:await File(p).length(),modified:1)); }
-    final library=FolderLibrary(access:folder);
-    await library.refresh(pick:true);
-    expect(folder.opens,0);
-    final citations=await library.search('Paris');
-    expect(citations,hasLength(2));
-    expect(citations.map((s)=>s.url).toSet(),hasLength(2));
-    final article=await library.article(citations.last.url,citations.last.archiveId!,citations.last.archiveDate);
-    expect(article?.pageText,contains('2,102,650'));
-    await library.setEnabled(paths.first,false);
-    expect(await library.search('Paris'),hasLength(1));
-    for(var i=0;i<paths.length;i++) { expect(await File(paths[i]).readAsBytes(),before[i]); }
-  });
-  test('oversized document refused before open and changed source not served from stale index',() async {
-    final folder=TestFolder()..add('note.txt',Uint8List.fromList(utf8.encode('orchid text')));
-    folder.files.add((uri:'huge.pdf',name:'huge.pdf',size:FolderLibrary.maxDocumentBytes+1,modified:1));
-    final library=FolderLibrary(access:folder);
-    await library.refresh(pick:true);
-    expect(folder.opens,1);
-    final state=await library.state();
-    expect(state['files'][1]['status'],contains('بدون ساخت کپی'));
-    folder.files[0]=(uri:'note.txt',name:'note.txt',size:10,modified:2);
-    expect(await library.search('orchid'),isEmpty);
+  test(
+    'two direct ZIM files are independent and remain byte-identical',
+    () async {
+      final dir = await Directory.systemTemp.createTemp(
+        'pala-library-two-zim-',
+      );
+      addTearDown(() => dir.delete(recursive: true));
+      // Two valid small archives with the same article and distinct UUIDs.
+      // The unrelated upstream modern fixture does not contain Paris.
+      final second = await File('test/fixtures/zim/mini.zim').readAsBytes();
+      second[8] ^= 1;
+      final checksum = ByteData.sublistView(second)
+          .getUint64(72, Endian.little);
+      second.setRange(
+        checksum,
+        checksum + 16,
+        md5.convert(second.sublist(0, checksum)).bytes,
+      );
+      final other = await File('${dir.path}/second.zim').writeAsBytes(second);
+      final paths = ['test/fixtures/zim/mini.zim', other.path];
+      final before = [for (final p in paths) await File(p).readAsBytes()];
+      final folder = TestFolder();
+      for (final p in paths) {
+        folder.files.add((
+          uri: p,
+          name: p,
+          size: await File(p).length(),
+          modified: 1,
+        ));
+      }
+      final library = FolderLibrary(access: folder);
+      await library.refresh(pick: true);
+      expect(folder.opens, 0);
+      final citations = await library.search('Paris');
+      expect(citations, hasLength(2));
+      expect(citations.map((s) => s.url).toSet(), hasLength(2));
+      final article = await library.article(
+        citations.last.url,
+        citations.last.archiveId!,
+        citations.last.archiveDate,
+      );
+      expect(article?.pageText, contains('2,102,650'));
+      await library.setEnabled(paths.first, false);
+      expect(await library.search('Paris'), hasLength(1));
+      for (var i = 0; i < paths.length; i++) {
+        expect(await File(paths[i]).readAsBytes(), before[i]);
+      }
+    },
+  );
+  test('oversized document refused before open and changed source not served from stale index', () async {
+    final folder = TestFolder()
+      ..add('note.txt', Uint8List.fromList(utf8.encode('orchid text')));
+    folder.files.add((
+      uri: 'huge.pdf',
+      name: 'huge.pdf',
+      size: FolderLibrary.maxDocumentBytes + 1,
+      modified: 1,
+    ));
+    final library = FolderLibrary(access: folder);
+    await library.refresh(pick: true);
+    expect(folder.opens, 1);
+    final state = await library.state();
+    expect(state['files'][1]['status'], contains('بدون ساخت کپی'));
+    folder.files[0] = (
+      uri: 'note.txt',
+      name: 'note.txt',
+      size: 10,
+      modified: 2,
+    );
+    expect(await library.search('orchid'), isEmpty);
   });
 }

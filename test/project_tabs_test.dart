@@ -70,7 +70,8 @@ void main() {
       ],
     );
     addTearDown(() async {
-      if (paths.gate != null && !paths.gate!.isCompleted) paths.gate!.complete();
+      if (paths.gate != null && !paths.gate!.isCompleted)
+        paths.gate!.complete();
       container.dispose();
       await db.close();
       PathProviderPlatform.instance = previousPaths;
