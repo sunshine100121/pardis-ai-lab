@@ -136,6 +136,103 @@ void main() {
     },
   );
 
+  test('approved message memory can be revised and removed per project',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final first = ProviderContainer();
+    addTearDown(first.dispose);
+    final workspace = first.read(conversationWorkspaceProvider.notifier);
+    await workspace.ready;
+    await workspace.saveProject(
+      name: 'باغبانی',
+      memoryNotes: 'یادداشت دستی ثابت.',
+    );
+    await workspace.saveProject(
+      name: 'خانه',
+      memoryNotes: 'اطلاعات خانه.',
+    );
+    final projects = first.read(conversationWorkspaceProvider).projects;
+    final gardenId = projects.first.id;
+    final homeId = projects.last.id;
+    await workspace.assign(['garden-chat'], gardenId);
+    await workspace.assign(['home-chat'], homeId);
+    final date = DateTime.utc(2026, 11, 18);
+    await workspace.rememberChatMessage(
+      projectId: gardenId,
+      chatId: 'garden-chat',
+      messageId: 'first',
+      note: 'درخت گردو\nآبیاری قطره‌ای دارد.',
+      notedAt: date,
+    );
+    await workspace.rememberChatMessage(
+      projectId: gardenId,
+      chatId: 'garden-chat',
+      messageId: 'second',
+      note: 'درخت سیب داریم.',
+      notedAt: date,
+    );
+    var saved = first.read(conversationWorkspaceProvider).projects.first;
+    expect(
+      ProjectMemoryEntry.noteFor(
+        saved.memoryNotes,
+        chatId: 'garden-chat',
+        messageId: 'first',
+      ),
+      'درخت گردو آبیاری قطره‌ای دارد.',
+    );
+    expect(
+      ProjectMemoryEntry.noteFor(
+        saved.memoryNotes,
+        chatId: 'home-chat',
+        messageId: 'first',
+      ),
+      isNull,
+    );
+    await workspace.rememberChatMessage(
+      projectId: gardenId,
+      chatId: 'garden-chat',
+      messageId: 'first',
+      note: 'درخت گردو آبیاری بارانی دارد.',
+      notedAt: date,
+    );
+    saved = first.read(conversationWorkspaceProvider).projects.first;
+    expect(saved.memoryNotes, isNot(contains('آبیاری قطره‌ای')));
+    expect(saved.memoryNotes, contains('آبیاری بارانی'));
+    expect(saved.memoryNotes, contains('درخت سیب داریم.'));
+    expect(saved.memoryNotes.split('پیام: first)').length, 2);
+    await expectLater(
+      workspace.forgetChatMessage(
+        projectId: homeId,
+        chatId: 'garden-chat',
+        messageId: 'first',
+      ),
+      throwsStateError,
+    );
+    await workspace.forgetChatMessage(
+      projectId: gardenId,
+      chatId: 'garden-chat',
+      messageId: 'first',
+    );
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    final restored = second.read(conversationWorkspaceProvider.notifier);
+    await restored.ready;
+    final state = second.read(conversationWorkspaceProvider);
+    final notes = state.projectFor('garden-chat')!.memoryNotes;
+    expect(notes, contains('یادداشت دستی ثابت.'));
+    expect(notes, contains('درخت سیب داریم.'));
+    expect(notes, isNot(contains('آبیاری بارانی')));
+    expect(
+      ProjectMemoryEntry.noteFor(
+        notes,
+        chatId: 'garden-chat',
+        messageId: 'first',
+      ),
+      isNull,
+    );
+    expect(state.projectFor('home-chat')!.memoryNotes, 'اطلاعات خانه.');
+  });
+
   testWidgets('project tabs isolate drafts and scope the drawer history', (
     tester,
   ) async {
