@@ -51,6 +51,7 @@ void main() {
     expect(article.title.toLowerCase(), isNot(contains('walnut')));
     expect(article.text.toLowerCase(), contains('walnut'));
     expect(article.text.toLowerCase(), contains('watering'));
+    expect(article.text.toLowerCase(), contains('how can i care'));
     final paused = await reader.read(cursor: 0, cancelled: () => true);
     expect(paused.cancelled, isTrue);
     expect(paused.next, 0);

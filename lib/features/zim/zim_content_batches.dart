@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import '../../data/network/web_search/web_page_reader.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html;
 import 'zim_archive.dart';
 import 'zim_source.dart';
 
@@ -99,13 +100,9 @@ class ZimContentBatches {
           if (raw.length > maxArticleBytes) {
             skipped++;
           } else {
-            final (_, extracted) = WebPageReader.extract(
-              utf8.decode(raw, allowMalformed: true),
-            );
-            final text = extracted.trim();
+            final text = _bodyText(utf8.decode(raw, allowMalformed: true));
             final size = utf8.encode(text).length;
-            if (text.length >= WebPageReader.maxCharacters ||
-                size > maxBatchTextBytes) {
+            if (size > maxBatchTextBytes) {
               skipped++;
             } else if (bytes + size > maxBatchTextBytes) {
               break; // Resume at this article in the next batch.
@@ -127,6 +124,25 @@ class ZimContentBatches {
     }
     checkScope();
     return ZimContentBatch(articles, index, archive.entryCount, skipped, false);
+  }
+
+  static String _bodyText(String markup) {
+    final document = html.parse(markup);
+    final root = document.body ?? document.documentElement;
+    if (root == null) return '';
+    final text = StringBuffer();
+    final pending = <dom.Node>[root];
+    while (pending.isNotEmpty) {
+      final node = pending.removeLast();
+      if (node is dom.Text) {
+        text.write(' ');
+        text.write(node.data);
+      } else if (node is dom.Element &&
+          !const {'script', 'style', 'noscript', 'svg', 'template'}.contains(node.localName)) {
+        pending.addAll(node.nodes.reversed);
+      }
+    }
+    return text.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   Future<void> close() => archive.close();
