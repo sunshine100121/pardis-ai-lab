@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:ondevice_llm/features/zim/zim_content_batches.dart';
 import 'package:ondevice_llm/features/zim/zim_content_index.dart';
+
 import 'support/persian_zim_fixture.dart';
 
 void main() {
@@ -15,26 +16,40 @@ void main() {
       'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
   const changed =
       'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
-  test('batches index a relevant English body whose title is unrelated', () async {
-    final source = persianZim(englishGarden: true);
-    final reader = await ZimContentBatches.open('garden',
-      allowed: () => true, openSource: (_) async => source);
-    addTearDown(reader.close);
-    final db = sqlite3.openInMemory();
-    addTearDown(db.close);
-    final index = ZimContentIndex(db);
-    var cursor = 0;
-    while (cursor < reader.archive.entryCount) {
-      final batch = await reader.read(cursor: cursor, limit: 2);
-      index.commit(sourceId: garden, fingerprint: fingerprint,
-        expectedCursor: cursor, batch: batch, allowed: () => true);
-      cursor = batch.next;
-    }
-    final results = index.search('walnut watering', {garden: fingerprint});
-    expect(results.single.title, 'Plant care');
-    expect(results.single.text, contains('walnut'));
-    expect(index.progress(garden, fingerprint)?.cursor, reader.archive.entryCount);
-  });
+  test(
+    'batches index a relevant English body whose title is unrelated',
+    () async {
+      final source = persianZim(englishGarden: true);
+      final reader = await ZimContentBatches.open(
+        'garden',
+        allowed: () => true,
+        openSource: (_) async => source,
+      );
+      addTearDown(reader.close);
+      final db = sqlite3.openInMemory();
+      addTearDown(db.close);
+      final index = ZimContentIndex(db);
+      var cursor = 0;
+      while (cursor < reader.archive.entryCount) {
+        final batch = await reader.read(cursor: cursor, limit: 2);
+        index.commit(
+          sourceId: garden,
+          fingerprint: fingerprint,
+          expectedCursor: cursor,
+          batch: batch,
+          allowed: () => true,
+        );
+        cursor = batch.next;
+      }
+      final results = index.search('walnut watering', {garden: fingerprint});
+      expect(results.single.title, 'Plant care');
+      expect(results.single.text, contains('walnut'));
+      expect(
+        index.progress(garden, fingerprint)?.cursor,
+        reader.archive.entryCount,
+      );
+    },
+  );
   test('index commits cursor atomically, persists and filters sources before search', () async {
     final directory = await Directory.systemTemp.createTemp(
       'pala-zim-index-test-',
