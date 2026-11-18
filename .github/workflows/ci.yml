@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   format:
-    if: inputs.format_only == true
+    if: inputs.format_only == true || contains(github.event.head_commit.message, '[format-only]')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -32,13 +32,18 @@ jobs:
           mapfile -t changed < <(git diff --name-only cae3ac12b0719212109c7b0fd6c0fe85c85c19c3 HEAD -- '*.dart')
           if ((${#changed[@]})); then dart format "${changed[@]}"; fi
           git diff --binary -- '*.dart' > "$RUNNER_TEMP/pala-033-format.patch"
+      - name: Print formatter patch for GitHub-only review
+        run: |
+          echo 'PALA_FORMAT_PATCH_BEGIN'
+          cat "$RUNNER_TEMP/pala-033-format.patch"
+          echo 'PALA_FORMAT_PATCH_END'
       - uses: actions/upload-artifact@v4
         with:
           name: PALA-033-reviewed-format-patch
           path: ${{ runner.temp }}/pala-033-format.patch
           retention-days: 7
   baseline:
-    if: inputs.format_only != true
+    if: inputs.format_only != true && !contains(github.event.head_commit.message, '[format-only]')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
