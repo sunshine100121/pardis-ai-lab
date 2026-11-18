@@ -91,10 +91,6 @@ class FolderLibrary {
     await pdfrxFlutterInitialize();
     final document = await PdfDocument.openData(bytes);
     try {
-      if (document.pages.length > 100)
-        throw const FormatException(
-          'PDF بیش از ۱۰۰ صفحه است؛ خوانندهٔ محدود این نسخه مناسب آن نیست.',
-        );
       final text = StringBuffer();
       for (var i = 0; i < document.pages.length; i++) {
         final page = (await document.pages[i].loadText())?.fullText ?? '';
@@ -111,6 +107,42 @@ class FolderLibrary {
         );
       }
       return text.toString();
+    } finally {
+      await document.dispose();
+    }
+  }
+
+  /// Reads all text pages one by one, retaining only the best four matches.
+  /// The caller checks source identity, approval and maximum input bytes.
+  static Future<List<({int page, int score, String text})>> findPdfPages(
+    Uint8List bytes,
+    Set<String> questionTerms,
+  ) async {
+    if (questionTerms.isEmpty) return const [];
+    await pdfrxFlutterInitialize();
+    final document = await PdfDocument.openData(bytes);
+    try {
+      final results = <({int page, int score, String text})>[];
+      for (var i = 0; i < document.pages.length; i++) {
+        final text = (await document.pages[i].loadText())?.fullText ?? '';
+        final normalized = normalize(text);
+        final score = questionTerms.where(normalized.contains).length;
+        if (score == 0) continue;
+        final first = questionTerms
+            .map(normalized.indexOf)
+            .where((offset) => offset >= 0)
+            .fold<int>(text.length, (a, b) => a < b ? a : b);
+        final start = (first - 200).clamp(0, text.length);
+        final end = (start + 1500).clamp(0, text.length);
+        results.add((
+          page: i + 1,
+          score: score,
+          text: text.substring(start, end).trim(),
+        ));
+        results.sort((a, b) => b.score.compareTo(a.score));
+        if (results.length > 4) results.removeLast();
+      }
+      return results;
     } finally {
       await document.dispose();
     }
@@ -361,6 +393,56 @@ class FolderLibrary {
           }
         }
         continue;
+      }
+      // Preview metadata contains only early passages. On a miss, inspect
+      // the full text layer of the same authorized, unchanged PDF on demand.
+      if ((f['name'] as String).toLowerCase().endsWith('.pdf') &&
+          terms.isNotEmpty &&
+          now.size >= 0 &&
+          now.size <= maxDocumentBytes &&
+          !(f['passages'] as List).any(
+            (p) => terms.any(normalize(p['text'] as String).contains),
+          )) {
+        try {
+          final source = await access.open(f['uri'] as String);
+          late Uint8List bytes;
+          try {
+            final length = await source.length();
+            if (length != now.size || length > maxDocumentBytes) {
+              throw StateError('اندازه فایل تغییر کرده است');
+            }
+            bytes = await source.readAt(0, length);
+            if (bytes.length != length) throw StateError('خواندن ناقص');
+          } finally {
+            await source.close();
+          }
+          final matches = await findPdfPages(bytes, terms);
+          for (final hit in matches) {
+            final id = sourceId(f['uri'] as String);
+            found.add((
+              hit.score,
+              SearchResult(
+                title: (f['name'] as String) + ' · صفحه ' +
+                    hit.page.toString(),
+                url: 'pala-knowledge://' + id,
+                snippet: '',
+                source: 'پوشه AI Knowledge',
+                rank: hit.score,
+                pageText: hit.text,
+                fetchedAt: DateTime.now().toUtc(),
+              ),
+            ));
+          }
+          checks.add({
+            'file': f['name'],
+            'code': 'pdf_page_scan',
+            'pagesMatched': matches.length,
+          });
+          continue;
+        } catch (_) {
+          checks.add({'file': f['name'], 'code': 'pdf_page_scan_failed'});
+          // Retain the existing preview on a deep-read failure.
+        }
       }
       for (final p in f['passages'] as List) {
         final text = normalize(p['text'] as String);
