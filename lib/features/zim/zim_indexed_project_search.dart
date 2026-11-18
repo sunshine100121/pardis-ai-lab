@@ -142,7 +142,7 @@ class ZimIndexedProjectSearch {
         );
       }
       final onlyPersianArchives = authorized.values.every((source) {
-        final code = source.language.toLowerCase().trim();
+        final code = source.language?.toLowerCase().trim() ?? '';
         return const {'fa', 'fas', 'per', 'pes'}.contains(code);
       });
       final nativePersianEvidence =
