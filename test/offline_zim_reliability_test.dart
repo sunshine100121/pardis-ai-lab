@@ -74,7 +74,9 @@ void main() {
     expect(container.read(conversationWorkspaceProvider).readable, isFalse);
     await expectLater(workspace.saveProject(name: 'ساختگی'), throwsStateError);
     expect(
-      (await SharedPreferences.getInstance()).getString(ConversationWorkspaceNotifier.key),
+      (await SharedPreferences.getInstance()).getString(
+        ConversationWorkspaceNotifier.key,
+      ),
       '{invalid',
     );
   });

@@ -519,10 +519,18 @@ class _ConversationsSheetState extends ConsumerState<ConversationsSheet> {
                     text: context.l10n.conversationsLoadFailed('$e'),
                   ),
                   data: (chats) {
-                    if (!workspace.loaded) return const Center(child: CircularProgressIndicator());
-                    if (!workspace.readable) return const Center(child: Text('اطلاعات پروژه‌ها خوانده نشد.'));
+                    if (!workspace.loaded)
+                      return const Center(child: CircularProgressIndicator());
+                    if (!workspace.readable)
+                      return const Center(
+                        child: Text('اطلاعات پروژه‌ها خوانده نشد.'),
+                      );
                     chats = chats
-                        .where((c) => workspace.stateOf(c.id) == 'active' && workspace.memberships[c.id] == activeProject)
+                        .where(
+                          (c) =>
+                              workspace.stateOf(c.id) == 'active' &&
+                              workspace.memberships[c.id] == activeProject,
+                        )
                         .toList();
                     final q = _search.text.trim().toLowerCase();
                     final hits = _hits;

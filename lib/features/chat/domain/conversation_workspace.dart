@@ -92,7 +92,8 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     final next = _pending.then((_) async {
       await ready;
       if (!_alive) return;
-      if (!state.readable) throw StateError('اطلاعات پروژه‌ها خوانده نشد؛ تغییری ذخیره نشد.');
+      if (!state.readable)
+        throw StateError('اطلاعات پروژه‌ها خوانده نشد؛ تغییری ذخیره نشد.');
       final updated = edit(state);
       final prefs = await SharedPreferences.getInstance();
       final saved = await prefs.setString(
