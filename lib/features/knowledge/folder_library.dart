@@ -160,7 +160,6 @@ class FolderLibrary {
     final terms=normalize(question).split(RegExp(r'[^\p{L}\p{N}]+',unicode:true)).where((s)=>s.length>2).toSet();
     final found=<(int,SearchResult)>[];
     final checks=<Map<String,dynamic>>[];
-    var archives=0;
     for(final f in data['files'] as List) {
       final now=current[f['uri']];
       if(f['enabled']!=true) continue;
@@ -169,7 +168,6 @@ class FolderLibrary {
         continue;
       }
       if((f['name'] as String).toLowerCase().endsWith('.zim')) {
-        if(archives++>=8) { checks.add({'file':f['name'],'code':'limit'}); continue; }
         final clock=Stopwatch()..start();
         final check=<String,dynamic>{'file':f['name'],'stage':'open','code':'not_found',
           'fileSize':now.size,'readCalls':0,'readBytes':0,'highestOffset':0};
@@ -217,12 +215,10 @@ class FolderLibrary {
     final listing=await access.list();
     final live={for(final f in listing.files) f.uri:f};
     final data=await state();
-    var checked=0;
     for(final row in data['files'] as List) {
       final file=live[row['uri']];
       if(row['enabled']!=true || file==null || !file.name.toLowerCase().endsWith('.zim') ||
         file.size!=row['size'] || file.modified!=row['modified']) continue;
-      if(checked++>=8) break;
       final wiki=ZimWikipedia(file.uri,openSource:access.open);
       try {
         if(await wiki.archiveIdentity()!=archiveId || await wiki.archiveMetadata('Date')!=date) continue;
