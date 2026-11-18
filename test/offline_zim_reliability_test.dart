@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -158,7 +159,13 @@ void main() {
       });
       final library = FolderLibrary(access: access);
       await library.refresh();
+      final rssBefore = ProcessInfo.currentRss;
+      final timer = Stopwatch()..start();
       final result = await library.searchDetailed('بهبهان کجاست');
+      timer.stop();
+      final rssAfter = ProcessInfo.currentRss;
+      final bytesRead = result.checks.fold<int>(0, (sum, check) => sum + ((check['readBytes'] as int?) ?? 0));
+      print('synthetic nine-archive lookup: ${timer.elapsedMilliseconds} ms, $bytesRead bytes read, RSS before $rssBefore and after $rssAfter bytes; not a peak or device measurement');
       expect(result.checks, hasLength(9));
       expect(result.checks.last['code'], 'found');
       expect(access.opened, hasLength(9));
