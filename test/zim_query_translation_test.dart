@@ -216,35 +216,35 @@ void main() {
       );
     },
   );
-  test('invalid or cancelled Persian questions skip model generation', () async {
-    final engine = FakeLocalQueryEngine(['walnut watering']);
-    for (final question in [
-      '   ',
-      List.filled(2001, 'گ').join(),
-    ]) {
+  test(
+    'invalid or cancelled Persian questions skip model generation',
+    () async {
+      final engine = FakeLocalQueryEngine(['walnut watering']);
+      for (final question in ['   ', List.filled(2001, 'گ').join()]) {
+        expect(
+          await ZimQueryTranslation.englishTerms(
+            question,
+            engine: engine,
+            settings: const InferenceSettings(),
+            fallbackTemplate: '',
+            cancelled: () => false,
+          ),
+          isNull,
+        );
+      }
       expect(
         await ZimQueryTranslation.englishTerms(
-          question,
+          'آبیاری گردو',
           engine: engine,
           settings: const InferenceSettings(),
           fallbackTemplate: '',
-          cancelled: () => false,
+          cancelled: () => true,
         ),
         isNull,
       );
-    }
-    expect(
-      await ZimQueryTranslation.englishTerms(
-        'آبیاری گردو',
-        engine: engine,
-        settings: const InferenceSettings(),
-        fallbackTemplate: '',
-        cancelled: () => true,
-      ),
-      isNull,
-    );
-    expect(engine.calls, 0);
-  });
+      expect(engine.calls, 0);
+    },
+  );
 
   test('idle translation cancels the local engine', () async {
     final engine = HangingLocalQueryEngine();
