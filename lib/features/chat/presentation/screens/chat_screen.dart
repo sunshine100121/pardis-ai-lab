@@ -52,6 +52,7 @@ import '../../domain/chat_draft_store.dart';
 import '../../domain/temporary_files.dart';
 import '../../domain/context_summary.dart';
 import 'conversation_workspace_page.dart';
+import '../../domain/conversation_workspace.dart';
 import '../../domain/export/chat_document.dart';
 import '../../domain/export/document_draft_service.dart';
 import '../../domain/export/document_draft_store.dart';
@@ -118,7 +119,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _switchDraft(String? chatId) async {
     final temporary = ref.read(chatProvider).temporary;
-    final key = temporary ? 'temporary' : chatId ?? 'new';
+    final project = ref.read(newChatProjectProvider);
+    final key = temporary ? 'temporary' : chatId ?? (project == null ? 'new' : 'new-project-$project');
     if (key == _draftKey) return;
     _draftTimer?.cancel();
     if (!_temporaryDraft) {
@@ -165,7 +167,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _newChat() async {
-    ref.read(chatProvider.notifier).newChat();
+    await ref.read(conversationWorkspaceProvider.notifier).ready;
+    if (!mounted) return;
+    if (!ref.read(conversationWorkspaceProvider).readable) {
+      showIslandToast(context, 'اطلاعات پروژه‌ها خوانده نشد.', tone: IslandTone.error);
+      return;
+    }
+    final chatId = ref.read(chatProvider).chatId;
+    final project = chatId == null
+        ? ref.read(newChatProjectProvider)
+        : ref.read(conversationWorkspaceProvider).memberships[chatId];
+    ref.read(chatProvider.notifier).newChat(projectId: project);
     await _switchDraft(null);
   }
 
@@ -202,7 +214,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.initState();
     final initialChat = ref.read(chatProvider);
     _temporaryDraft = initialChat.temporary;
-    _draftKey = _temporaryDraft ? 'temporary' : initialChat.chatId ?? 'new';
+    final project = ref.read(newChatProjectProvider);
+    _draftKey = _temporaryDraft ? 'temporary' : initialChat.chatId ?? (project == null ? 'new' : 'new-project-$project');
     _input.addListener(_saveDraft);
     unawaited(_restoreDraft());
     _scroll.addListener(_onScroll);
@@ -635,6 +648,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       chatProvider.select((s) => (s.chatId, s.temporary)),
       (_, value) => unawaited(_switchDraft(value.$1)),
     );
+    ref.listen(newChatProjectProvider, (_, __) {
+      if (ref.read(chatProvider).chatId == null) unawaited(_switchDraft(null));
+    });
     final t = context.l10n;
     // Everything but the streamed text: the live answer repaints on its own
     // (_LiveAnswer), so a long chat is not rebuilt at every stream frame.
@@ -653,6 +669,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
     final state = ref.read(chatProvider);
+    final workspace = ref.watch(conversationWorkspaceProvider);
+    final newProject = ref.watch(newChatProjectProvider);
+    final selectedProject = state.temporary
+        ? null
+        : state.chatId == null
+            ? newProject
+            : workspace.memberships[state.chatId];
     final islandUp = ref.watch(islandProvider.select((s) => s.showing != null));
     final models = ref.watch(modelManagerProvider);
     final speakingId = ref.watch(voiceProvider.select((v) => v.speakingId));
@@ -868,6 +891,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       drawer: const Drawer(child: ConversationsSheet()),
       body: Column(
         children: [
+          if (!workspace.loaded)
+            const LinearProgressIndicator()
+          else if (!workspace.readable)
+            const Text('اطلاعات پروژه‌ها خوانده نشد؛ محدوده گفتگو قابل تأیید نیست.')
+          else SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppDesign.sm),
+              children: [
+                for (final choice in <({String? id, String label})>[
+                  (id: null, label: 'عمومی'),
+                  for (final project in workspace.projects) (id: project.id, label: project.name),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: ChoiceChip(
+                      key: ValueKey('project-tab-${choice.id ?? 'general'}'),
+                      label: Text(choice.label),
+                      selected: !state.temporary && selectedProject == choice.id,
+                      onSelected: busy || state.temporary || selectedProject == choice.id
+                          ? null
+                          : (_) {
+                              notifier.newChat(projectId: choice.id);
+                              unawaited(_switchDraft(null));
+                            },
+                    ),
+                  ),
+                IconButton(
+                  key: const Key('project-tabs-manage'),
+                  tooltip: 'مدیریت پروژه‌ها',
+                  onPressed: busy ? null : () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ConversationWorkspacePage())),
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ],
+            ),
+          ),
           if (ref.watch(agentWebQuestionsProvider)[state.chatId]
               case final question? when !question.answer.isCompleted)
             AgentWebApprovalCard(

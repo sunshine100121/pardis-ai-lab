@@ -772,6 +772,10 @@ class ChatNotifier extends _ChatBase
     final manager = ref.read(modelManagerProvider.notifier);
     await _temporaryReady;
     await ref.read(conversationWorkspaceProvider.notifier).ready;
+    if (!ref.read(conversationWorkspaceProvider).readable) {
+      t.failure = 'اطلاعات محدوده پروژه‌ها خوانده نشد؛ گفتگو برای حفاظت از منابع متوقف شد.';
+      return null;
+    }
     if (state.chatId != null && !state.temporary) {
       _projectId = ref
           .read(conversationWorkspaceProvider)

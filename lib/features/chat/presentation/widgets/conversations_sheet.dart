@@ -13,6 +13,7 @@ import '../../../goals/presentation/goal_provider.dart';
 import '../../../goals/presentation/goals_page.dart';
 import '../providers/chat_provider.dart';
 import '../../domain/conversation_workspace.dart';
+import '../../../settings/presentation/providers/effective_settings_provider.dart';
 import '../screens/conversation_workspace_page.dart';
 import '../screens/message_source_page.dart';
 import '../../../../core/motion/motion.dart';
@@ -380,6 +381,10 @@ class _ConversationsSheetState extends ConsumerState<ConversationsSheet> {
     );
     final notifier = ref.read(chatProvider.notifier);
     final workspace = ref.watch(conversationWorkspaceProvider);
+    final pendingProject = ref.watch(newChatProjectProvider);
+    final activeProject = currentChatId == null
+        ? pendingProject
+        : workspace.memberships[currentChatId];
     final projects = workspace.projects.length;
     final workspaceCard = Container(
       margin: const EdgeInsets.symmetric(horizontal: AppDesign.lg),
@@ -467,11 +472,11 @@ class _ConversationsSheetState extends ConsumerState<ConversationsSheet> {
                       fit: BoxFit.scaleDown,
                       child: Text(context.l10n.newChat, maxLines: 1),
                     ),
-                    onPressed: busy
+                    onPressed: busy || !workspace.loaded || !workspace.readable
                         ? null
                         : () {
                             Navigator.pop(context);
-                            notifier.newChat();
+                            notifier.newChat(projectId: activeProject);
                           },
                   ),
                 ),
@@ -514,8 +519,10 @@ class _ConversationsSheetState extends ConsumerState<ConversationsSheet> {
                     text: context.l10n.conversationsLoadFailed('$e'),
                   ),
                   data: (chats) {
+                    if (!workspace.loaded) return const Center(child: CircularProgressIndicator());
+                    if (!workspace.readable) return const Center(child: Text('اطلاعات پروژه‌ها خوانده نشد.'));
                     chats = chats
-                        .where((c) => workspace.stateOf(c.id) == 'active')
+                        .where((c) => workspace.stateOf(c.id) == 'active' && workspace.memberships[c.id] == activeProject)
                         .toList();
                     final q = _search.text.trim().toLowerCase();
                     final hits = _hits;

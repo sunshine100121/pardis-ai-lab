@@ -26,10 +26,13 @@ class ChatProject {
 class ConversationWorkspace {
   final List<ChatProject> projects;
   final Map<String, String> memberships, states;
+  final bool loaded, readable;
   const ConversationWorkspace({
     this.projects = const [],
     this.memberships = const {},
     this.states = const {},
+    this.loaded = true,
+    this.readable = true,
   });
   ChatProject? projectFor(String? chatId) =>
       projects.where((p) => p.id == memberships[chatId]).firstOrNull;
@@ -52,7 +55,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
   ConversationWorkspace build() {
     ref.onDispose(() => _alive = false);
     ready = _load();
-    return const ConversationWorkspace();
+    return const ConversationWorkspace(loaded: false, readable: false);
   }
 
   Future<void> _load() async {
@@ -79,7 +82,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       );
       if (_alive) state = next;
     } catch (_) {
-      /* An unreadable optional workspace must not prevent chat. */
+      if (_alive) state = const ConversationWorkspace(readable: false);
     }
   }
 
@@ -89,6 +92,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     final next = _pending.then((_) async {
       await ready;
       if (!_alive) return;
+      if (!state.readable) throw StateError('اطلاعات پروژه‌ها خوانده نشد؛ تغییری ذخیره نشد.');
       final updated = edit(state);
       final prefs = await SharedPreferences.getInstance();
       final saved = await prefs.setString(

@@ -63,6 +63,21 @@ class DelayedSource implements ZimSource {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('unreadable project metadata is not overwritten', () async {
+    SharedPreferences.setMockInitialValues({
+      ConversationWorkspaceNotifier.key: '{invalid',
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final workspace = container.read(conversationWorkspaceProvider.notifier);
+    await workspace.ready;
+    expect(container.read(conversationWorkspaceProvider).readable, isFalse);
+    await expectLater(workspace.saveProject(name: 'ساختگی'), throwsStateError);
+    expect(
+      (await SharedPreferences.getInstance()).getString(ConversationWorkspaceNotifier.key),
+      '{invalid',
+    );
+  });
   test(
     'project selection is persistent and filters before opening sources',
     () async {
