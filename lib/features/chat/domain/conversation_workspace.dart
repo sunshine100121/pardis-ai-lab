@@ -166,22 +166,40 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     if (s.memberships[chatId] != projectId) {
       throw StateError('این گفتگو عضو پروژه انتخابی نیست.');
     }
-    final text = note.trim();
-    if (text.isEmpty || text.length > 400) {
+    // A saved fact is always a single line, even when the owner's original
+    // message had line breaks. Its origin stays attached for future edits.
+    final clean = note.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (clean.isEmpty || clean.length > 400) {
       throw const FormatException('یادداشت باید بین ۱ تا ۴۰۰ نویسه باشد.');
     }
     final project = s.projects.where((p) => p.id == projectId).firstOrNull;
     if (project == null) throw StateError('پروژه یافت نشد.');
-    if (project.memoryNotes.contains(text)) {
+    final lines = project.memoryNotes.isEmpty
+        ? <String>[]
+        : project.memoryNotes.split('\n');
+    final existing = lines.indexWhere(
+      (entry) => ProjectMemoryEntry.belongsTo(entry, chatId, messageId),
+    );
+    if (lines.indexed.any(
+      (pair) =>
+          pair.$1 != existing &&
+          (pair.$2 == clean ||
+              pair.$2.startsWith('• $clean (تأیید مالک؛ تاریخ: ')),
+    )) {
       throw StateError('این یادداشت قبلاً در حافظه پروژه ثبت شده است.');
     }
     final origin = notedAt.toIso8601String();
     final entry =
-        '• $text (تأیید مالک؛ تاریخ: $origin؛ '
+        '• $clean (تأیید مالک؛ تاریخ: $origin؛ '
         'گفتگو: $chatId؛ پیام: $messageId)';
-    final updatedNotes = project.memoryNotes.isEmpty
-        ? entry
-        : '${project.memoryNotes}\n$entry';
+    // Re-save the same message by replacing its previous fact, not adding
+    // two conflicting copies to Qwen's persistent context.
+    if (existing >= 0) {
+      lines[existing] = entry;
+    } else {
+      lines.add(entry);
+    }
+    final updatedNotes = lines.join('\n');
     if (updatedNotes.length > 6000) {
       throw StateError(
         'فضای یادداشت‌های پروژه پر شده است؛ ابتدا آن‌ها را ویرایش کنید.',
@@ -193,6 +211,44 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       instructions: project.instructions,
       collection: project.collection,
       memoryNotes: updatedNotes,
+      sourceIds: project.sourceIds,
+    );
+    return ConversationWorkspace(
+      projects: [
+        for (final p in s.projects)
+          if (p.id == projectId) updatedProject else p,
+      ],
+      memberships: s.memberships,
+      states: s.states,
+    );
+  });
+
+  /// Revoke only one explicitly saved note. Never erase chat history or
+  /// memories belonging to another project.
+  Future<void> forgetChatMessage({
+    required String projectId,
+    required String chatId,
+    required String messageId,
+  }) => _change((s) {
+    if (s.memberships[chatId] != projectId) {
+      throw StateError('این گفتگو عضو پروژه انتخابی نیست.');
+    }
+    final project = s.projects.where((p) => p.id == projectId).firstOrNull;
+    if (project == null) throw StateError('پروژه یافت نشد.');
+    final lines = project.memoryNotes.split('\n');
+    final existing = lines.indexWhere(
+      (entry) => ProjectMemoryEntry.belongsTo(entry, chatId, messageId),
+    );
+    if (existing < 0) {
+      throw StateError('یادداشت مربوط به این پیام پیدا نشد.');
+    }
+    lines.removeAt(existing);
+    final updatedProject = ChatProject(
+      project.id,
+      project.name,
+      instructions: project.instructions,
+      collection: project.collection,
+      memoryNotes: lines.join('\n').trim(),
       sourceIds: project.sourceIds,
     );
     return ConversationWorkspace(
@@ -307,5 +363,28 @@ class ProjectMemoryGate {
       }
     }
     return false;
+  }
+}
+
+
+/// Find the owner-approved note for a particular user message in a project.
+/// Hand-written and older project notes keep their existing storage format.
+class ProjectMemoryEntry {
+  static bool belongsTo(String line, String chatId, String messageId) =>
+      line.startsWith('• ') &&
+      line.contains(' (تأیید مالک؛ تاریخ: ') &&
+      line.endsWith('؛ گفتگو: $chatId؛ پیام: $messageId)');
+
+  static String? noteFor(
+    String notes, {
+    required String chatId,
+    required String messageId,
+  }) {
+    for (final line in notes.split('\n')) {
+      if (!belongsTo(line, chatId, messageId)) continue;
+      final marker = line.lastIndexOf(' (تأیید مالک؛ تاریخ: ');
+      if (marker > 2) return line.substring(2, marker);
+    }
+    return null;
   }
 }
