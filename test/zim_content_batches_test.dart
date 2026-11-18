@@ -7,21 +7,30 @@ import 'package:ondevice_llm/features/zim/zim_content_batches.dart';
 import 'support/persian_zim_fixture.dart';
 
 void main() {
-  test('embedded index detection reports presence, not search support', () async {
-    for (final exists in [false, true]) {
-      final source = persianZim(embeddedIndex: exists);
-      final archive = await ZimArchive.open('fixture', openSource: (_) async => source);
-      expect(await archive.hasEmbeddedFullTextIndex(), exists);
-      await archive.close();
-      expect(source.closed, isTrue);
-    }
-  });
+  test(
+    'embedded index detection reports presence, not search support',
+    () async {
+      for (final exists in [false, true]) {
+        final source = persianZim(embeddedIndex: exists);
+        final archive = await ZimArchive.open(
+          'fixture',
+          openSource: (_) async => source,
+        );
+        expect(await archive.hasEmbeddedFullTextIndex(), exists);
+        await archive.close();
+        expect(source.closed, isTrue);
+      }
+    },
+  );
 
   test('bounded batches resume and read body independently of title', () async {
     final source = persianZim(englishGarden: true);
     var allowed = true;
-    final reader = await ZimContentBatches.open('garden',
-      allowed: () => allowed, openSource: (_) async => source);
+    final reader = await ZimContentBatches.open(
+      'garden',
+      allowed: () => allowed,
+      openSource: (_) async => source,
+    );
     addTearDown(reader.close);
     final rssBefore = ProcessInfo.currentRss;
     final watch = Stopwatch()..start();
@@ -35,7 +44,9 @@ void main() {
       cursor = batch.next;
     }
     watch.stop();
-    print('synthetic batch scan: ${watch.elapsedMilliseconds} ms, ${source.bytesRead} bytes read, RSS before $rssBefore and after ${ProcessInfo.currentRss} bytes; not a device peak');
+    print(
+      'synthetic batch scan: ${watch.elapsedMilliseconds} ms, ${source.bytesRead} bytes read, RSS before $rssBefore and after ${ProcessInfo.currentRss} bytes; not a device peak',
+    );
     final article = results.singleWhere((a) => a.title == 'Plant care');
     expect(article.title.toLowerCase(), isNot(contains('walnut')));
     expect(article.text.toLowerCase(), contains('walnut'));
@@ -49,8 +60,17 @@ void main() {
 
   test('an unapproved source is not opened', () async {
     var opens = 0;
-    await expectLater(ZimContentBatches.open('medical', allowed: () => false,
-      openSource: (_) async { opens++; return persianZim(); }), throwsStateError);
+    await expectLater(
+      ZimContentBatches.open(
+        'medical',
+        allowed: () => false,
+        openSource: (_) async {
+          opens++;
+          return persianZim();
+        },
+      ),
+      throwsStateError,
+    );
     expect(opens, 0);
   });
 }

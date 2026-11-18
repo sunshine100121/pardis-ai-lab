@@ -10,7 +10,13 @@ class ZimContentBatch {
   final List<({int entry, String title, String text})> articles;
   final int next, total, skipped;
   final bool cancelled;
-  const ZimContentBatch(this.articles, this.next, this.total, this.skipped, this.cancelled);
+  const ZimContentBatch(
+    this.articles,
+    this.next,
+    this.total,
+    this.skipped,
+    this.cancelled,
+  );
   bool get complete => next >= total;
 }
 
@@ -24,15 +30,21 @@ class ZimContentBatches {
   final bool Function() allowed;
   ZimContentBatches._(this.archive, this.allowed);
 
-  static Future<ZimContentBatches> open(String uri, {
+  static Future<ZimContentBatches> open(
+    String uri, {
     required bool Function() allowed,
     Future<ZimSource> Function(String)? openSource,
   }) async {
     if (!allowed()) throw StateError('منبع خارج از محدوده پروژه است');
-    final archive = await ZimArchive.open(uri, openSource: (path) {
-      if (!allowed()) throw StateError('محدوده منابع تغییر کرد');
-      return (openSource ?? ZimSource.open)(path);
-    }, clusterByteLimit: 16 * 1024 * 1024, cacheByteLimit: 8 * 1024 * 1024);
+    final archive = await ZimArchive.open(
+      uri,
+      openSource: (path) {
+        if (!allowed()) throw StateError('محدوده منابع تغییر کرد');
+        return (openSource ?? ZimSource.open)(path);
+      },
+      clusterByteLimit: 16 * 1024 * 1024,
+      cacheByteLimit: 8 * 1024 * 1024,
+    );
     if (!allowed()) {
       await archive.close();
       throw StateError('محدوده منابع تغییر کرد');
@@ -40,40 +52,69 @@ class ZimContentBatches {
     return ZimContentBatches._(archive, allowed);
   }
 
-  Future<ZimContentBatch> read({required int cursor, int limit = 16,
-    bool Function()? cancelled}) async {
-    if (cursor < 0 || cursor > archive.entryCount || limit < 1 || limit > maxEntriesPerBatch) {
+  Future<ZimContentBatch> read({
+    required int cursor,
+    int limit = 16,
+    bool Function()? cancelled,
+  }) async {
+    if (cursor < 0 ||
+        cursor > archive.entryCount ||
+        limit < 1 ||
+        limit > maxEntriesPerBatch) {
       throw ArgumentError('Invalid content batch range');
     }
-    void checkScope() { if (!allowed()) throw StateError('محدوده منابع تغییر کرد'); }
+    void checkScope() {
+      if (!allowed()) throw StateError('محدوده منابع تغییر کرد');
+    }
+
     final articles = <({int entry, String title, String text})>[];
     var index = cursor, visited = 0, bytes = 0, skipped = 0;
     while (index < archive.entryCount && visited < limit) {
       checkScope();
       if (cancelled?.call() == true) {
-        return ZimContentBatch(articles, index, archive.entryCount, skipped, true);
+        return ZimContentBatch(
+          articles,
+          index,
+          archive.entryCount,
+          skipped,
+          true,
+        );
       }
       final entry = await archive.entry(index);
       checkScope();
-      if (entry.isArticle && (entry.namespace == 'C' || entry.namespace == 'A')) {
+      if (entry.isArticle &&
+          (entry.namespace == 'C' || entry.namespace == 'A')) {
         try {
           final raw = await archive.content(entry);
           checkScope();
           if (cancelled?.call() == true) {
-            return ZimContentBatch(articles, index, archive.entryCount, skipped, true);
+            return ZimContentBatch(
+              articles,
+              index,
+              archive.entryCount,
+              skipped,
+              true,
+            );
           }
           if (raw.length > maxArticleBytes) {
             skipped++;
           } else {
-            final (_, extracted) = WebPageReader.extract(utf8.decode(raw, allowMalformed: true));
+            final (_, extracted) = WebPageReader.extract(
+              utf8.decode(raw, allowMalformed: true),
+            );
             final text = extracted.trim();
             final size = utf8.encode(text).length;
-            if (text.length >= WebPageReader.maxCharacters || size > maxBatchTextBytes) {
+            if (text.length >= WebPageReader.maxCharacters ||
+                size > maxBatchTextBytes) {
               skipped++;
             } else if (bytes + size > maxBatchTextBytes) {
               break; // Resume at this article in the next batch.
             } else if (text.isNotEmpty) {
-              articles.add((entry: entry.index, title: entry.title, text: text));
+              articles.add((
+                entry: entry.index,
+                title: entry.title,
+                text: text,
+              ));
               bytes += size;
             }
           }

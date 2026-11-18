@@ -1,5 +1,7 @@
 import 'dart:convert';
+
 import 'zim_source.dart';
+
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -357,7 +359,8 @@ class ZimArchive {
     }
     final start = await _u64At(_clusterPtrPos + 8 * e.cluster);
     final end = e.cluster + 1 < clusterCount
-        ? await _u64At(_clusterPtrPos + 8 * (e.cluster + 1)) : _checksumPos;
+        ? await _u64At(_clusterPtrPos + 8 * (e.cluster + 1))
+        : _checksumPos;
     if (start < 80 || end <= start || end > _checksumPos) {
       throw const FormatException('ZIM: invalid cluster range');
     }
@@ -369,13 +372,20 @@ class ZimArchive {
       final at = start + 1 + i * size;
       if (at + size > end) throw const FormatException('ZIM: cut blob offsets');
       final bytes = await _readAt(_file, at, size);
-      if (bytes.length != size) throw const FormatException('ZIM: cut blob offsets');
+      if (bytes.length != size)
+        throw const FormatException('ZIM: cut blob offsets');
       final data = ByteData.sublistView(bytes);
-      return size == 8 ? data.getUint64(0, Endian.little) : data.getUint32(0, Endian.little);
+      return size == 8
+          ? data.getUint64(0, Endian.little)
+          : data.getUint32(0, Endian.little);
     }
+
     final first = await offset(0);
-    if (first < 2 * size || first % size != 0 || first > end - start - 1 ||
-        e.blob < 0 || e.blob >= first ~/ size - 1) {
+    if (first < 2 * size ||
+        first % size != 0 ||
+        first > end - start - 1 ||
+        e.blob < 0 ||
+        e.blob >= first ~/ size - 1) {
       throw const FormatException('ZIM: invalid blob table');
     }
     final lo = await offset(e.blob), hi = await offset(e.blob + 1);
@@ -457,9 +467,11 @@ class ZimArchive {
 
   /// Presence only: using this embedded Xapian index requires a compatible
   /// search implementation; this reader does not treat it as searchable.
-  Future<bool> hasEmbeddedFullTextIndex() => _run(() async =>
-      await _findPath('X', 'fulltext/xapian') != null ||
-      await _findPath('Z', '/fulltextIndex/xapian') != null);
+  Future<bool> hasEmbeddedFullTextIndex() => _run(
+    () async =>
+        await _findPath('X', 'fulltext/xapian') != null ||
+        await _findPath('Z', '/fulltextIndex/xapian') != null,
+  );
 
   Future<String?> metadata(String name) => _run(() async {
     final e = await _findPath('M', name);
