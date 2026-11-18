@@ -83,7 +83,7 @@ class CitationMatch {
         final verified = supported != null && supported.states
             ? '[' + (supported.source + 1).toString() + ']'
             : '';
-        return sentence.replaceAll(_marker, verified);
+        // One claim has one evidence decision: multiple model markers must\n        // not multiply the same verified citation.\n        var inserted = false;\n        return sentence.replaceAllMapped(_marker, (_) {\n          if (inserted || verified.isEmpty) return '';\n          inserted = true;\n          return verified;\n        });
       }).join(' ');
     }
     return lines.join('\n');
