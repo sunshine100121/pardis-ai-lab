@@ -767,6 +767,7 @@ void main() {
   late ProviderContainer container;
   late TestEngine engine;
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     TurnPolicy.judgeLocalModels = true;
     addTearDown(() => TurnPolicy.judgeLocalModels = false);
     db = AppDatabase.forTesting(NativeDatabase.memory());
