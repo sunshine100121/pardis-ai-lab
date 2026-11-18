@@ -44,6 +44,29 @@ class MemorySource implements ZimSource {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(()=>SharedPreferences.setMockInitialValues({}));
+  test('project source filter excludes unrelated PDF passages before ranking', () async {
+    final folder = TestFolder()
+      ..add('garden.pdf', Uint8List.fromList(utf8.encode('garden fixture')))
+      ..add('medical.pdf', Uint8List.fromList(utf8.encode('medical fixture')));
+    final library = FolderLibrary(
+      access: folder,
+      pdfText: (bytes) async => utf8.decode(bytes).startsWith('garden')
+          ? '--- Page 1 ---\nWalnut irrigation garden evidence.'
+          : '--- Page 1 ---\nWalnut irrigation medical unrelated evidence.',
+    );
+    await library.refresh();
+    final before = folder.opens;
+    final report = await library.searchDetailed(
+      'walnut irrigation',
+      sourceIds: {FolderLibrary.sourceId('garden.pdf')},
+    );
+    expect(report.sources, hasLength(1));
+    expect(report.sources.single.title, contains('garden.pdf'));
+    expect(report.sources.single.pageText, isNot(contains('medical')));
+    expect(folder.opens, before);
+    expect(folder.bytes['garden.pdf'], Uint8List.fromList(utf8.encode('garden fixture')));
+    expect(folder.bytes['medical.pdf'], Uint8List.fromList(utf8.encode('medical fixture')));
+  });
   test('one tree grant, refresh discovers new files, no original copies and disabled source isolated',() async {
     final folder=TestFolder()..add('notes.txt',Uint8List.fromList(utf8.encode('orchid nutrient concentration is 42.')))
       ..add('model.gguf',Uint8List.fromList([1,2,3]));

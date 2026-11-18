@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -10,6 +11,7 @@ import 'package:ondevice_llm/core/providers/shared_providers.dart';
 import 'package:ondevice_llm/core/theme/app_theme.dart';
 import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/features/chat/domain/conversation_workspace.dart';
+import 'package:ondevice_llm/features/chat/domain/chat_draft_store.dart';
 import 'package:ondevice_llm/features/chat/presentation/providers/chat_provider.dart';
 import 'package:ondevice_llm/features/chat/presentation/screens/chat_screen.dart';
 import 'package:ondevice_llm/features/models/presentation/providers/model_manager_provider.dart';
@@ -21,9 +23,14 @@ import 'chat_test.dart' show TestEngine, TestModels, TestSettings;
 
 class _Paths extends PathProviderPlatform {
   final String path;
+  Completer<void>? gate;
   _Paths(this.path);
   @override
-  Future<String?> getApplicationSupportPath() async => path;
+  Future<String?> getApplicationSupportPath() async {
+    final pending = gate;
+    if (pending != null) await pending.future;
+    return path;
+  }
 }
 
 void main() {
@@ -35,7 +42,8 @@ void main() {
       () => Directory.systemTemp.createTemp('pala-project-tabs-'),
     ))!;
     final previousPaths = PathProviderPlatform.instance;
-    PathProviderPlatform.instance = _Paths(dir.path);
+    final paths = _Paths(dir.path);
+    PathProviderPlatform.instance = paths;
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final now = DateTime(2026);
     Chat chat(String id, String title) => Chat(
@@ -62,6 +70,7 @@ void main() {
       ],
     );
     addTearDown(() async {
+      if (paths.gate != null && !paths.gate!.isCompleted) paths.gate!.complete();
       container.dispose();
       await db.close();
       PathProviderPlatform.instance = previousPaths;
@@ -75,6 +84,12 @@ void main() {
         .projects
         .single
         .id;
+    await tester.runAsync(() async {
+      await ChatDraftStore(root: () async => dir).save(
+        'new-project-$projectId',
+        const ChatDraft(text: 'پیش‌نویس قبلی ساختگی'),
+      );
+    });
     await workspace.assign(['garden-chat'], projectId);
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -111,16 +126,24 @@ void main() {
       find.byKey(const Key('message-input')),
       'پیش‌نویس عمومی ساختگی',
     );
+    paths.gate = Completer<void>();
+    await tester.tap(find.byKey(ValueKey('project-tab-$projectId')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('project-tab-general')));
+    await tester.pump();
+    paths.gate!.complete();
+    paths.gate = null;
+    await waitForDraft('پیش‌نویس عمومی ساختگی');
     await tester.tap(find.byKey(ValueKey('project-tab-$projectId')));
     await tester.pumpAndSettle();
-    await waitForDraft('');
+    await waitForDraft('پیش‌نویس قبلی ساختگی');
     expect(container.read(newChatProjectProvider), projectId);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('message-input')))
           .controller!
           .text,
-      isEmpty,
+      'پیش‌نویس قبلی ساختگی',
     );
     await tester.enterText(
       find.byKey(const Key('message-input')),
@@ -150,6 +173,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('گفتگوی باغ ساختگی'), findsOneWidget);
     expect(find.text('گفتگوی عمومی ساختگی'), findsNothing);
+    expect(tester.takeException(), isNull);
+    Navigator.of(tester.element(find.text('گفتگوی باغ ساختگی'))).pop();
+    tester.view.physicalSize = const Size(1200, 800);
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('project-tab-$projectId')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

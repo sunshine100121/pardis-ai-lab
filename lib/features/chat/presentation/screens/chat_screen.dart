@@ -90,11 +90,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   String _draftKey = 'new';
   Timer? _draftTimer;
   bool _restoringDraft = false;
+  bool _draftPending = false;
   bool _temporaryDraft = false;
   int _draftRevision = 0;
 
   void _saveDraft() {
     if (_restoringDraft) return;
+    _draftPending = false;
     if (_temporaryDraft || ref.read(chatProvider).temporary) {
       unawaited(
         TemporaryFiles.remember(_pending.map((a) => a.path))
@@ -125,7 +127,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         : chatId ?? (project == null ? 'new' : 'new-project-$project');
     if (key == _draftKey) return;
     _draftTimer?.cancel();
-    if (!_temporaryDraft) {
+    if (!_temporaryDraft && !_draftPending) {
       unawaited(
         _drafts
             .save(
@@ -141,6 +143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     _draftKey = key;
     _temporaryDraft = temporary;
+    _draftPending = !temporary;
     _restoringDraft = true;
     _input.clear();
     _pending.clear();
@@ -155,6 +158,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       final draft = await _drafts.read(key);
       if (!mounted || key != _draftKey || revision != _draftRevision) return;
+      _draftPending = false;
       _restoringDraft = true;
       setState(() {
         _input.text = draft.text;
@@ -220,6 +224,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.initState();
     final initialChat = ref.read(chatProvider);
     _temporaryDraft = initialChat.temporary;
+    _draftPending = !_temporaryDraft;
     final project = ref.read(newChatProjectProvider);
     _draftKey = _temporaryDraft
         ? 'temporary'
@@ -366,7 +371,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void dispose() {
     _draftTimer?.cancel();
-    if (!_temporaryDraft) {
+    if (!_temporaryDraft && !_draftPending) {
       unawaited(
         _drafts
             .save(
