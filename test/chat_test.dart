@@ -18,6 +18,7 @@ import 'package:ondevice_llm/features/memory/presentation/providers/memory_provi
 import 'package:ondevice_llm/features/presets/presentation/providers/presets_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ondevice_llm/data/local/database/app_database.dart';
+import 'package:ondevice_llm/features/chat/domain/conversation_workspace.dart';
 import 'package:ondevice_llm/features/chat/presentation/providers/chat_provider.dart';
 import 'package:ondevice_llm/features/chat/presentation/providers/search_misses.dart';
 import 'package:ondevice_llm/features/chat/domain/entities/chat_message.dart';
@@ -785,6 +786,47 @@ void main() {
     container.dispose();
     await db.close();
   });
+  test('project notes stay inside their own Qwen conversation', () async {
+    final workspace = container.read(conversationWorkspaceProvider.notifier);
+    await workspace.ready;
+    await workspace.saveProject(
+      name: 'Garden test',
+      memoryNotes: 'GARDEN_ONLY_FACT_1026',
+    );
+    await workspace.saveProject(
+      name: 'Health test',
+      memoryNotes: 'HEALTH_ONLY_FACT_1026',
+    );
+    final projects = container.read(conversationWorkspaceProvider).projects;
+    final gardenId = projects.first.id;
+    final healthId = projects.last.id;
+
+    Future<String> promptFor(String? projectId) async {
+      final chat = container.read(chatProvider.notifier);
+      chat.newChat(projectId: projectId);
+      engine.receivedMessages = null;
+      await chat.send('Summarize the plan.');
+      expect(container.read(chatProvider).error, isNull);
+      final messages = engine.receivedMessages;
+      expect(messages, isNotNull);
+      return messages!
+          .map((message) => message['content']?.toString() ?? '')
+          .join('\n');
+    }
+
+    final garden = await promptFor(gardenId);
+    expect(garden, contains('GARDEN_ONLY_FACT_1026'));
+    expect(garden, isNot(contains('HEALTH_ONLY_FACT_1026')));
+
+    final health = await promptFor(healthId);
+    expect(health, contains('HEALTH_ONLY_FACT_1026'));
+    expect(health, isNot(contains('GARDEN_ONLY_FACT_1026')));
+
+    final general = await promptFor(null);
+    expect(general, isNot(contains('GARDEN_ONLY_FACT_1026')));
+    expect(general, isNot(contains('HEALTH_ONLY_FACT_1026')));
+  });
+
   test(
     'opening an earlier news story respects the shared read and tool allowance',
     () async {
