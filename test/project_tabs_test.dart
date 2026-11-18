@@ -34,7 +34,9 @@ class _Paths extends PathProviderPlatform {
 }
 
 void main() {
-  test('only an owner-specific matching note can justify a no-source answer', () {
+  test(
+    'only an owner-specific matching note can justify a no-source answer',
+    () {
     expect(
       ProjectMemoryGate.relevant(
         'در باغ من چند درخت گردو وجود دارد؟',
@@ -56,7 +58,8 @@ void main() {
       ),
       isFalse,
     );
-  });
+    },
+  );
 
   test(
     'owner-edited project notes persist without mixing project scopes',

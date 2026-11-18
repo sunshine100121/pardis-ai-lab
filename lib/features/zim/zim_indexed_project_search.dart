@@ -147,7 +147,7 @@ class ZimIndexedProjectSearch {
       });
       final nativePersianEvidence =
           onlyPersianArchives &&
-          RegExp(r'[\\u0600-\\u06ff]').hasMatch(question) &&
+          RegExp(r'[\u0600-\u06ff]').hasMatch(question) &&
           ZimIndexCitations(index)
               .search(ZimWikipedia.subjectQuery(question), authorized)
               .isNotEmpty;

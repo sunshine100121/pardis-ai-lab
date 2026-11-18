@@ -260,9 +260,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
 /// encyclopedic claims or current sensor readings. This is a deterministic
 /// guard, not an LLM judgment and not a substitute for source citations.
 class ProjectMemoryGate {
-  static final _words = RegExp(r'[\\p{L}\\p{N}]{3,}', unicode: true);
+  static final _words = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true);
   static final _personal = RegExp(
-    r'(?<![\\p{L}\\p{N}])(?:من|ما|خودم|دارم|داریم|قبلاً|یادته|یادت|حافظه|یادداشت|my|our|remember)(?![\\p{L}\\p{N}])',
+    r'(?<![\p{L}\p{N}])(?:من|ما|خودم|دارم|داریم|قبلاً|یادته|یادت|حافظه|یادداشت|my|our|remember)(?![\p{L}\p{N}])',
     caseSensitive: false,
     unicode: true,
   );
