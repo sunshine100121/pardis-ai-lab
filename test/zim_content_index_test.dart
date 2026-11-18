@@ -143,6 +143,42 @@ void main() {
     );
   });
 
+  test('multi-term body evidence ranks ahead of a one-token title', () {
+    final db = sqlite3.openInMemory();
+    addTearDown(db.close);
+    final index = ZimContentIndex(db);
+    index.commit(
+      sourceId: garden,
+      fingerprint: fingerprint,
+      expectedCursor: 0,
+      batch: const ZimContentBatch(
+        [
+          (
+            entry: 0,
+            title: 'Walnut',
+            text: 'A walnut tree produces edible nuts.',
+          ),
+          (
+            entry: 1,
+            title: 'Field irrigation observations',
+            text: 'Deep walnut irrigation reduces evaporation in dry soil.',
+          ),
+        ],
+        2,
+        2,
+        0,
+        false,
+      ),
+      allowed: () => true,
+    );
+    final hits = index.search('walnut irrigation evaporation', {
+      garden: fingerprint,
+    });
+    expect(hits, hasLength(2));
+    expect(hits.first.entry, 1);
+    expect(hits.first.text, contains('evaporation'));
+  });
+
   test('logical quota failure leaves the index and cursor unchanged', () {
     final db = sqlite3.openInMemory();
     addTearDown(db.close);
