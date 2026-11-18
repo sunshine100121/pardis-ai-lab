@@ -85,6 +85,23 @@ void main() {
     );
   });
 
+  test('multiple citations on one claim collapse to one verified source', () {
+    expect(
+      CitationMatch.verifyEvidence(
+        'The Nikon Z30 body weighs 350 g [1] [2].',
+        sources,
+      ),
+      'The Nikon Z30 body weighs 350 g [2] .',
+    );
+    expect(
+      CitationMatch.verifyEvidence(
+        'The Nikon Z30 body weighs 390 g [1] [2].',
+        sources,
+      ),
+      'The Nikon Z30 body weighs 390 g  .',
+    );
+  });
+
   test('a source line ending in a semicolon is read, not a crash', () {
     // An SEC page read on the phone (D1 benchmark, finance-sec-10k) threw
     // "No element" here and failed the whole send.
