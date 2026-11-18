@@ -4,6 +4,29 @@ import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/features/memory/presentation/providers/memory_provider.dart';
 
 void main() {
+  test('history recovery excludes project conversations from global memory', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final now = DateTime(2026, 1, 1);
+    for (final id in ['general', 'garden']) {
+      await db.upsertChat(ChatsCompanion.insert(
+        id: id, title: id, createdAt: now, updatedAt: now,
+      ));
+    }
+    await db.insertMessage(MessagesCompanion.insert(
+      id: 'general-message', chatId: 'general', role: 'user',
+      content: 'I am a chef.', timestamp: now, sequence: 0,
+    ));
+    await db.insertMessage(MessagesCompanion.insert(
+      id: 'garden-message', chatId: 'garden', role: 'user',
+      content: 'I am a gardener.', timestamp: now, sequence: 0,
+    ));
+    final store = MemoryStore(db);
+    expect(await store.scanSavedChats(
+      enabled: () => true, allowChat: (id) => id == 'general',
+    ), 1);
+    expect(await store.facts(), ['The user is a chef']);
+  });
   test(
     'local history recovery scans every user message and keeps provenance',
     () async {
@@ -48,8 +71,8 @@ void main() {
         ),
       );
       final store = MemoryStore(db);
-      expect(await store.scanSavedChats(enabled: () => false), 0);
-      expect(await store.scanSavedChats(enabled: () => true), 3);
+      expect(await store.scanSavedChats(enabled: () => false, allowChat: (_) => true), 0);
+      expect(await store.scanSavedChats(enabled: () => true, allowChat: (_) => true), 3);
       expect(
         await store.facts(),
         containsAll([
@@ -58,7 +81,7 @@ void main() {
           'The user is building two apps',
         ]),
       );
-      expect(await store.scanSavedChats(enabled: () => true), 0);
+      expect(await store.scanSavedChats(enabled: () => true, allowChat: (_) => true), 0);
       final memories = await store.all();
       expect(
         memories.every(

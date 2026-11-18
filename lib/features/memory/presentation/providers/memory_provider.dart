@@ -19,12 +19,13 @@ class MemoryStore {
 
   /// Explicit recovery action, rather than silently recreating deleted notes
   /// every time a chat is reopened. This never calls a remote or local model.
-  Future<int> scanSavedChats({required bool Function() enabled}) =>
+  Future<int> scanSavedChats({required bool Function() enabled, required bool Function(String) allowChat}) =>
       _historyScan ??= _scanSavedChats(
         enabled,
+        allowChat,
       ).whenComplete(() => _historyScan = null);
 
-  Future<int> _scanSavedChats(bool Function() enabled) async {
+  Future<int> _scanSavedChats(bool Function() enabled, bool Function(String) allowChat) async {
     if (!enabled()) return 0;
     final known = [
       for (final m in await all())
@@ -39,7 +40,7 @@ class MemoryStore {
     final candidates = <(String, Message)>[];
     for (final message in messages) {
       if (!enabled()) break;
-      if (message.status.startsWith('superseded:') ||
+      if (!allowChat(message.chatId) || message.status.startsWith('superseded:') ||
           message.status.startsWith('alternative:') ||
           message.content.trimLeft().startsWith('/')) {
         continue;
@@ -57,9 +58,12 @@ class MemoryStore {
     var count = 0;
     for (final (fact, message) in candidates) {
       if (!enabled()) return count;
+      if (!allowChat(message.chatId)) continue;
       if (UserMemory.parseFacts(fact, existing: await facts()).isEmpty) {
         continue;
       }
+      if (!enabled()) return count;
+      if (!allowChat(message.chatId)) continue;
       await add(
         fact,
         sourceChatId: message.chatId,

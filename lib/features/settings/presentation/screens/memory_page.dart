@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../chat/presentation/screens/message_source_page.dart';
+import '../../../chat/domain/conversation_workspace.dart';
 
 import '../../../../core/design/app_design.dart';
 import '../../../../data/local/database/app_database.dart';
@@ -69,12 +70,21 @@ class MemoryPage extends ConsumerWidget {
             onPressed: !s.memoryEnabled
                 ? null
                 : () async {
+                    await ref.read(conversationWorkspaceProvider.notifier).ready;
+                    if (!context.mounted) return;
+                    if (!ref.read(conversationWorkspaceProvider).readable) {
+                      showIslandToast(context, 'اطلاعات پروژه‌ها خوانده نشد؛ بازیابی حافظه انجام نشد.', tone: IslandTone.error);
+                      return;
+                    }
                     final count = await ref
                         .read(memoryStoreProvider)
                         .scanSavedChats(
                           enabled: () =>
                               context.mounted &&
-                              ref.read(settingsProvider).memoryEnabled,
+                              ref.read(settingsProvider).memoryEnabled &&
+                              ref.read(conversationWorkspaceProvider).readable,
+                          allowChat: (id) =>
+                              !ref.read(conversationWorkspaceProvider).memberships.containsKey(id),
                         );
                     if (context.mounted) {
                       showIslandToast(
