@@ -221,7 +221,9 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                     onPressed: busy
                         ? null
                         : () => _editProject(
-                            workspace.projects.firstWhere((p) => p.id == _project),
+                            workspace.projects.firstWhere(
+                              (p) => p.id == _project,
+                            ),
                           ),
                   ),
                 if (_project != null)
