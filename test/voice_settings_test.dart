@@ -165,7 +165,9 @@ void main() {
         isTrue,
       );
       expect(container.read(settingsProvider).listeningModel, 'vosk-fa');
-      final available = await container.read(voiceProvider.notifier).androidTtsEngines();
+      final available = await container
+          .read(voiceProvider.notifier)
+          .androidTtsEngines();
       expect(available.$1, ['fa.engine']);
       expect(available.$2, 'fa.engine');
       expect(
