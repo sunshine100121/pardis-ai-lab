@@ -1037,6 +1037,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                               helperChip: HelperUsedChip(
                                                 messageId: m.id,
                                               ),
+                                              savedProjectMemory:
+                                                  state.chatId != null &&
+                                                  ProjectMemoryEntry.noteFor(
+                                                        workspace.projects
+                                                                .where(
+                                                                  (p) => p.id == selectedProject,
+                                                                )
+                                                                .firstOrNull
+                                                                ?.memoryNotes ??
+                                                            '',
+                                                        chatId: state.chatId!,
+                                                        messageId: m.id,
+                                                      ) !=
+                                                      null,
+                                              onForgetProjectMemory:
+                                                  !busy &&
+                                                      state.chatId != null &&
+                                                      ProjectMemoryEntry.noteFor(
+                                                            workspace.projects
+                                                                    .where(
+                                                                      (p) => p.id == selectedProject,
+                                                                    )
+                                                                    .firstOrNull
+                                                                    ?.memoryNotes ??
+                                                                '',
+                                                            chatId: state.chatId!,
+                                                            messageId: m.id,
+                                                          ) !=
+                                                          null
+                                                  ? () => unawaited(
+                                                      _forgetProjectMessage(m),
+                                                    )
+                                                  : null,
                                               onSaveProjectMemory:
                                                   !busy &&
                                                       selectedProject != null &&
