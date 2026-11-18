@@ -2785,6 +2785,12 @@ class ChatNotifier extends _ChatBase
     if (t.sources.isEmpty) {
       final plain = AnswerCleanup.dropCitations(t.answer.toString());
       if (plain.length < t.answer.length) t.replaceAnswer(plain);
+    } else {
+      final checked = CitationMatch.stripUnknown(
+        t.answer.toString(),
+        t.sources.length,
+      );
+      if (checked != t.answer.toString()) t.replaceAnswer(checked);
     }
     // An attached file or photo is the source: no closing note that live
     // data is unavailable. Qwen3.5 0.8B added one to a figure it read from
