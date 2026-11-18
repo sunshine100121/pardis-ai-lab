@@ -544,6 +544,16 @@ class VoiceNotifier extends Notifier<VoiceState> {
     });
   }
 
+  Future<(List<String>, String?)> androidTtsEngines() async {
+    await _initTts();
+    final raw = await _tts!.getEngines;
+    final engines = raw is List ? raw.whereType<String>().toList() : <String>[];
+    final prefs = await SharedPreferences.getInstance();
+    final system = await _tts!.getDefaultEngine as String?;
+    final selected = prefs.getString(_androidTtsEngineKey) ?? system;
+    return (engines, engines.contains(selected) ? selected : null);
+  }
+
   /// Selects an installed Android engine only when it exposes an offline
   /// Persian voice. An incompatible choice leaves the current engine intact.
   Future<bool> setAndroidTtsEngine(String engine) async {

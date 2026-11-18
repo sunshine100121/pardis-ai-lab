@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/design/app_design.dart';
 import '../settings/presentation/widgets/settings_widgets.dart';
@@ -330,23 +328,15 @@ class _PersianTtsEngines extends ConsumerStatefulWidget {
 }
 
 class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
-  static const _key = 'pala_voice_android_tts_engine_v1';
   late final Future<(List<String>, String?)> _engines = _load();
   String? _selected;
   bool _busy = false;
 
   Future<(List<String>, String?)> _load() async {
     try {
-      final tts = FlutterTts();
-      final raw = await tts.getEngines;
-      final engines = raw is List
-          ? raw.whereType<String>().toList()
-          : <String>[];
-      final prefs = await SharedPreferences.getInstance();
-      final system = await tts.getDefaultEngine as String?;
-      _selected = prefs.getString(_key) ?? system;
-      if (!engines.contains(_selected)) _selected = null;
-      return (engines, _selected);
+      final result = await ref.read(voiceProvider.notifier).androidTtsEngines();
+      _selected = result.$2;
+      return result;
     } catch (_) {
       return (<String>[], null);
     }
@@ -408,7 +398,7 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'این موتور صدای فارسی آفلاین ندارد؛ انتخاب قبلی حفظ شد.',
+                              'انتخاب موتور ناموفق بود؛ صدای فارسی آفلاین و نصب موتور را بررسی کنید.',
                             ),
                           ),
                         );

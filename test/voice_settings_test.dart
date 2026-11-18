@@ -83,78 +83,99 @@ void main() {
         });
   });
 
-  test('failed TTS change restores the saved engine, not system default', () async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    SharedPreferences.setMockInitialValues({
-      'pala_voice_android_tts_engine_v1': 'saved.engine',
-    });
-    const channel = MethodChannel('flutter_tts');
-    final engines = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          if (call.method == 'setEngine') engines.add(call.arguments as String);
-          if (call.method == 'getDefaultEngine') return 'system.engine';
-          if (call.method == 'getVoices') return <Map<String, String>>[];
-          return 1;
-        });
-    addTearDown(
-      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null),
-    );
-    final container = ProviderContainer(
-      overrides: [
-        settingsProvider.overrideWith(() => _Settings(const InferenceSettings())),
-      ],
-    );
-    addTearDown(container.dispose);
-    expect(
-      await container.read(voiceProvider.notifier).setAndroidTtsEngine('bad.engine'),
-      isFalse,
-    );
-    expect(engines, ['bad.engine', 'saved.engine']);
-    expect(
-      (await SharedPreferences.getInstance()).getString('pala_voice_android_tts_engine_v1'),
-      'saved.engine',
-    );
-  });
-
-  test('selecting a Persian TTS engine persists independently of STT', () async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-    const channel = MethodChannel('flutter_tts');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          if (call.method == 'getDefaultEngine') return 'system.engine';
-          if (call.method == 'getVoices') {
-            return [
-              {'locale': 'fa-IR', 'name': 'voice', 'network_required': '0'},
-            ];
-          }
-          return 1;
-        });
-    addTearDown(
-      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null),
-    );
-    final container = ProviderContainer(
-      overrides: [
-        settingsProvider.overrideWith(
-          () => _Settings(const InferenceSettings(listeningModel: 'vosk-fa')),
+  test(
+    'failed TTS change restores the saved engine, not system default',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      SharedPreferences.setMockInitialValues({
+        'pala_voice_android_tts_engine_v1': 'saved.engine',
+      });
+      const channel = MethodChannel('flutter_tts');
+      final engines = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'setEngine')
+              engines.add(call.arguments as String);
+            if (call.method == 'getDefaultEngine') return 'system.engine';
+            if (call.method == 'getVoices') return <Map<String, String>>[];
+            return 1;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _Settings(const InferenceSettings()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(
+        await container
+            .read(voiceProvider.notifier)
+            .setAndroidTtsEngine('bad.engine'),
+        isFalse,
+      );
+      expect(engines, ['bad.engine', 'saved.engine']);
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          'pala_voice_android_tts_engine_v1',
         ),
-      ],
-    );
-    addTearDown(container.dispose);
-    expect(
-      await container.read(voiceProvider.notifier).setAndroidTtsEngine('fa.engine'),
-      isTrue,
-    );
-    expect(container.read(settingsProvider).listeningModel, 'vosk-fa');
-    expect(
-      (await SharedPreferences.getInstance()).getString('pala_voice_android_tts_engine_v1'),
-      'fa.engine',
-    );
-  });
+        'saved.engine',
+      );
+    },
+  );
+
+  test(
+    'selecting a Persian TTS engine persists independently of STT',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      const channel = MethodChannel('flutter_tts');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'getDefaultEngine') return 'system.engine';
+            if (call.method == 'getEngines') return ['fa.engine'];
+            if (call.method == 'getVoices') {
+              return [
+                {'locale': 'fa-IR', 'name': 'voice', 'network_required': '0'},
+              ];
+            }
+            return 1;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _Settings(const InferenceSettings(listeningModel: 'vosk-fa')),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(
+        await container
+            .read(voiceProvider.notifier)
+            .setAndroidTtsEngine('fa.engine'),
+        isTrue,
+      );
+      expect(container.read(settingsProvider).listeningModel, 'vosk-fa');
+      final available = await container.read(voiceProvider.notifier).androidTtsEngines();
+      expect(available.$1, ['fa.engine']);
+      expect(available.$2, 'fa.engine');
+      expect(
+        (await SharedPreferences.getInstance()).getString(
+          'pala_voice_android_tts_engine_v1',
+        ),
+        'fa.engine',
+      );
+    },
+  );
 
   test('legacy and new listening preferences survive settings decoding', () {
     for (final value in [
