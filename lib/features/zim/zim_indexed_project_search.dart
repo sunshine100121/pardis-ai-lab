@@ -213,20 +213,48 @@ class ZimIndexedProjectSearch {
       final original = citations.search(
         ZimWikipedia.subjectQuery(question),
         authorized,
+        limit: 8,
       );
       final translated = query != null && query.trim() != question.trim()
-          ? citations.search(query, authorized)
+          ? citations.search(query, authorized, limit: 8)
           : <SearchResult>[];
-      // Do not let one language fill the result limit before the other has
-      // a chance. Both queries search only the same permitted sources.
+      // Rank only genuine retrieved excerpts. Prefer passages that cover
+      // several question terms; a specialist archive wins a tie, but cannot
+      // defeat stronger evidence just because its name looks relevant.
+      final queryWords = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true)
+          .allMatches((question + ' ' + (query ?? '')).toLowerCase())
+          .map((m) => m.group(0)!)
+          .toSet();
+      final gardenQuestion = RegExp(
+        r'باغ|درخت|گردو|آبیاری|گیاه|horticultur|garden|walnut|irrigat',
+        caseSensitive: false,
+      ).hasMatch(question + ' ' + (query ?? ''));
+      final travelQuestion = RegExp(
+        r'گردشگر|سفر|جاذبه|travel|touris|sightsee',
+        caseSensitive: false,
+      ).hasMatch(question + ' ' + (query ?? ''));
       final seen = <String>{};
-      final combined = <SearchResult>[];
-      for (var i = 0; i < 4; i++) {
-        for (final list in [original, translated]) {
-          if (i < list.length && seen.add(list[i].url) && combined.length < 4)
-            combined.add(list[i]);
-        }
+      final candidates = <({SearchResult source, int coverage, int field})>[];
+      for (final result in [...original, ...translated]) {
+        if (!seen.add(result.url)) continue;
+        final text = (result.title + ' ' + (result.pageText ?? ''))
+            .toLowerCase();
+        final count = queryWords.where(text.contains).length;
+        final archive = result.source.toLowerCase();
+        final specialist =
+            (gardenQuestion && archive.contains('garden')) ||
+            (travelQuestion && archive.contains('voyage'));
+        candidates.add((
+          source: result,
+          coverage: count,
+          field: specialist ? 1 : 0,
+        ));
       }
+      candidates.sort((a, b) {
+        final relevance = b.coverage.compareTo(a.coverage);
+        return relevance != 0 ? relevance : b.field.compareTo(a.field);
+      });
+      final combined = candidates.take(4).map((hit) => hit.source).toList();
       return (
         sources: combined,
         incomplete: incomplete,
