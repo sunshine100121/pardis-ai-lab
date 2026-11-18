@@ -75,6 +75,8 @@ class FolderLibrary {
   }) : access = access ?? AndroidFolderAccess(),
        pdfText = pdfText ?? readPdf;
   bool _refreshing = false;
+  int _pendingZimCleanup = 0;
+  static const _maxPendingZimCleanup = 2;
 
   static bool supported(String name) =>
       extensions.contains(name.split('.').last.toLowerCase());
@@ -287,6 +289,10 @@ class FolderLibrary {
         continue;
       }
       if ((f['name'] as String).toLowerCase().endsWith('.zim')) {
+        if (_pendingZimCleanup >= _maxPendingZimCleanup) {
+          checks.add({'file': f['name'], 'code': 'deferred_timeout'});
+          continue;
+        }
         final clock = Stopwatch()..start();
         final check = <String, dynamic>{
           'file': f['name'],
@@ -330,7 +336,10 @@ class FolderLibrary {
           // I/O/decompression finishes before the descriptor is released. Do not
           // turn an expired lookup into an unbounded UI wait for that cleanup.
           if (timedOut) {
-            unawaited(wiki.close());
+            _pendingZimCleanup++;
+            unawaited(wiki.close().whenComplete(() {
+              _pendingZimCleanup--;
+            }));
           } else {
             await wiki.close();
           }

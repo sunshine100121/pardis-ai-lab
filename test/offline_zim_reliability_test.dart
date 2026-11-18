@@ -200,6 +200,37 @@ void main() {
     expect(slow.source.closed, true);
     expect(jsonEncode(report.checks), snapshot);
   });
+  test('stalled reads are bounded across repeated searches', () async {
+    final folder = FixtureFolder({
+      'slow-a.zim': persianZim(),
+      'slow-b.zim': persianZim(),
+      'later.zim': persianZim(),
+    });
+    final a = DelayedSource(persianZim());
+    final b = DelayedSource(persianZim());
+    folder.overrideOpen = (uri) async => uri == 'slow-a.zim' ? a : b;
+    final library = FolderLibrary(
+      access: folder,
+      lookupTimeout: const Duration(milliseconds: 20),
+    );
+    await library.refresh();
+    try {
+      final first = await library.searchDetailed('مریخ');
+      expect(first.checks.map((c) => c['code']), [
+        'timeout',
+        'timeout',
+        'deferred_timeout',
+      ]);
+      expect(folder.opened, hasLength(2));
+      final repeated = await library.searchDetailed('مریخ');
+      expect(repeated.checks.map((c) => c['code']), everyElement('deferred_timeout'));
+      expect(folder.opened, hasLength(2));
+    } finally {
+      a.gate.complete();
+      b.gate.complete();
+      await Future.wait([a.released.future, b.released.future]).timeout(const Duration(seconds: 1));
+    }
+  });
   test(
     'not-found, revoked access, persistence and disabled sources are distinct',
     () async {
