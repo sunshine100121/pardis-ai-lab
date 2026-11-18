@@ -53,6 +53,17 @@ void main() {
     );
   });
 
+  test('source numbers must match actual retrieved evidence', () {
+    expect(
+      CitationMatch.stripUnknown(
+        'Verified [1]. Invented [99]. Mixed [1, 40, 2]. Internal [0].',
+        2,
+      ),
+      'Verified [1]. Invented . Mixed [1, 2]. Internal .',
+    );
+    expect(CitationMatch.stripUnknown('No source [1]', 0), 'No source ');
+  });
+
   test('a source line ending in a semicolon is read, not a crash', () {
     // An SEC page read on the phone (D1 benchmark, finance-sec-10k) threw
     // "No element" here and failed the whole send.
