@@ -24,53 +24,80 @@ class ZimIndexStep {
     void checkScope() {
       if (!allowed()) throw StateError('منبع خارج از محدوده پروژه است');
     }
+
     checkScope();
-    if (size < 0 || modified < 0) throw ArgumentError('Invalid source metadata');
+    if (size < 0 || modified < 0)
+      throw ArgumentError('Invalid source metadata');
     if (cancelled?.call() == true) {
       throw StateError('نمایه‌سازی پیش از شروع متوقف شد');
     }
-    if (!await hasStorageHeadroom()) throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
+    if (!await hasStorageHeadroom())
+      throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
     checkScope();
-    if (!await sourceUnchanged()) throw StateError('مشخصات منبع تغییر کرده است');
+    if (!await sourceUnchanged())
+      throw StateError('مشخصات منبع تغییر کرده است');
     checkScope();
-    final reader = await ZimContentBatches.open(uri, allowed: allowed, openSource: (path) async {
-      checkScope();
-      final source = await (openSource ?? ZimSource.open)(path);
-      try {
-        if (await source.length() != size) throw StateError('اندازه منبع تغییر کرده است');
+    final reader = await ZimContentBatches.open(
+      uri,
+      allowed: allowed,
+      openSource: (path) async {
         checkScope();
-        return source;
-      } catch (_) {
-        await source.close();
-        rethrow;
-      }
-    });
+        final source = await (openSource ?? ZimSource.open)(path);
+        try {
+          if (await source.length() != size)
+            throw StateError('اندازه منبع تغییر کرده است');
+          checkScope();
+          return source;
+        } catch (_) {
+          await source.close();
+          rethrow;
+        }
+      },
+    );
     try {
       checkScope();
       final id = FolderLibrary.sourceId(uri);
       final fingerprint = ZimContentIndex.fingerprint(
-        archiveId: reader.archive.identity, size: size, modified: modified,
+        archiveId: reader.archive.identity,
+        size: size,
+        modified: modified,
       );
       final before = index.progress(id, fingerprint);
       final cursor = before?.cursor ?? 0;
       if (before != null && before.total != reader.archive.entryCount) {
         throw StateError('تعداد مدخل‌های منبع تغییر کرده است');
       }
-      final batch = await reader.read(cursor: cursor, limit: limit, cancelled: cancelled);
+      final batch = await reader.read(
+        cursor: cursor,
+        limit: limit,
+        cancelled: cancelled,
+      );
       checkScope();
-      if (!await sourceUnchanged()) throw StateError('مشخصات منبع تغییر کرده است');
+      if (!await sourceUnchanged())
+        throw StateError('مشخصات منبع تغییر کرده است');
       checkScope();
-      if (!await hasStorageHeadroom()) throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
+      if (!await hasStorageHeadroom())
+        throw StateError('فضای کافی برای نمایه‌سازی تأیید نشد');
       checkScope();
-      if (!await sourceUnchanged()) throw StateError('مشخصات منبع تغییر کرده است');
+      if (!await sourceUnchanged())
+        throw StateError('مشخصات منبع تغییر کرده است');
       checkScope();
       if (batch.next != cursor) {
-        index.commit(sourceId: id, fingerprint: fingerprint, expectedCursor: cursor,
-          batch: batch, allowed: allowed);
+        index.commit(
+          sourceId: id,
+          fingerprint: fingerprint,
+          expectedCursor: cursor,
+          batch: batch,
+          allowed: allowed,
+        );
       }
       final progress = index.progress(id, fingerprint);
-      return (cursor: progress?.cursor ?? cursor, total: reader.archive.entryCount,
-        skipped: progress?.skipped ?? 0, cancelled: batch.cancelled);
+      return (
+        cursor: progress?.cursor ?? cursor,
+        total: reader.archive.entryCount,
+        skipped: progress?.skipped ?? 0,
+        cancelled: batch.cancelled,
+      );
     } finally {
       await reader.close();
     }
