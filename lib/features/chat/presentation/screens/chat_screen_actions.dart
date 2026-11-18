@@ -19,13 +19,20 @@ extension _ChatScreenActions on _ChatScreenState {
         .where((p) => p.id == projectId)
         .firstOrNull;
     if (!workspace.readable || project == null) return;
+    final existingNote = ProjectMemoryEntry.noteFor(
+      project.memoryNotes,
+      chatId: chatId,
+      messageId: message.id,
+    );
     final approved = await promptText(
       context,
-      title: 'ذخیره در حافظه ${project.name}',
+      title: existingNote == null
+          ? 'ذخیره در حافظه ${project.name}'
+          : 'ویرایش حافظه ${project.name}',
       message:
           'متن را بررسی و در صورت نیاز اصلاح کنید. '
           'فقط اطلاعات ثابت و مطمئن را ثبت کنید؛ نه حدس یا مقدار لحظه‌ای حسگر.',
-      initial: message.content.trim(),
+      initial: existingNote ?? message.content.trim(),
       confirmLabel: 'ذخیره',
       minLines: 2,
       maxLines: 7,
@@ -47,7 +54,71 @@ extension _ChatScreenActions on _ChatScreenState {
       if (mounted) {
         showIslandToast(
           context,
-          'در حافظه همین پروژه ذخیره شد.',
+          existingNote == null
+              ? 'در حافظه همین پروژه ذخیره شد.'
+              : 'یادداشت این پروژه اصلاح شد.',
+          tone: IslandTone.done,
+        );
+      }
+    } catch (error) {
+      if (mounted) showIslandToast(context, '$error', tone: IslandTone.error);
+    }
+  }
+
+  Future<void> _forgetProjectMessage(ChatMessage message) async {
+    final chat = ref.read(chatProvider);
+    final workspace = ref.read(conversationWorkspaceProvider);
+    final chatId = chat.chatId;
+    if (chatId == null ||
+        chat.temporary ||
+        chat.isGenerating ||
+        message.role != ChatRole.user ||
+        message.isSuperseded) {
+      return;
+    }
+    final projectId = workspace.memberships[chatId];
+    final project = workspace.projects
+        .where((p) => p.id == projectId)
+        .firstOrNull;
+    if (!workspace.readable || project == null) return;
+    final saved = ProjectMemoryEntry.noteFor(
+      project.memoryNotes,
+      chatId: chatId,
+      messageId: message.id,
+    );
+    if (saved == null) return;
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('حذف از حافظه پروژه'),
+        content: Text('حذف این یادداشت از حافظه پروژه؟\n\n$saved'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('حذف یادداشت'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true ||
+        !mounted ||
+        ref.read(chatProvider).chatId != chatId) {
+      return;
+    }
+    try {
+      await ref.read(conversationWorkspaceProvider.notifier).forgetChatMessage(
+        projectId: project.id,
+        chatId: chatId,
+        messageId: message.id,
+      );
+      if (mounted) {
+        showIslandToast(
+          context,
+          'یادداشت از حافظه پروژه حذف شد.',
           tone: IslandTone.done,
         );
       }
