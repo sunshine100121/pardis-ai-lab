@@ -2783,7 +2783,10 @@ class ChatNotifier extends _ChatBase
     // model too: Qwen3.5 0.8B copied "[1]" from the turn before into an
     // answer with no sources (Conversation probe, 2026-10-20).
     if (t.sources.isEmpty) {
-      final plain = AnswerCleanup.dropCitations(t.answer.toString());
+      final plain = CitationMatch.stripUnknown(
+        AnswerCleanup.dropCitations(t.answer.toString()),
+        0,
+      );
       if (plain.length < t.answer.length) t.replaceAnswer(plain);
     } else {
       final checked = CitationMatch.verifyEvidence(
