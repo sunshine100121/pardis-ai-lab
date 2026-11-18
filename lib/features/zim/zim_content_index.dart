@@ -195,14 +195,26 @@ class ZimContentIndex {
         <(double, ({String sourceId, int entry, String title, String text}))>[];
     for (final id in ids) {
       final table = 'zim_fts_$id';
+      // Retrieve several candidates per approved archive before global
+      // ranking. A one-word title hit must not crowd out a body passage
+      // covering the full question from another archive.
+      final candidateLimit = (limit * 4).clamp(4, 20);
       final rows = db.select(
         'SELECT entry_id,title,body,bm25($table) AS rank FROM $table '
         'WHERE $table MATCH ? ORDER BY rank LIMIT ?',
-        [expression, limit],
+        [expression, candidateLimit],
       );
       for (final row in rows) {
+        final title = (row['title'] as String).toLowerCase();
+        final body = (row['body'] as String).toLowerCase();
+        final coverage = terms
+            .where((word) => title.contains(word) || body.contains(word))
+            .length;
+        final titleCoverage = terms.where(title.contains).length;
         ranked.add((
-          (row['rank'] as num).toDouble(),
+          (terms.length - coverage) * 1000 -
+              titleCoverage * 10 +
+              (row['rank'] as num).toDouble(),
           (
             sourceId: id,
             entry: int.parse('${row['entry_id']}'),
