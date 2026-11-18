@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ondevice_llm/features/chat/domain/conversation_workspace.dart';
 import 'package:ondevice_llm/features/zim/zim_source.dart';
 import 'package:ondevice_llm/features/zim/zim_wikipedia.dart';
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
@@ -61,6 +63,41 @@ class DelayedSource implements ZimSource {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('project selection is persistent and filters before opening sources', () async {
+    final folder = FixtureFolder({
+      'garden.zim': persianZim(archive: 'منبع باغبانی آزمون'),
+      'medical.zim': persianZim(archive: 'منبع پزشکی آزمون'),
+    });
+    final opened = <String>[];
+    folder.overrideOpen = (uri) async {
+      opened.add(uri);
+      return folder.files[uri]!.fresh();
+    };
+    final library = FolderLibrary(access: folder);
+    await library.refresh();
+    final gardenId = FolderLibrary.sourceId('garden.zim');
+    final first = ProviderContainer();
+    await first.read(conversationWorkspaceProvider.notifier).ready;
+    await first.read(conversationWorkspaceProvider.notifier).saveProject(
+      name: 'پروژه ساختگی', sourceIds: [gardenId],
+    );
+    final id = first.read(conversationWorkspaceProvider).projects.single.id;
+    first.dispose();
+    final reopened = ProviderContainer();
+    addTearDown(reopened.dispose);
+    await reopened.read(conversationWorkspaceProvider.notifier).ready;
+    final project = reopened.read(conversationWorkspaceProvider).projects.single;
+    expect(project.sourceIds, [gardenId]);
+    final report = await library.searchDetailed('مریخ', sourceIds: project.sourceIds.toSet());
+    expect(opened, ['garden.zim']);
+    expect(report.sources.single.source, 'منبع باغبانی آزمون');
+    await reopened.read(conversationWorkspaceProvider.notifier).saveProject(id: id, name: 'نام تازه');
+    expect(reopened.read(conversationWorkspaceProvider).projects.single.sourceIds, [gardenId]);
+    opened.clear();
+    final empty = await library.searchDetailed('مریخ', sourceIds: {});
+    expect(empty.sources, isEmpty);
+    expect(opened, isEmpty);
+  });
   test(
     'Persian subject and source instructions prioritize actual article names',
     () {

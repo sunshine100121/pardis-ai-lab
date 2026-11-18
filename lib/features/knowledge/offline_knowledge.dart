@@ -25,6 +25,18 @@ class OfflineKnowledge {
        clock = clock ?? DateTime.now;
   Future<List<SearchResult>> search(String question) async =>
       (await searchDetailed(question)).sources;
+  Future<KnowledgeReadReport> searchProject(
+    String question, {
+    required Set<String> sourceIds,
+  }) async {
+    try {
+      return await library.searchDetailed(question, sourceIds: sourceIds);
+    } catch (_) {
+      return const KnowledgeReadReport([], [
+        {'file': 'منابع پروژه', 'stage': 'access', 'code': 'access'},
+      ]);
+    }
+  }
   Future<KnowledgeReadReport> searchDetailed(String question) async {
     final sources = <SearchResult>[];
     final checks = <Map<String, dynamic>>[];

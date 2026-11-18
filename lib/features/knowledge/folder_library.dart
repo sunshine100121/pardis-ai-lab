@@ -80,6 +80,7 @@ class FolderLibrary {
 
   static bool supported(String name) =>
       extensions.contains(name.split('.').last.toLowerCase());
+  static String sourceId(String uri) => sha256.convert(utf8.encode(uri)).toString();
   static String normalize(String s) => s
       .toLowerCase()
       .replaceAll('ي', 'ی')
@@ -265,7 +266,10 @@ class FolderLibrary {
 
   Future<List<SearchResult>> search(String question) async =>
       (await searchDetailed(question)).sources;
-  Future<KnowledgeReadReport> searchDetailed(String question) async {
+  Future<KnowledgeReadReport> searchDetailed(
+    String question, {
+    Set<String>? sourceIds,
+  }) async {
     final data = await state();
     if (data['tree'] == null) return const KnowledgeReadReport([], []);
     final live = await access
@@ -278,6 +282,7 @@ class FolderLibrary {
     final found = <(int, SearchResult)>[];
     final checks = <Map<String, dynamic>>[];
     for (final f in data['files'] as List) {
+      if (sourceIds != null && !sourceIds.contains(sourceId(f['uri'] as String))) continue;
       final now = current[f['uri']];
       if (f['enabled'] != true) continue;
       if (now == null ||
@@ -350,7 +355,7 @@ class FolderLibrary {
         final text = normalize(p['text'] as String);
         final score = terms.where(text.contains).length;
         if (score == 0) continue;
-        final id = sha256.convert(utf8.encode(f['uri'] as String)).toString();
+        final id = sourceId(f['uri'] as String);
         found.add((
           score,
           SearchResult(

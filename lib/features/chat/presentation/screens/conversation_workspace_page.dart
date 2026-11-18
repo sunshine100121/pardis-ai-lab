@@ -6,6 +6,7 @@ import '../../domain/conversation_workspace.dart';
 import '../providers/chat_provider.dart';
 import '../../../../core/island/status_island.dart';
 import '../../../../core/design/app_dialog.dart';
+import '../../../knowledge/folder_library.dart';
 
 class ConversationWorkspacePage extends ConsumerStatefulWidget {
   const ConversationWorkspacePage({super.key});
@@ -34,10 +35,19 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
       text: project?.instructions ?? '',
     );
     final collection = TextEditingController(text: project?.collection ?? '');
+    final selectedSources = {...?project?.sourceIds};
     try {
+      List<Map<String, dynamic>> sources = [];
+      try {
+        final data = await ref.read(folderLibraryProvider).state();
+        sources = (data['files'] as List).whereType<Map>().map((f) => Map<String, dynamic>.from(f)).where((f) => f['uri'] is String && f['name'] is String).toList();
+      } catch (_) {
+        // Keep existing selections if the library cannot be read.
+      }
+      if (!mounted) return;
       final ok = await showAppDialog<bool>(
         context: context,
-        builder: (dialog) => AlertDialog(
+        builder: (dialog) => StatefulBuilder(builder: (dialog, update) => AlertDialog(
           title: Text(dialog.l10n.project),
           content: SingleChildScrollView(
             child: Column(
@@ -67,6 +77,19 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                     labelText: dialog.l10n.knowledgeCollectionName,
                   ),
                 ),
+                const Text('منابع پوشه دانش این پروژه'),
+                const Text('حافظه مستقل و جست‌وجوی بیرون از پروژه هنوز آماده نیست؛ داده‌ها حذف نمی‌شوند.'),
+                if (sources.isEmpty) const Text('منبعی برای انتخاب در پوشه دانش پیدا نشد.'),
+                for (final source in sources)
+                  CheckboxListTile(
+                    title: Text(source['name'] as String),
+                    subtitle: source['enabled'] == true ? null : const Text('در کتابخانه غیرفعال است'),
+                    value: selectedSources.contains(FolderLibrary.sourceId(source['uri'] as String)),
+                    onChanged: (enabled) => update(() {
+                      final id = FolderLibrary.sourceId(source['uri'] as String);
+                      if (enabled == true) { selectedSources.add(id); } else { selectedSources.remove(id); }
+                    }),
+                  ),
               ],
             ),
           ),
@@ -80,7 +103,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
               child: Text(dialog.l10n.save),
             ),
           ],
-        ),
+        )),
       );
       if (ok == true) {
         await _run(
@@ -91,6 +114,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                 name: name.text,
                 instructions: instructions.text,
                 collection: collection.text,
+                sourceIds: selectedSources.toList(),
               ),
         );
       }

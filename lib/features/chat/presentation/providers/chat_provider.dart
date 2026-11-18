@@ -777,6 +777,11 @@ class ChatNotifier extends _ChatBase
           .read(conversationWorkspaceProvider)
           .memberships[state.chatId];
     }
+    if (_projectId != null &&
+        (t.reuseSourcesJson != null || t.promptOverride != null || t.answerSources != null || t.forceResearch)) {
+      t.failure = 'این مسیر هنوز برای محدوده منابع پروژه آماده نیست.';
+      return null;
+    }
     await ref.read(settingsProvider.notifier).ready;
     t.budget?.check();
     await manager.ready;
@@ -823,6 +828,17 @@ class ChatNotifier extends _ChatBase
       base.batterySaver && !base.usesRemote ? await DevicePower.read() : null,
     );
     var settings = saverReason == null ? base : BatterySaver.apply(base);
+    if (_projectId != null) {
+      // Project memory and external retrieval are disabled until they can be
+      // scoped to explicit owner choices. Existing data stays untouched.
+      settings = settings.copyWith(
+        webMode: WebMode.off,
+        memoryEnabled: false,
+        toolsEnabled: false,
+        remoteEnabled: false,
+        knowledgeCollection: project?.collection ?? '',
+      );
+    }
     final diffusion =
         DesktopHost.active &&
         (!settings.usesRemote || t.localOnly) &&
@@ -944,7 +960,8 @@ class ChatNotifier extends _ChatBase
     t.sequence = saved.sequence;
     t.accepted = true;
     // Scan each saved user message even if generation later stops or fails.
-    if (t.insertUser &&
+    if (_projectId == null &&
+        t.insertUser &&
         t.resume == null &&
         t.learn &&
         !state.temporary &&
@@ -991,7 +1008,8 @@ class ChatNotifier extends _ChatBase
               !RetrievalPlan.greetingOnly(input) &&
               !RetrievalPlan.aboutAssistant(input)),
     );
-    if (t.reuseSourcesJson case final reused?) {
+    if (_projectId == null && t.reuseSourcesJson != null) {
+      final reused = t.reuseSourcesJson!;
       final stored = SearchSteps.sourcesFromJson(reused);
       t.sources = stored.where((s) => !s.sponsored).toList();
       t.sponsored = stored.where((s) => s.sponsored).toList();
@@ -1033,7 +1051,8 @@ class ChatNotifier extends _ChatBase
     }
     var recalledTurn = false;
     var followUpSearch = false;
-    if (!selfQuestion &&
+    if (_projectId == null &&
+        !selfQuestion &&
         !remoteBrain &&
         t.resume == null &&
         t.reuseSourcesJson == null &&
@@ -1254,7 +1273,8 @@ class ChatNotifier extends _ChatBase
     t.sources = web.sources;
     // Web search off: an imported offline Wikipedia still answers a factual
     // question about a subject it has an article on.
-    if (t.sources.isEmpty &&
+    if (_projectId == null &&
+        t.sources.isEmpty &&
         !settings.webSearchEnabled &&
         !researchTurn &&
         plan.mode == RetrievalMode.none &&
@@ -1271,7 +1291,8 @@ class ChatNotifier extends _ChatBase
     // Australia's capital (phone probe, 2026-10-18) and "born in Paris" for
     // Marie Curie (D1 benchmark, 2026-10-11); a remote model decides for
     // itself.
-    if (t.sources.isEmpty &&
+    if (_projectId == null &&
+        t.sources.isEmpty &&
         AnswerChecks.wikipediaFactCheck(
           input,
           webOn: settings.webSearchEnabled,
@@ -1499,14 +1520,29 @@ class ChatNotifier extends _ChatBase
         t.reuseSourcesJson == null &&
         t.promptOverride == null &&
         input.isNotEmpty) {
-      final local = await ref
-          .read(offlineKnowledgeProvider)
-          .searchDetailed(input);
+      final localKnowledge = ref.read(offlineKnowledgeProvider);
+      final project = ref.read(conversationWorkspaceProvider).projects
+          .where((p) => p.id == _projectId).firstOrNull;
+      final projectSourceIds = project?.sourceIds.toSet() ?? <String>{};
+      final local = _projectId == null
+          ? await localKnowledge.searchDetailed(input)
+          : await localKnowledge.searchProject(input, sourceIds: projectSourceIds);
       if (_cancelled || !_alive) return null;
+      final currentProject = ref.read(conversationWorkspaceProvider).projects
+          .where((p) => p.id == _projectId).firstOrNull;
+      final currentIds = currentProject?.sourceIds.toSet() ?? <String>{};
+      final scopeChanged = _projectId != null &&
+          (project == null || currentProject == null ||
+           currentProject.collection != project.collection ||
+           currentIds.length != projectSourceIds.length ||
+           !currentIds.containsAll(projectSourceIds));
       t.sources = [
-        ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
-        ...t.sources,
+        if (!scopeChanged) ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
+        if (!scopeChanged) ...t.sources,
       ];
+      if (scopeChanged) {
+        t.offlineRefusal = 'منابع پروژه هنگام جست‌وجو تغییر کردند؛ لطفاً دوباره درخواست کنید.';
+      }
       t.offlineRead = local.toJson(
         requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
         supplied: false,
@@ -1573,6 +1609,36 @@ class ChatNotifier extends _ChatBase
     );
     if (fitted == null) return null;
     t.sources = fitted;
+    final projectExternalRequest = _projectId != null && RegExp(
+      r'اینترنت|جست.?وجو.{0,12}وب|جست.?وجو.{0,12}آنلاین|https?://|search\s+(?:the\s+)?(?:web|internet|online)',
+      caseSensitive: false,
+    ).hasMatch(input);
+    final projectSensorRequest = _projectId != null &&
+        RegExp(r'دما|رطوبت|آلودگی|الودگی|pm\s*2[.٫]?\s*5|حسگر|سنسور', caseSensitive: false).hasMatch(input) &&
+        RegExp(r'باغ|حسگر|سنسور|داخل|اتاق').hasMatch(input) &&
+        RegExp(r'چقدر|چقدره|چند|الان|اکنون|فعلی|وضعیت').hasMatch(input);
+    if (t.offlineRefusal != null) {
+      t.sources = [];
+    } else if (projectSensorRequest) {
+      t.sources = [];
+      t.offlineRefusal =
+          'خواندن حسگر در محدوده پروژه هنوز آماده نیست؛ مقدار فعلی حدس زده نمی‌شود.';
+    } else if (projectExternalRequest) {
+      t.sources = [];
+      t.offlineRefusal =
+          'جست‌وجوی بیرون از منابع پروژه هنوز در این نسخه آماده نیست؛ '
+          'درخواست شما به اینترنت ارسال نشد.';
+    } else if (_projectId != null &&
+        t.sources.isEmpty &&
+        t.attachments.isEmpty &&
+        !RetrievalPlan.smallTalk(input) &&
+        !RetrievalPlan.localTask(input) &&
+        !RegExp(r'^\s*(سلام|درود|ممنون|متشکرم)\s*[!؟?]*\s*$').hasMatch(input)) {
+      t.offlineRefusal =
+          'در منابع متصل به این پروژه شاهد مرتبطی پیدا نشد. برای پاسخ مستند، '
+          'منابع پروژه را بررسی یا منابع مرتبط اضافه کنید. گسترش جست‌وجو به '
+          'منابع بیرون از پروژه در این نسخه هنوز آماده نیست.';
+    }
     if (t.offlineRead != null) {
       final supplied = t.sources.any(
         (s) =>
@@ -2888,7 +2954,8 @@ class ChatNotifier extends _ChatBase
         said.isNotEmpty &&
         !state.temporary;
     _MemoryJob? remoteNotes;
-    if (fresh &&
+    if (_projectId == null &&
+        fresh &&
         UserMemory.worthExtracting(input) &&
         ref.read(settingsProvider).memoryEnabled) {
       final remainingFacts = UserMemory.maxFactsPerTurn - learned.length;

@@ -5,17 +5,20 @@ import 'package:uuid/uuid.dart';
 
 class ChatProject {
   final String id, name, instructions, collection;
+  final List<String> sourceIds;
   const ChatProject(
     this.id,
     this.name, {
     this.instructions = '',
     this.collection = '',
+    this.sourceIds = const [],
   });
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'instructions': instructions,
     'collection': collection,
+    'sourceIds': sourceIds,
   };
 }
 
@@ -64,6 +67,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
                 p['name'],
                 instructions: p['instructions'] as String? ?? '',
                 collection: p['collection'] as String? ?? '',
+                sourceIds: (p['sourceIds'] is List ? p['sourceIds'] as List : const [])
+                    .whereType<String>()
+                    .toList(),
               ),
         ],
         memberships: Map<String, String>.from(j['memberships'] as Map? ?? {}),
@@ -103,6 +109,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     required String name,
     String instructions = '',
     String collection = '',
+    List<String>? sourceIds,
   }) => _change((s) {
     if (name.trim().isEmpty ||
         name.length > 100 ||
@@ -118,6 +125,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       name.trim(),
       instructions: instructions.trim(),
       collection: collection.trim(),
+      sourceIds: List.unmodifiable(
+        sourceIds ?? s.projects.where((p) => p.id == id).firstOrNull?.sourceIds ?? const [],
+      ),
     );
     return ConversationWorkspace(
       projects: [...s.projects.where((p) => p.id != id), project],
