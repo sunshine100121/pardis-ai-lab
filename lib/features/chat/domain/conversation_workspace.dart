@@ -301,8 +301,11 @@ class ProjectMemoryGate {
     final questionTerms = tokens(question);
     // Two terms appearing in different notes are not evidence for one
     // personal claim. Each owner-confirmed entry must match on its own.
-    return ownerNotes.split('\n').any(
-      (entry) => questionTerms.intersection(tokens(entry)).length >= 2,
-    );
+    for (final entry in ownerNotes.split('\n')) {
+      if (questionTerms.intersection(tokens(entry)).length >= 2) {
+        return true;
+      }
+    }
+    return false;
   }
 }
