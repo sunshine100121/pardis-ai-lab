@@ -67,6 +67,7 @@ void main() {
     OfflineKnowledge knowledge,
     String question, {
     TestEngine? injectedEngine,
+    bool reopen = false,
   }) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final engine = injectedEngine ?? TestEngine();
@@ -91,6 +92,16 @@ void main() {
       )..where((m) => m.id.equals(answer.id))).getSingle();
       expect(saved.runJson, answer.runJson);
       expect(saved.sourcesJson, answer.sourcesJson);
+      if (reopen) {
+        final notifier = container.read(chatProvider.notifier);
+        notifier.newChat();
+        await notifier.openChat(saved.chatId);
+        final restored = container.read(chatProvider).messages.lastWhere(
+          (m) => m.id == answer.id,
+        );
+        expect(restored.runJson, saved.runJson);
+        return (answer: restored, engine: engine);
+      }
       return (answer: answer, engine: engine);
     } finally {
       container.dispose();
@@ -173,8 +184,25 @@ void main() {
               as Map;
       expect(status['requiredEncyclopedia'], false);
       expect(status['supplied'], false);
+      expect(TurnRun.decode(result.answer.runJson)!.metrics['modelKnowledge'], true);
     },
   );
+  testWidgets('model knowledge label is rendered from the saved run', (tester) async {
+    final result = (await tester.runAsync(
+      () => run(MissingEncyclopedia('not_found'), 'بهبهان کجاست؟', reopen: true),
+    ))!;
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: SingleChildScrollView(child: ChatBubble(message: result.answer))),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('model-knowledge-source')), findsOneWidget);
+    expect(find.textContaining('منبع [۰]'), findsOneWidget);
+  });
   for (final code in ['ha_unavailable', 'ha_ambiguous', 'ha_insufficient']) {
     test(
       'failed HA evidence cannot produce a model-invented number: $code',

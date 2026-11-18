@@ -632,6 +632,8 @@ class _AssistantTurn extends StatelessWidget {
         .cast<Map<String, dynamic>>();
     final time = message.timestamp.toLocal();
     final offline=TurnRun.decode(message.runJson)?.metrics['offlineKnowledge'];
+    final modelKnowledge =
+        TurnRun.decode(message.runJson)?.metrics['modelKnowledge'] == true;
     final alternative = message.isAlternative;
     final caption = [
       if (alternative) 'compare',
@@ -660,6 +662,8 @@ class _AssistantTurn extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDesign.sm),
+        if (!streaming && modelKnowledge)
+          Text(context.l10n.noticeModelKnowledge, key: const Key('model-knowledge-source')),
         if(!streaming && offline is Map<String,dynamic> &&
           (offline['requiredEncyclopedia']==true || (offline['checks'] as List? ?? []).isNotEmpty))
           KnowledgeReadStatus(report:offline),

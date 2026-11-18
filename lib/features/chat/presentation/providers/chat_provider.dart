@@ -2545,7 +2545,11 @@ class ChatNotifier extends _ChatBase
                 grounding != _t.noticeCitationsMatched
             ? grounding
             : null;
-        await _saveAnswer(t, warning: warning);
+        await _saveAnswer(
+          t,
+          warning: warning,
+          modelKnowledge: grounding == _t.noticeModelKnowledge,
+        );
         final learned = t.offlineRefusal == null
             ? await _learnAndName(t)
             : <Memory>[];
@@ -2720,7 +2724,11 @@ class ChatNotifier extends _ChatBase
 
   /// Saves the answer over its placeholder row with the record of what
   /// produced it (CHAT-04), or removes the placeholder when nothing came.
-  Future<void> _saveAnswer(_Turn t, {String? warning}) async {
+  Future<void> _saveAnswer(
+    _Turn t, {
+    String? warning,
+    bool modelKnowledge = false,
+  }) async {
     final db = t.db;
     final chatId = t.chatId;
     final resume = t.resume;
@@ -2778,6 +2786,7 @@ class ChatNotifier extends _ChatBase
                   metrics: {
                     ...?t.metrics,
                     'lifecycle': t.lease.trace,
+                    if (modelKnowledge) 'modelKnowledge': true,
                     if (t.offlineRead != null)
                       'offlineKnowledge': t.offlineRead,
                     'contextAudit': t.contextAudit(_fittedOmitted),
