@@ -152,6 +152,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       states: s.states,
     );
   });
+
   /// Only an explicitly reviewed USER message may become project memory.
   /// The note, source IDs and date live alongside the existing project
   /// metadata, not in global memory or a separate copy of chat history.
@@ -175,7 +176,8 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       throw StateError('این یادداشت قبلاً در حافظه پروژه ثبت شده است.');
     }
     final origin = notedAt.toIso8601String();
-    final entry = '• $text (تأیید مالک؛ تاریخ: $origin؛ '
+    final entry =
+        '• $text (تأیید مالک؛ تاریخ: $origin؛ '
         'گفتگو: $chatId؛ پیام: $messageId)';
     final updatedNotes = project.memoryNotes.isEmpty
         ? entry

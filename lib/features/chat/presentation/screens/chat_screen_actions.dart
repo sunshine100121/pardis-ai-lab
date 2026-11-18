@@ -22,7 +22,8 @@ extension _ChatScreenActions on _ChatScreenState {
     final approved = await promptText(
       context,
       title: 'ذخیره در حافظه ${project.name}',
-      message: 'متن را بررسی و در صورت نیاز اصلاح کنید. '
+      message:
+          'متن را بررسی و در صورت نیاز اصلاح کنید. '
           'فقط اطلاعات ثابت و مطمئن را ثبت کنید؛ نه حدس یا مقدار لحظه‌ای حسگر.',
       initial: message.content.trim(),
       confirmLabel: 'ذخیره',
@@ -34,13 +35,15 @@ extension _ChatScreenActions on _ChatScreenState {
     if (approved == null || !mounted) return;
     if (ref.read(chatProvider).chatId != chatId) return;
     try {
-      await ref.read(conversationWorkspaceProvider.notifier).rememberChatMessage(
-        projectId: project.id,
-        chatId: chatId,
-        messageId: message.id,
-        note: approved,
-        notedAt: message.timestamp,
-      );
+      await ref
+          .read(conversationWorkspaceProvider.notifier)
+          .rememberChatMessage(
+            projectId: project.id,
+            chatId: chatId,
+            messageId: message.id,
+            note: approved,
+            notedAt: message.timestamp,
+          );
       if (mounted) {
         showIslandToast(
           context,

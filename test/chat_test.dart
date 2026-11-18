@@ -836,11 +836,11 @@ void main() {
         name: 'Garden owner facts',
         memoryNotes: 'در باغ من ۵ درخت گردو وجود دارد.',
       );
-        final projectId = container
-            .read(conversationWorkspaceProvider)
-            .projects
-            .single
-            .id;
+      final projectId = container
+          .read(conversationWorkspaceProvider)
+          .projects
+          .single
+          .id;
       final chat = container.read(chatProvider.notifier);
       chat.newChat(projectId: projectId);
       engine.receivedMessages = null;

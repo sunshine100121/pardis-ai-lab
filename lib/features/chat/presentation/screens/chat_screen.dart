@@ -1046,7 +1046,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                       !m.isSuperseded &&
                                                       !m.isAlternative
                                                   ? () => unawaited(
-                                                      _rememberProjectMessage(m),
+                                                      _rememberProjectMessage(
+                                                        m,
+                                                      ),
                                                     )
                                                   : null,
                                               onDelete:

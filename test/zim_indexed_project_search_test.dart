@@ -115,39 +115,36 @@ void main() {
     expect(revoked.sources, isEmpty);
     expect(opened, ['garden.zim']);
   });
-  test(
-    'indexed Persian evidence skips unnecessary Qwen translation',
-    () async {
-      final dir = await Directory.systemTemp.createTemp('pala-persian-search-');
-      addTearDown(() => dir.delete(recursive: true));
-      final folder = FixtureFolder({'fa.zim': persianZim()});
-      final library = FolderLibrary(access: folder);
-      await library.refresh();
-      final storage = ZimIndexStorage(
-        directory: dir,
-        maxDatabaseBytes: 2 * 1024 * 1024,
-        reserveBytes: 1,
-        availableBytes: () async => 16 * 1024 * 1024,
-      );
-      await ZimIndexService(
-        library,
-        storage,
-      ).run(uri: 'fa.zim', allowed: () => true);
-      final id = FolderLibrary.sourceId('fa.zim');
-      final engine = FakeLocalQueryEngine(['<think>unfinished']);
-      final result = await ZimIndexedProjectSearch(library, storage).search(
-        question: 'بهبهان کجاست',
-        sourceIds: {id},
-        allowed: (source) => source == id,
-        cancelled: () => false,
-        engine: engine,
-        settings: const InferenceSettings(),
-        fallbackTemplate: '',
-      );
-      expect(result.sources.single.title, 'بهبهان — دانشنامهٔ فارسی آزمون');
-      expect(result.sources.single.pageText, contains('خوزستان'));
-      expect(result.errors, 0);
-      expect(engine.calls, 0);
-    },
-  );
+  test('indexed Persian evidence skips unnecessary Qwen translation', () async {
+    final dir = await Directory.systemTemp.createTemp('pala-persian-search-');
+    addTearDown(() => dir.delete(recursive: true));
+    final folder = FixtureFolder({'fa.zim': persianZim()});
+    final library = FolderLibrary(access: folder);
+    await library.refresh();
+    final storage = ZimIndexStorage(
+      directory: dir,
+      maxDatabaseBytes: 2 * 1024 * 1024,
+      reserveBytes: 1,
+      availableBytes: () async => 16 * 1024 * 1024,
+    );
+    await ZimIndexService(
+      library,
+      storage,
+    ).run(uri: 'fa.zim', allowed: () => true);
+    final id = FolderLibrary.sourceId('fa.zim');
+    final engine = FakeLocalQueryEngine(['<think>unfinished']);
+    final result = await ZimIndexedProjectSearch(library, storage).search(
+      question: 'بهبهان کجاست',
+      sourceIds: {id},
+      allowed: (source) => source == id,
+      cancelled: () => false,
+      engine: engine,
+      settings: const InferenceSettings(),
+      fallbackTemplate: '',
+    );
+    expect(result.sources.single.title, 'بهبهان — دانشنامهٔ فارسی آزمون');
+    expect(result.sources.single.pageText, contains('خوزستان'));
+    expect(result.errors, 0);
+    expect(engine.calls, 0);
+  });
 }
