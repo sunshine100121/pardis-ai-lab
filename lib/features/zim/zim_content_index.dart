@@ -40,6 +40,11 @@ class ZimContentIndex {
       throw ArgumentError('Invalid source id');
   }
 
+  bool containsSource(String id) {
+    _checkId(id);
+    return db.select('SELECT 1 FROM zim_index_sources WHERE source_id=?', [id]).isNotEmpty;
+  }
+
   static String fingerprint({
     required String archiveId,
     required int size,

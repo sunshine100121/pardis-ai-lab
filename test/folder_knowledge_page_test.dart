@@ -13,6 +13,7 @@ import 'package:ondevice_llm/features/chat/presentation/providers/chat_provider.
 import 'package:ondevice_llm/features/models/presentation/providers/model_manager_provider.dart';
 import 'package:ondevice_llm/features/settings/presentation/providers/settings_provider.dart';
 import 'package:ondevice_llm/features/zim/zim_article_page.dart';
+import 'package:ondevice_llm/features/zim/zim_index_storage.dart';
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
 import 'package:ondevice_llm/features/settings/presentation/screens/folder_knowledge_page.dart';
 import 'package:ondevice_llm/features/chat/presentation/widgets/chat_bubble.dart';
@@ -25,6 +26,21 @@ import 'chat_test.dart' show TestEngine, TestModels, TestSettings;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('index action fails closed when storage is unavailable', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final folder = FixtureFolder({'garden.zim': persianZim(englishGarden: true)});
+    final library = FolderLibrary(access: folder);
+    await library.refresh();
+    await tester.pumpWidget(ProviderScope(overrides: [
+      folderLibraryProvider.overrideWithValue(library),
+      zimIndexStorageProvider.overrideWith((ref) async => null),
+    ], child: const MaterialApp(home: FolderKnowledgePage())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('نمایه‌سازی متن دانشنامه'));
+    await tester.pumpAndSettle();
+    expect(find.text('فضای مناسب برای نمایه‌سازی در دسترس نیست.'), findsOneWidget);
+    expect(folder.opened, isEmpty);
+  });
   testWidgets('project citation opens only its selected archive', (
     tester,
   ) async {

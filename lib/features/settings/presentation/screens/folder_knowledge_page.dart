@@ -8,6 +8,8 @@ import '../../../knowledge/folder_library.dart';
 import '../../../knowledge/ha_read_client.dart';
 import '../../../knowledge/offline_knowledge.dart';
 import '../../../knowledge/knowledge_read_status.dart';
+import '../../../zim/zim_index_service.dart';
+import '../../../zim/zim_index_storage.dart';
 
 class FolderKnowledgePage extends ConsumerStatefulWidget {
   const FolderKnowledgePage({super.key});
@@ -21,12 +23,43 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
   int _bytes = 0;
   bool _busy = false;
   String? _error;
+  String? _indexMessage;
+  ZimIndexService? _indexService;
   final _probe = TextEditingController(text: 'مریخ');
   List<dynamic> _checks = [];
   @override
   void dispose() {
+    _indexService?.stop();
     _probe.dispose();
     super.dispose();
+  }
+
+  Future<void> _indexArchive(String uri) async {
+    setState(() { _busy = true; _error = null; _indexMessage = null; });
+    try {
+      final storage = await ref.read(zimIndexStorageProvider.future);
+      if (!mounted) return;
+      if (storage == null) {
+        setState(() => _indexMessage = 'فضای مناسب برای نمایه‌سازی در دسترس نیست.');
+        return;
+      }
+      final service = ZimIndexService(ref.read(folderLibraryProvider), storage);
+      setState(() => _indexService = service);
+      final result = await service.run(uri: uri, allowed: () => mounted,
+        onProgress: (cursor, total, skipped) {
+          if (mounted) setState(() => _indexMessage = 'نمایه‌سازی: $cursor از $total مدخل؛ موارد ردشده: $skipped');
+        });
+      if (mounted) setState(() => _indexMessage = result.cancelled
+        ? 'نمایه‌سازی متوقف شد؛ ادامه از مدخل ${result.cursor} ممکن است.'
+        : 'نمایه‌سازی به پایان رسید؛ موارد ردشده: ${result.skipped}.');
+    } on StateError catch (e) {
+      if (mounted) setState(() => _indexMessage = '${e.message}');
+    } catch (_) {
+      if (mounted) setState(() => _indexMessage = 'نمایه‌سازی انجام نشد؛ فضا، فایل و دسترسی را بررسی کنید.');
+    } finally {
+      _indexService = null;
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -139,15 +172,24 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
           ),
           if (_busy) const LinearProgressIndicator(),
           if (_error != null) Text(_error!),
+          if (_indexMessage != null) Text(_indexMessage!),
+          if (_indexService != null)
+            TextButton(onPressed: () => _indexService?.stop(), child: const Text('توقف نمایه‌سازی')),
           Text(
             'حجم نمایهٔ مشتق‌شده: $_bytes بایت از ${FolderLibrary.maxIndexBytes}',
           ),
           const Text(
             'نمایهٔ اسناد حداکثر ۲۴ قطعه از ابتدای هر سند است؛ نبود نتیجه به معنی نبود مطلب در کل کتاب نیست. PDF اسکن‌شده در این مسیر OCR نمی‌شود.',
           ),
+          const Text('نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف صفحات پایگاه ۲۵۶ MiB است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.'),
           for (final f in files)
             SwitchListTile(
               title: Text(f['name'] as String),
+              secondary: (f['name'] as String).toLowerCase().endsWith('.zim')
+                  ? IconButton(key: ValueKey('index-${FolderLibrary.sourceId(f['uri'] as String)}'),
+                      tooltip: 'نمایه‌سازی متن دانشنامه', icon: const Icon(Icons.manage_search),
+                      onPressed: _busy || f['enabled'] != true ? null : () => _indexArchive(f['uri'] as String))
+                  : null,
               subtitle: Text(
                 '${_sourceStatus(f, counts, verified)} · ${f['size']} بایت',
               ),

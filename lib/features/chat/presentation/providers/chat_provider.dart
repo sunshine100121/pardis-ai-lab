@@ -33,6 +33,8 @@ import '../../../knowledge/knowledge_embedder.dart';
 import '../../../knowledge/knowledge_store.dart';
 import '../../../knowledge/offline_knowledge.dart';
 import '../../../zim/zim_wikipedia.dart';
+import '../../../zim/zim_index_storage.dart';
+import '../../../zim/zim_indexed_project_search.dart';
 import '../../../retrieval/claim_check_runner.dart';
 import '../../../retrieval/domain/claim_check.dart';
 import '../../../retrieval/domain/date_check.dart';
@@ -1541,6 +1543,40 @@ class ChatNotifier extends _ChatBase
               sourceIds: projectSourceIds,
             );
       if (_cancelled || !_alive) return null;
+      final indexedSources = <SearchResult>[];
+      final indexedChecks = <Map<String, dynamic>>[];
+      final scopedProjectId = _projectId;
+      if (scopedProjectId != null && project != null && engine is LlamaEngine &&
+          projectSourceIds.isNotEmpty && !RetrievalPlan.smallTalk(input) &&
+          !RetrievalPlan.localTask(input)) {
+        bool allowed(String id) {
+          final workspace = ref.read(conversationWorkspaceProvider);
+          if (!_alive || _cancelled || !workspace.readable || _projectId != scopedProjectId) return false;
+          return workspace.projects.any((p) => p.id == scopedProjectId && p.sourceIds.contains(id));
+        }
+        try {
+          final storage = await ref.read(zimIndexStorageProvider.future);
+          if (storage != null && !_cancelled && _alive) {
+            final indexed = await ZimIndexedProjectSearch(localKnowledge.library, storage).search(
+              question: input, sourceIds: projectSourceIds, allowed: allowed,
+              cancelled: () => _cancelled || !_alive, engine: engine,
+              settings: settings, fallbackTemplate: model.family.fallbackTemplate);
+            indexedSources.addAll(indexed.sources);
+            if (indexed.incomplete > 0 || indexed.skipped > 0) {
+              indexedChecks.add({'file': 'نمایه متن پروژه', 'code': 'index_partial',
+                'incomplete': indexed.incomplete, 'skipped': indexed.skipped});
+            }
+            if (indexed.errors > 0) indexedChecks.add({'file': 'نمایه متن پروژه', 'code': 'index_error'});
+            for (final source in indexed.sources) {
+              indexedChecks.add({'file': source.source, 'code': 'found',
+                'stage': 'complete', 'article': source.title});
+            }
+          }
+        } catch (_) {
+          indexedChecks.add({'file': 'نمایه متن پروژه', 'code': 'index_error'});
+        }
+      }
+      if (_cancelled || !_alive) return null;
       final currentProject = ref
           .read(conversationWorkspaceProvider)
           .projects
@@ -1557,6 +1593,8 @@ class ChatNotifier extends _ChatBase
               !currentIds.containsAll(projectSourceIds));
       t.sources = [
         if (!scopeChanged)
+          ...indexedSources.where((s) => !local.sources.any((other) => other.url == s.url)),
+        if (!scopeChanged)
           ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
         if (!scopeChanged) ...t.sources,
       ];
@@ -1568,6 +1606,9 @@ class ChatNotifier extends _ChatBase
         requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
         supplied: false,
       );
+      if (!scopeChanged && indexedChecks.isNotEmpty) {
+        t.offlineRead!['checks'] = [...local.checks, ...indexedChecks];
+      }
       // Application-owned fail-closed result: do not ask Qwen to guess HA values.
       final haFailure = local.checks.any(
         (c) =>

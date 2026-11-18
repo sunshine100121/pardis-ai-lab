@@ -1,9 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/platform/device_info.dart';
+
+final zimIndexStorageProvider = FutureProvider<ZimIndexStorage?>(
+  (ref) => ZimIndexStorage.android(),
+);
 
 /// Conservative headroom check for a derived index stored in Android's
 /// app-specific external files directory, matching DeviceStorage's StatFs.
