@@ -7,6 +7,7 @@ import 'package:ondevice_llm/features/settings/domain/entities/inference_setting
 import 'package:ondevice_llm/features/tools/domain/tool_spec.dart';
 import 'package:ondevice_llm/features/zim/zim_content_batches.dart';
 import 'package:ondevice_llm/features/zim/zim_content_index.dart';
+import 'package:ondevice_llm/features/zim/zim_index_citations.dart';
 import 'package:ondevice_llm/features/zim/zim_index_step.dart';
 import 'package:ondevice_llm/features/zim/zim_query_translation.dart';
 import 'package:ondevice_llm/inference/engine/llama_engine.dart';
@@ -125,8 +126,33 @@ void main() {
       expect(hits.single.sourceId, garden);
       expect(hits.single.title, 'Plant care');
       expect(hits.single.text, contains('walnut'));
+      final citations = ZimIndexCitations(index).search(query!, {
+        garden: (fingerprint: gardenFingerprint,
+          archiveId: '01000000000000000000000000000000',
+          name: 'Gardening fixture', date: '2026-11-15', language: 'eng'),
+      });
+      expect(citations.single.source, 'Gardening fixture');
+      expect(citations.single.title, 'Plant care — Gardening fixture');
+      expect(citations.single.url, 'zim://01000000000000000000000000000000/Plant_care');
+      expect(citations.single.pageText, contains('walnut'));
     },
   );
+
+  test('citation preserves a match late in a long article', () {
+    final db = sqlite3.openInMemory();
+    addTearDown(db.close);
+    final index = ZimContentIndex(db);
+    const id = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    final body = '${List.filled(42000, 'x').join()} walnut watering evidence';
+    index.commit(sourceId: id, fingerprint: fingerprint, expectedCursor: 0,
+      batch: ZimContentBatch([(entry: 0, title: 'Long article', text: body)], 1, 1, 0, false),
+      allowed: () => true);
+    final result = ZimIndexCitations(index).search('walnut watering', {
+      id: (fingerprint: fingerprint, archiveId: '01000000000000000000000000000000',
+        name: 'Fixture', date: null, language: 'eng'),
+    });
+    expect(result.single.pageText, contains('walnut watering evidence'));
+  });
 
   test(
     'English bypasses generation and incomplete thinking is rejected',
