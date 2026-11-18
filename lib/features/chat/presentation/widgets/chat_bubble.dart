@@ -690,7 +690,7 @@ class _AssistantTurn extends StatelessWidget {
         const SizedBox(height: AppDesign.sm),
         if (!streaming && modelKnowledge)
           Text(
-            context.l10n.noticeModelKnowledge,
+            '[۰] ${context.l10n.noticeModelKnowledge}',
             key: const Key('model-knowledge-source'),
           ),
         if (!streaming &&
