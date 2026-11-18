@@ -63,41 +63,55 @@ class DelayedSource implements ZimSource {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  test('project selection is persistent and filters before opening sources', () async {
-    final folder = FixtureFolder({
-      'garden.zim': persianZim(archive: 'منبع باغبانی آزمون'),
-      'medical.zim': persianZim(archive: 'منبع پزشکی آزمون'),
-    });
-    final opened = <String>[];
-    folder.overrideOpen = (uri) async {
-      opened.add(uri);
-      return folder.files[uri]!.fresh();
-    };
-    final library = FolderLibrary(access: folder);
-    await library.refresh();
-    final gardenId = FolderLibrary.sourceId('garden.zim');
-    final first = ProviderContainer();
-    await first.read(conversationWorkspaceProvider.notifier).ready;
-    await first.read(conversationWorkspaceProvider.notifier).saveProject(
-      name: 'پروژه ساختگی', sourceIds: [gardenId],
-    );
-    final id = first.read(conversationWorkspaceProvider).projects.single.id;
-    first.dispose();
-    final reopened = ProviderContainer();
-    addTearDown(reopened.dispose);
-    await reopened.read(conversationWorkspaceProvider.notifier).ready;
-    final project = reopened.read(conversationWorkspaceProvider).projects.single;
-    expect(project.sourceIds, [gardenId]);
-    final report = await library.searchDetailed('مریخ', sourceIds: project.sourceIds.toSet());
-    expect(opened, ['garden.zim']);
-    expect(report.sources.single.source, 'منبع باغبانی آزمون');
-    await reopened.read(conversationWorkspaceProvider.notifier).saveProject(id: id, name: 'نام تازه');
-    expect(reopened.read(conversationWorkspaceProvider).projects.single.sourceIds, [gardenId]);
-    opened.clear();
-    final empty = await library.searchDetailed('مریخ', sourceIds: {});
-    expect(empty.sources, isEmpty);
-    expect(opened, isEmpty);
-  });
+  test(
+    'project selection is persistent and filters before opening sources',
+    () async {
+      final folder = FixtureFolder({
+        'garden.zim': persianZim(archive: 'منبع باغبانی آزمون'),
+        'medical.zim': persianZim(archive: 'منبع پزشکی آزمون'),
+      });
+      final opened = <String>[];
+      folder.overrideOpen = (uri) async {
+        opened.add(uri);
+        return folder.files[uri]!.fresh();
+      };
+      final library = FolderLibrary(access: folder);
+      await library.refresh();
+      final gardenId = FolderLibrary.sourceId('garden.zim');
+      final first = ProviderContainer();
+      await first.read(conversationWorkspaceProvider.notifier).ready;
+      await first
+          .read(conversationWorkspaceProvider.notifier)
+          .saveProject(name: 'پروژه ساختگی', sourceIds: [gardenId]);
+      final id = first.read(conversationWorkspaceProvider).projects.single.id;
+      first.dispose();
+      final reopened = ProviderContainer();
+      addTearDown(reopened.dispose);
+      await reopened.read(conversationWorkspaceProvider.notifier).ready;
+      final project = reopened
+          .read(conversationWorkspaceProvider)
+          .projects
+          .single;
+      expect(project.sourceIds, [gardenId]);
+      final report = await library.searchDetailed(
+        'مریخ',
+        sourceIds: project.sourceIds.toSet(),
+      );
+      expect(opened, ['garden.zim']);
+      expect(report.sources.single.source, 'منبع باغبانی آزمون');
+      await reopened
+          .read(conversationWorkspaceProvider.notifier)
+          .saveProject(id: id, name: 'نام تازه');
+      expect(
+        reopened.read(conversationWorkspaceProvider).projects.single.sourceIds,
+        [gardenId],
+      );
+      opened.clear();
+      final empty = await library.searchDetailed('مریخ', sourceIds: {});
+      expect(empty.sources, isEmpty);
+      expect(opened, isEmpty);
+    },
+  );
   test(
     'Persian subject and source instructions prioritize actual article names',
     () {
@@ -260,12 +274,16 @@ void main() {
       ]);
       expect(folder.opened, hasLength(2));
       final repeated = await library.searchDetailed('مریخ');
-      expect(repeated.checks.map((c) => c['code']), everyElement('deferred_timeout'));
+      expect(
+        repeated.checks.map((c) => c['code']),
+        everyElement('deferred_timeout'),
+      );
       expect(folder.opened, hasLength(2));
     } finally {
       a.gate.complete();
       b.gate.complete();
-      await Future.wait([a.released.future, b.released.future]).timeout(const Duration(seconds: 1));
+      await Future.wait([a.released.future, b.released.future])
+          .timeout(const Duration(seconds: 1));
     }
   });
   test(

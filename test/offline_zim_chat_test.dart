@@ -22,7 +22,14 @@ import 'package:ondevice_llm/features/settings/domain/entities/inference_setting
 import 'package:ondevice_llm/features/tools/domain/tool_spec.dart';
 import 'package:ondevice_llm/l10n/app_localizations.dart';
 
-import 'chat_test.dart' show TestEngine, TestSettings, TestModels, TestSearch, AlwaysWebSettings, FakeWikipedia;
+import 'chat_test.dart'
+    show
+        TestEngine,
+        TestSettings,
+        TestModels,
+        TestSearch,
+        AlwaysWebSettings,
+        FakeWikipedia;
 import 'offline_zim_reliability_test.dart' show FixtureFolder;
 import 'support/persian_zim_fixture.dart';
 
@@ -117,70 +124,106 @@ void main() {
     }
   }
 
-  test('project chat searches only selected sources and never starts web search', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final engine = TestEngine();
-    final search = TestSearch();
-    final wiki = FakeWikipedia();
-    final folder = FixtureFolder({
-      'garden.zim': persianZim(archive: 'منبع باغبانی آزمون'),
-      'medical.zim': persianZim(archive: 'منبع پزشکی آزمون'),
-    });
-    final opened = <String>[];
-    folder.overrideOpen = (uri) async {
-      opened.add(uri);
-      return folder.files[uri]!.fresh();
-    };
-    final library = FolderLibrary(access: folder);
-    await library.refresh();
-    final container = ProviderContainer(overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-      llamaEngineProvider.overrideWithValue(engine),
-      settingsProvider.overrideWith(ProjectTestSettings.new),
-      modelManagerProvider.overrideWith(TestModels.new),
-      offlineKnowledgeProvider.overrideWithValue(OfflineKnowledge(library)),
-      duckDuckGoScraperProvider.overrideWithValue(search),
-      wikipediaClientProvider.overrideWithValue(wiki),
-    ]);
-    try {
-      final workspace = container.read(conversationWorkspaceProvider.notifier);
-      await MemoryStore(db).add('اطلاعات خصوصی ساختگی پروژه دیگر');
-      await workspace.ready;
-      await workspace.saveProject(name: 'باغ ساختگی', sourceIds: [FolderLibrary.sourceId('garden.zim')]);
-      final projectId = container.read(conversationWorkspaceProvider).projects.single.id;
-      final chat = container.read(chatProvider.notifier);
-      chat.newChat(projectId: projectId);
-      expect(await chat.send('بهبهان کجاست؟'), isTrue);
-      expect(opened, ['garden.zim']);
-      expect(search.calls, 0);
-      expect(wiki.asked, isEmpty);
-      expect(engine.receivedMessages.toString(), contains('منبع باغبانی آزمون'));
-      expect(engine.receivedMessages.toString(), isNot(contains('منبع پزشکی آزمون')));
-      expect(engine.receivedMessages.toString(), isNot(contains('اطلاعات خصوصی ساختگی پروژه دیگر')));
-      chat.newChat(projectId: projectId);
-      engine.receivedMessages = null;
-      expect(await chat.send('در اینترنت درباره بهبهان جستجو کن'), isTrue);
-      expect(engine.receivedMessages, isNull);
-      expect(search.calls, 0);
-      expect(container.read(chatProvider).messages.last.content, contains('به اینترنت ارسال نشد'));
-      chat.newChat(projectId: projectId);
-      engine.receivedMessages = null;
-      expect(await chat.send('دمای باغ الان چقدره؟'), isTrue);
-      expect(engine.receivedMessages, isNull);
-      expect(container.read(chatProvider).messages.last.content, contains('حدس زده نمی‌شود'));
-      await workspace.saveProject(id: projectId, name: 'باغ ساختگی', sourceIds: []);
-      chat.newChat(projectId: projectId);
-      opened.clear();
-      engine.receivedMessages = null;
-      expect(await chat.send('بهبهان کجاست؟'), isTrue);
-      expect(opened, isEmpty);
-      expect(engine.receivedMessages, isNull);
-      expect(container.read(chatProvider).messages.last.content, contains('شاهد مرتبطی پیدا نشد'));
-    } finally {
-      container.dispose();
-      await db.close();
-    }
-  });
+  test(
+    'project chat searches only selected sources and never starts web search',
+    () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final engine = TestEngine();
+      final search = TestSearch();
+      final wiki = FakeWikipedia();
+      final folder = FixtureFolder({
+        'garden.zim': persianZim(archive: 'منبع باغبانی آزمون'),
+        'medical.zim': persianZim(archive: 'منبع پزشکی آزمون'),
+      });
+      final opened = <String>[];
+      folder.overrideOpen = (uri) async {
+        opened.add(uri);
+        return folder.files[uri]!.fresh();
+      };
+      final library = FolderLibrary(access: folder);
+      await library.refresh();
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          llamaEngineProvider.overrideWithValue(engine),
+          settingsProvider.overrideWith(ProjectTestSettings.new),
+          modelManagerProvider.overrideWith(TestModels.new),
+          offlineKnowledgeProvider.overrideWithValue(OfflineKnowledge(library)),
+          duckDuckGoScraperProvider.overrideWithValue(search),
+          wikipediaClientProvider.overrideWithValue(wiki),
+        ],
+      );
+      try {
+        final workspace = container.read(
+          conversationWorkspaceProvider.notifier,
+        );
+        await MemoryStore(db).add('اطلاعات خصوصی ساختگی پروژه دیگر');
+        await workspace.ready;
+        await workspace.saveProject(
+          name: 'باغ ساختگی',
+          sourceIds: [FolderLibrary.sourceId('garden.zim')],
+        );
+        final projectId = container
+            .read(conversationWorkspaceProvider)
+            .projects
+            .single
+            .id;
+        final chat = container.read(chatProvider.notifier);
+        chat.newChat(projectId: projectId);
+        expect(await chat.send('بهبهان کجاست؟'), isTrue);
+        expect(opened, ['garden.zim']);
+        expect(search.calls, 0);
+        expect(wiki.asked, isEmpty);
+        expect(
+          engine.receivedMessages.toString(),
+          contains('منبع باغبانی آزمون'),
+        );
+        expect(
+          engine.receivedMessages.toString(),
+          isNot(contains('منبع پزشکی آزمون')),
+        );
+        expect(
+          engine.receivedMessages.toString(),
+          isNot(contains('اطلاعات خصوصی ساختگی پروژه دیگر')),
+        );
+        chat.newChat(projectId: projectId);
+        engine.receivedMessages = null;
+        expect(await chat.send('در اینترنت درباره بهبهان جستجو کن'), isTrue);
+        expect(engine.receivedMessages, isNull);
+        expect(search.calls, 0);
+        expect(
+          container.read(chatProvider).messages.last.content,
+          contains('به اینترنت ارسال نشد'),
+        );
+        chat.newChat(projectId: projectId);
+        engine.receivedMessages = null;
+        expect(await chat.send('دمای باغ الان چقدره؟'), isTrue);
+        expect(engine.receivedMessages, isNull);
+        expect(
+          container.read(chatProvider).messages.last.content,
+          contains('حدس زده نمی‌شود'),
+        );
+        await workspace.saveProject(
+          id: projectId,
+          name: 'باغ ساختگی',
+          sourceIds: [],
+        );
+        chat.newChat(projectId: projectId);
+        opened.clear();
+        engine.receivedMessages = null;
+        expect(await chat.send('بهبهان کجاست؟'), isTrue);
+        expect(opened, isEmpty);
+        expect(engine.receivedMessages, isNull);
+        expect(
+          container.read(chatProvider).messages.last.content,
+          contains('شاهد مرتبطی پیدا نشد'),
+        );
+      } finally {
+        container.dispose();
+        await db.close();
+      }
+    },
+  );
 
   test('direct modern Persian ZIM evidence reaches local chat and retained real citations', () async {
     final library = FolderLibrary(

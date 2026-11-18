@@ -778,7 +778,10 @@ class ChatNotifier extends _ChatBase
           .memberships[state.chatId];
     }
     if (_projectId != null &&
-        (t.reuseSourcesJson != null || t.promptOverride != null || t.answerSources != null || t.forceResearch)) {
+        (t.reuseSourcesJson != null ||
+            t.promptOverride != null ||
+            t.answerSources != null ||
+            t.forceResearch)) {
       t.failure = 'این مسیر هنوز برای محدوده منابع پروژه آماده نیست.';
       return null;
     }
@@ -1521,27 +1524,40 @@ class ChatNotifier extends _ChatBase
         t.promptOverride == null &&
         input.isNotEmpty) {
       final localKnowledge = ref.read(offlineKnowledgeProvider);
-      final project = ref.read(conversationWorkspaceProvider).projects
-          .where((p) => p.id == _projectId).firstOrNull;
+      final project = ref
+          .read(conversationWorkspaceProvider)
+          .projects
+          .where((p) => p.id == _projectId)
+          .firstOrNull;
       final projectSourceIds = project?.sourceIds.toSet() ?? <String>{};
       final local = _projectId == null
           ? await localKnowledge.searchDetailed(input)
-          : await localKnowledge.searchProject(input, sourceIds: projectSourceIds);
+          : await localKnowledge.searchProject(
+              input,
+              sourceIds: projectSourceIds,
+            );
       if (_cancelled || !_alive) return null;
-      final currentProject = ref.read(conversationWorkspaceProvider).projects
-          .where((p) => p.id == _projectId).firstOrNull;
+      final currentProject = ref
+          .read(conversationWorkspaceProvider)
+          .projects
+          .where((p) => p.id == _projectId)
+          .firstOrNull;
       final currentIds = currentProject?.sourceIds.toSet() ?? <String>{};
-      final scopeChanged = _projectId != null &&
-          (project == null || currentProject == null ||
-           currentProject.collection != project.collection ||
-           currentIds.length != projectSourceIds.length ||
-           !currentIds.containsAll(projectSourceIds));
+      final scopeChanged =
+          _projectId != null &&
+          (project == null ||
+              currentProject == null ||
+              currentProject.collection != project.collection ||
+              currentIds.length != projectSourceIds.length ||
+              !currentIds.containsAll(projectSourceIds));
       t.sources = [
-        if (!scopeChanged) ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
+        if (!scopeChanged)
+          ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
         if (!scopeChanged) ...t.sources,
       ];
       if (scopeChanged) {
-        t.offlineRefusal = 'منابع پروژه هنگام جست‌وجو تغییر کردند؛ لطفاً دوباره درخواست کنید.';
+        t.offlineRefusal =
+            'منابع پروژه هنگام جست‌وجو تغییر کردند؛ لطفاً دوباره درخواست کنید.';
       }
       t.offlineRead = local.toJson(
         requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
@@ -1609,20 +1625,25 @@ class ChatNotifier extends _ChatBase
     );
     if (fitted == null) return null;
     t.sources = fitted;
-    final projectExternalRequest = _projectId != null && RegExp(
-      r'اینترنت|جست.?وجو.{0,12}وب|جست.?وجو.{0,12}آنلاین|https?://|search\s+(?:the\s+)?(?:web|internet|online)',
-      caseSensitive: false,
-    ).hasMatch(input);
-    final projectSensorRequest = _projectId != null &&
-        RegExp(r'دما|رطوبت|آلودگی|الودگی|pm\s*2[.٫]?\s*5|حسگر|سنسور', caseSensitive: false).hasMatch(input) &&
+    final projectExternalRequest =
+        _projectId != null &&
+        RegExp(
+          r'اینترنت|جست.?وجو.{0,12}وب|جست.?وجو.{0,12}آنلاین|https?://|search\s+(?:the\s+)?(?:web|internet|online)',
+          caseSensitive: false,
+        ).hasMatch(input);
+    final projectSensorRequest =
+        _projectId != null &&
+        RegExp(
+          r'دما|رطوبت|آلودگی|الودگی|pm\s*2[.٫]?\s*5|حسگر|سنسور',
+          caseSensitive: false,
+        ).hasMatch(input) &&
         RegExp(r'باغ|حسگر|سنسور|داخل|اتاق').hasMatch(input) &&
         RegExp(r'چقدر|چقدره|چند|الان|اکنون|فعلی|وضعیت').hasMatch(input);
     if (t.offlineRefusal != null) {
       t.sources = [];
     } else if (projectSensorRequest) {
       t.sources = [];
-      t.offlineRefusal =
-          'خواندن حسگر در محدوده پروژه هنوز آماده نیست؛ مقدار فعلی حدس زده نمی‌شود.';
+      t.offlineRefusal = 'خواندن حسگر در محدوده پروژه هنوز آماده نیست؛ مقدار فعلی حدس زده نمی‌شود.';
     } else if (projectExternalRequest) {
       t.sources = [];
       t.offlineRefusal =

@@ -37,6 +37,7 @@ class OfflineKnowledge {
       ]);
     }
   }
+
   Future<KnowledgeReadReport> searchDetailed(String question) async {
     final sources = <SearchResult>[];
     final checks = <Map<String, dynamic>>[];

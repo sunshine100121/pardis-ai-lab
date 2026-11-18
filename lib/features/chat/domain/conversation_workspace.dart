@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -67,9 +68,10 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
                 p['name'],
                 instructions: p['instructions'] as String? ?? '',
                 collection: p['collection'] as String? ?? '',
-                sourceIds: (p['sourceIds'] is List ? p['sourceIds'] as List : const [])
-                    .whereType<String>()
-                    .toList(),
+                sourceIds:
+                    (p['sourceIds'] is List ? p['sourceIds'] as List : const [])
+                        .whereType<String>()
+                        .toList(),
               ),
         ],
         memberships: Map<String, String>.from(j['memberships'] as Map? ?? {}),
@@ -126,7 +128,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       instructions: instructions.trim(),
       collection: collection.trim(),
       sourceIds: List.unmodifiable(
-        sourceIds ?? s.projects.where((p) => p.id == id).firstOrNull?.sourceIds ?? const [],
+        sourceIds ??
+            s.projects.where((p) => p.id == id).firstOrNull?.sourceIds ??
+            const [],
       ),
     );
     return ConversationWorkspace(

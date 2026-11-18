@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/design/app_design.dart';
 import '../../domain/conversation_workspace.dart';
@@ -40,70 +41,89 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
       List<Map<String, dynamic>> sources = [];
       try {
         final data = await ref.read(folderLibraryProvider).state();
-        sources = (data['files'] as List).whereType<Map>().map((f) => Map<String, dynamic>.from(f)).where((f) => f['uri'] is String && f['name'] is String).toList();
+        sources = (data['files'] as List)
+            .whereType<Map>()
+            .map((f) => Map<String, dynamic>.from(f))
+            .where((f) => f['uri'] is String && f['name'] is String)
+            .toList();
       } catch (_) {
         // Keep existing selections if the library cannot be read.
       }
       if (!mounted) return;
       final ok = await showAppDialog<bool>(
         context: context,
-        builder: (dialog) => StatefulBuilder(builder: (dialog, update) => AlertDialog(
-          title: Text(dialog.l10n.project),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              spacing: AppDesign.md,
-              children: [
-                TextField(
-                  controller: name,
-                  maxLength: 100,
-                  decoration: InputDecoration(
-                    labelText: dialog.l10n.projectName,
+        builder: (dialog) => StatefulBuilder(
+          builder: (dialog, update) => AlertDialog(
+            title: Text(dialog.l10n.project),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                spacing: AppDesign.md,
+                children: [
+                  TextField(
+                    controller: name,
+                    maxLength: 100,
+                    decoration: InputDecoration(
+                      labelText: dialog.l10n.projectName,
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: instructions,
-                  minLines: 2,
-                  maxLines: 6,
-                  maxLength: 4000,
-                  decoration: InputDecoration(
-                    labelText: dialog.l10n.projectInstructions,
+                  TextField(
+                    controller: instructions,
+                    minLines: 2,
+                    maxLines: 6,
+                    maxLength: 4000,
+                    decoration: InputDecoration(
+                      labelText: dialog.l10n.projectInstructions,
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: collection,
-                  maxLength: 200,
-                  decoration: InputDecoration(
-                    labelText: dialog.l10n.knowledgeCollectionName,
+                  TextField(
+                    controller: collection,
+                    maxLength: 200,
+                    decoration: InputDecoration(
+                      labelText: dialog.l10n.knowledgeCollectionName,
+                    ),
                   ),
-                ),
-                const Text('منابع پوشه دانش این پروژه'),
-                const Text('حافظه مستقل و جست‌وجوی بیرون از پروژه هنوز آماده نیست؛ داده‌ها حذف نمی‌شوند.'),
-                if (sources.isEmpty) const Text('منبعی برای انتخاب در پوشه دانش پیدا نشد.'),
-                for (final source in sources)
-                  CheckboxListTile(
-                    title: Text(source['name'] as String),
-                    subtitle: source['enabled'] == true ? null : const Text('در کتابخانه غیرفعال است'),
-                    value: selectedSources.contains(FolderLibrary.sourceId(source['uri'] as String)),
-                    onChanged: (enabled) => update(() {
-                      final id = FolderLibrary.sourceId(source['uri'] as String);
-                      if (enabled == true) { selectedSources.add(id); } else { selectedSources.remove(id); }
-                    }),
+                  const Text('منابع پوشه دانش این پروژه'),
+                  const Text(
+                    'حافظه مستقل و جست‌وجوی بیرون از پروژه هنوز آماده نیست؛ داده‌ها حذف نمی‌شوند.',
                   ),
-              ],
+                  if (sources.isEmpty)
+                    const Text('منبعی برای انتخاب در پوشه دانش پیدا نشد.'),
+                  for (final source in sources)
+                    CheckboxListTile(
+                      title: Text(source['name'] as String),
+                      subtitle: source['enabled'] == true
+                          ? null
+                          : const Text('در کتابخانه غیرفعال است'),
+                      value: selectedSources.contains(
+                        FolderLibrary.sourceId(source['uri'] as String),
+                      ),
+                      onChanged: (enabled) => update(() {
+                        final id = FolderLibrary.sourceId(
+                          source['uri'] as String,
+                        );
+                        if (enabled == true) {
+                          selectedSources.add(id);
+                        } else {
+                          selectedSources.remove(id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: Text(dialog.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialog, true),
+                child: Text(dialog.l10n.save),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog),
-              child: Text(dialog.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialog, true),
-              child: Text(dialog.l10n.save),
-            ),
-          ],
-        )),
+        ),
       );
       if (ok == true) {
         await _run(

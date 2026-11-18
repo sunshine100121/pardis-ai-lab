@@ -80,7 +80,8 @@ class FolderLibrary {
 
   static bool supported(String name) =>
       extensions.contains(name.split('.').last.toLowerCase());
-  static String sourceId(String uri) => sha256.convert(utf8.encode(uri)).toString();
+  static String sourceId(String uri) =>
+      sha256.convert(utf8.encode(uri)).toString();
   static String normalize(String s) => s
       .toLowerCase()
       .replaceAll('ي', 'ی')
@@ -282,7 +283,9 @@ class FolderLibrary {
     final found = <(int, SearchResult)>[];
     final checks = <Map<String, dynamic>>[];
     for (final f in data['files'] as List) {
-      if (sourceIds != null && !sourceIds.contains(sourceId(f['uri'] as String))) continue;
+      if (sourceIds != null &&
+          !sourceIds.contains(sourceId(f['uri'] as String)))
+        continue;
       final now = current[f['uri']];
       if (f['enabled'] != true) continue;
       if (now == null ||
@@ -342,9 +345,11 @@ class FolderLibrary {
           // turn an expired lookup into an unbounded UI wait for that cleanup.
           if (timedOut) {
             _pendingZimCleanup++;
-            unawaited(wiki.close().whenComplete(() {
-              _pendingZimCleanup--;
-            }));
+            unawaited(
+              wiki.close().whenComplete(() {
+                _pendingZimCleanup--;
+              }),
+            );
           } else {
             await wiki.close();
           }
