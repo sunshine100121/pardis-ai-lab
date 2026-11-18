@@ -3,6 +3,49 @@ part of 'chat_screen.dart';
 /// The chat menu's actions: compare with another model, share, export,
 /// and create a document from the conversation.
 extension _ChatScreenActions on _ChatScreenState {
+  Future<void> _rememberProjectMessage(ChatMessage message) async {
+    final chat = ref.read(chatProvider);
+    final workspace = ref.read(conversationWorkspaceProvider);
+    final chatId = chat.chatId;
+    if (chatId == null ||
+        chat.temporary ||
+        chat.isGenerating ||
+        message.role != ChatRole.user ||
+        message.isSuperseded) {
+      return;
+    }
+    final projectId = workspace.memberships[chatId];
+    final project = workspace.projects.where((p) => p.id == projectId).firstOrNull;
+    if (!workspace.readable || project == null) return;
+    final approved = await promptText(
+      context,
+      title: 'ذخیره در حافظه ${project.name}',
+      message: 'متن را بررسی و در صورت نیاز اصلاح کنید. فقط اطلاعات ثابت و مطمئن را ثبت کنید؛ نه حدس یا مقدار لحظه‌ای حسگر.',
+      initial: message.content.trim(),
+      confirmLabel: 'ذخیره',
+      minLines: 2,
+      maxLines: 7,
+      maxLength: 400,
+      selectAll: false,
+    );
+    if (approved == null || !mounted) return;
+    if (ref.read(chatProvider).chatId != chatId) return;
+    try {
+      await ref.read(conversationWorkspaceProvider.notifier).rememberChatMessage(
+        projectId: project.id,
+        chatId: chatId,
+        messageId: message.id,
+        note: approved,
+        notedAt: message.timestamp,
+      );
+      if (mounted) {
+        showIslandToast(context, 'در حافظه همین پروژه ذخیره شد.', tone: IslandTone.done);
+      }
+    } catch (error) {
+      if (mounted) showIslandToast(context, '$error', tone: IslandTone.error);
+    }
+  }
+
   Future<void> _contextSummary() async {
     final chat = ref.read(chatProvider);
     if (chat.chatId == null || chat.temporary || chat.isGenerating) return;

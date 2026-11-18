@@ -152,6 +152,55 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       states: s.states,
     );
   });
+  /// Only an explicitly reviewed USER message may become project memory.
+  /// The note, source IDs and date live alongside the existing project
+  /// metadata, not in global memory or a separate copy of chat history.
+  Future<void> rememberChatMessage({
+    required String projectId,
+    required String chatId,
+    required String messageId,
+    required String note,
+    required DateTime notedAt,
+  }) => _change((s) {
+    if (s.memberships[chatId] != projectId) {
+      throw StateError('این گفتگو عضو پروژه انتخابی نیست.');
+    }
+    final text = note.trim();
+    if (text.isEmpty || text.length > 400) {
+      throw const FormatException('یادداشت باید بین ۱ تا ۴۰۰ نویسه باشد.');
+    }
+    final project = s.projects.where((p) => p.id == projectId).firstOrNull;
+    if (project == null) throw StateError('پروژه یافت نشد.');
+    if (project.memoryNotes.contains(text)) {
+      throw StateError('این یادداشت قبلاً در حافظه پروژه ثبت شده است.');
+    }
+    final origin = notedAt.toIso8601String();
+    final entry = '• $text (تأیید مالک؛ تاریخ: $origin؛ '
+        'گفتگو: $chatId؛ پیام: $messageId)';
+    final updatedNotes = project.memoryNotes.isEmpty
+        ? entry
+        : '${project.memoryNotes}\\n$entry';
+    if (updatedNotes.length > 6000) {
+      throw StateError('فضای یادداشت‌های پروژه پر شده است؛ ابتدا آن‌ها را ویرایش کنید.');
+    }
+    final updatedProject = ChatProject(
+      project.id,
+      project.name,
+      instructions: project.instructions,
+      collection: project.collection,
+      memoryNotes: updatedNotes,
+      sourceIds: project.sourceIds,
+    );
+    return ConversationWorkspace(
+      projects: [
+        for (final p in s.projects)
+          if (p.id == projectId) updatedProject else p,
+      ],
+      memberships: s.memberships,
+      states: s.states,
+    );
+  });
+
   Future<void> assign(Iterable<String> ids, String? projectId) => _change((s) {
     if (projectId != null && !s.projects.any((p) => p.id == projectId)) {
       throw StateError('Project no longer exists.');

@@ -49,6 +49,23 @@ void main() {
       await workspace.saveProject(name: 'سلامت آزمایشی');
       final garden = first.read(conversationWorkspaceProvider).projects.first;
       await workspace.assign(['garden-chat'], garden.id);
+      await workspace.rememberChatMessage(
+        projectId: garden.id,
+        chatId: 'garden-chat',
+        messageId: 'message-1',
+        note: 'درخت گردوی آزمایشی آبیاری قطره‌ای دارد.',
+        notedAt: DateTime(2026, 11, 18),
+      );
+      await expectLater(
+        workspace.rememberChatMessage(
+          projectId: garden.id,
+          chatId: 'unrelated-chat',
+          messageId: 'message-2',
+          note: 'اطلاعات نامرتبط',
+          notedAt: DateTime(2026, 11, 18),
+        ),
+        throwsStateError,
+      );
 
       final second = ProviderContainer();
       addTearDown(second.dispose);
@@ -60,6 +77,10 @@ void main() {
         'در این باغ آزمایشی یک درخت گردو وجود دارد.',
       );
       expect(stored.projects.last.memoryNotes, isEmpty);
+      expect(stored.projectFor('garden-chat')?.memoryNotes,
+          contains('درخت گردوی آزمایشی آبیاری قطره‌ای دارد.'));
+      expect(stored.projectFor('garden-chat')?.memoryNotes,
+          contains('message-1'));
       await restored.saveProject(id: garden.id, name: garden.name);
       final updated = second.read(conversationWorkspaceProvider);
       expect(

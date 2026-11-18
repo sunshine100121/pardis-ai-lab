@@ -69,6 +69,9 @@ class ChatBubble extends StatelessWidget {
   /// Copies the conversation up to this message into a new chat.
   final VoidCallback? onBranch;
 
+  /// User-approved local memory; never available in general or temporary chat.
+  final VoidCallback? onSaveProjectMemory;
+
   const ChatBubble({
     super.key,
     required this.message,
@@ -88,6 +91,7 @@ class ChatBubble extends StatelessWidget {
     this.versions = const [],
     this.onRestoreVersion,
     this.onBranch,
+    this.onSaveProjectMemory,
   });
 
   @override
@@ -192,6 +196,13 @@ extension on ChatBubble {
           Icons.edit_outlined,
           t.editQuestion,
           () => _editQuestion(context, message, onEdit!),
+        ),
+      if (isUser && onSaveProjectMemory != null)
+        _MessageAction(
+          'save-project-memory',
+          Icons.bookmark_add_outlined,
+          'ذخیره در حافظه پروژه',
+          onSaveProjectMemory!,
         ),
       if (!isUser && message.content.isNotEmpty && onSpeak != null)
         _MessageAction(

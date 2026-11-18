@@ -805,7 +805,7 @@ void main() {
       final chat = container.read(chatProvider.notifier);
       chat.newChat(projectId: projectId);
       engine.receivedMessages = null;
-      await chat.send('Summarize the plan.');
+      await chat.send('Write a one-sentence poem about spring.');
       expect(container.read(chatProvider).error, isNull);
       final messages = engine.receivedMessages;
       expect(messages, isNotNull);

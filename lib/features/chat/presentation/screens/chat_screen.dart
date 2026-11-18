@@ -1037,6 +1037,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                               helperChip: HelperUsedChip(
                                                 messageId: m.id,
                                               ),
+                                              onSaveProjectMemory:
+                                                  !busy &&
+                                                      selectedProject != null &&
+                                                      state.chatId != null &&
+                                                      !state.temporary &&
+                                                      m.role == ChatRole.user &&
+                                                      !m.isSuperseded &&
+                                                      !m.isAlternative
+                                                  ? () => _rememberProjectMessage(m)
+                                                  : null,
                                               onDelete:
                                                   !busy &&
                                                       !m.isSuperseded &&
