@@ -631,7 +631,8 @@ class _AssistantTurn extends StatelessWidget {
     final sources = (jsonDecode(message.sourcesJson) as List)
         .cast<Map<String, dynamic>>();
     final time = message.timestamp.toLocal();
-    final offline=TurnRun.decode(message.runJson)?.metrics['offlineKnowledge'];
+    final offline = TurnRun.decode(message.runJson)
+        ?.metrics['offlineKnowledge'];
     final modelKnowledge =
         TurnRun.decode(message.runJson)?.metrics['modelKnowledge'] == true;
     final alternative = message.isAlternative;
@@ -663,10 +664,15 @@ class _AssistantTurn extends StatelessWidget {
         ),
         const SizedBox(height: AppDesign.sm),
         if (!streaming && modelKnowledge)
-          Text(context.l10n.noticeModelKnowledge, key: const Key('model-knowledge-source')),
-        if(!streaming && offline is Map<String,dynamic> &&
-          (offline['requiredEncyclopedia']==true || (offline['checks'] as List? ?? []).isNotEmpty))
-          KnowledgeReadStatus(report:offline),
+          Text(
+            context.l10n.noticeModelKnowledge,
+            key: const Key('model-knowledge-source'),
+          ),
+        if (!streaming &&
+            offline is Map<String, dynamic> &&
+            (offline['requiredEncyclopedia'] == true ||
+                (offline['checks'] as List? ?? []).isNotEmpty))
+          KnowledgeReadStatus(report: offline),
         if (reasoning != null && reasoning.isNotEmpty)
           ReasoningAccordion(
             content: reasoning,
@@ -771,9 +777,8 @@ class _AssistantTurn extends StatelessWidget {
         if (!streaming &&
             sources.isEmpty &&
             bubble.onSearchWeb != null &&
-            !(TurnRun.decode(
-                  message.runJson,
-                )?.toolTrace.any((t) => t['ok'] == true) ??
+            !(TurnRun.decode(message.runJson)?.toolTrace
+                    .any((t) => t['ok'] == true) ??
                 false))
           Padding(
             padding: const EdgeInsets.only(top: AppDesign.sm),
@@ -1036,7 +1041,8 @@ class _SourcesBubble extends StatelessWidget {
     if (KnowledgeStore.isKnowledgeUrl(url)) {
       return context.l10n.uiChatBubbleKnowledgeLibrary;
     }
-    if (url.startsWith('zim://')) return s['title'] as String? ?? 'دانشنامهٔ آفلاین';
+    if (url.startsWith('zim://'))
+      return s['title'] as String? ?? 'دانشنامهٔ آفلاین';
     var host = Uri.tryParse(url)?.host ?? '';
     if (host.endsWith('wikipedia.org')) return 'Wikipedia';
     host = host.replaceFirst(RegExp(r'^(www|m|en|fr|es)\.'), '');
@@ -1370,7 +1376,10 @@ Future<void> showSourceSheet(
     final t = context.l10n;
     final host = Uri.tryParse(url)?.host ?? '';
     final knowledge = KnowledgeStore.isKnowledgeUrl(url);
-    final localEvidence = url.startsWith('pala-knowledge://') || url.startsWith('pala-ha://') || url.startsWith('pala-status://');
+    final localEvidence =
+        url.startsWith('pala-knowledge://') ||
+        url.startsWith('pala-ha://') ||
+        url.startsWith('pala-status://');
     final zim = url.startsWith('zim://');
     String cap(String v) =>
         v.isEmpty ? v : '${v[0].toUpperCase()}${v.substring(1)}';

@@ -96,9 +96,10 @@ void main() {
         final notifier = container.read(chatProvider.notifier);
         notifier.newChat();
         await notifier.openChat(saved.chatId);
-        final restored = container.read(chatProvider).messages.lastWhere(
-          (m) => m.id == answer.id,
-        );
+        final restored = container
+            .read(chatProvider)
+            .messages
+            .lastWhere((m) => m.id == answer.id);
         expect(restored.runJson, saved.runJson);
         return (answer: restored, engine: engine);
       }
@@ -184,19 +185,29 @@ void main() {
               as Map;
       expect(status['requiredEncyclopedia'], false);
       expect(status['supplied'], false);
-      expect(TurnRun.decode(result.answer.runJson)!.metrics['modelKnowledge'], true);
+      expect(
+        TurnRun.decode(result.answer.runJson)!.metrics['modelKnowledge'],
+        true,
+      );
     },
   );
-  testWidgets('model knowledge label is rendered from the saved run', (tester) async {
+  testWidgets('model knowledge label is rendered from the saved run', (
+    tester,
+  ) async {
     final result = (await tester.runAsync(
-      () => run(MissingEncyclopedia('not_found'), 'بهبهان کجاست؟', reopen: true),
+      () =>
+          run(MissingEncyclopedia('not_found'), 'بهبهان کجاست؟', reopen: true),
     ))!;
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('fa'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(body: SingleChildScrollView(child: ChatBubble(message: result.answer))),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ChatBubble(message: result.answer),
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
