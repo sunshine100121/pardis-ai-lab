@@ -14,9 +14,13 @@ import 'zim_content_batches.dart';
 class ZimContentIndex {
   final Database db;
   final int maxTextBytes, maxDatabaseBytes;
-  ZimContentIndex(this.db, {this.maxTextBytes = 64 * 1024 * 1024,
-    this.maxDatabaseBytes = 256 * 1024 * 1024}) {
-    if (maxTextBytes < 1 || maxDatabaseBytes < 1) throw ArgumentError('Invalid index quota');
+  ZimContentIndex(
+    this.db, {
+    this.maxTextBytes = 64 * 1024 * 1024,
+    this.maxDatabaseBytes = 256 * 1024 * 1024,
+  }) {
+    if (maxTextBytes < 1 || maxDatabaseBytes < 1)
+      throw ArgumentError('Invalid index quota');
     db.execute(
       'CREATE TABLE IF NOT EXISTS zim_index_sources ('
       'source_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, '

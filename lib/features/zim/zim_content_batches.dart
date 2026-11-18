@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
+
 import 'zim_archive.dart';
 import 'zim_source.dart';
 
@@ -138,7 +139,13 @@ class ZimContentBatches {
         text.write(' ');
         text.write(node.data);
       } else if (node is dom.Element &&
-          !const {'script', 'style', 'noscript', 'svg', 'template'}.contains(node.localName)) {
+          !const {
+            'script',
+            'style',
+            'noscript',
+            'svg',
+            'template',
+          }.contains(node.localName)) {
         pending.addAll(node.nodes.reversed);
       }
     }

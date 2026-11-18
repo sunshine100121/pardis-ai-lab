@@ -172,10 +172,22 @@ void main() {
     addTearDown(db.close);
     final index = ZimContentIndex(db, maxDatabaseBytes: 64 * 1024);
     final text = List.filled(80 * 1024, 'x').join();
-    expect(() => index.commit(sourceId: garden, fingerprint: fingerprint,
-      expectedCursor: 0,
-      batch: ZimContentBatch([(entry: 0, title: 'test', text: text)], 1, 1, 0, false),
-      allowed: () => true), throwsStateError);
+    expect(
+      () => index.commit(
+        sourceId: garden,
+        fingerprint: fingerprint,
+        expectedCursor: 0,
+        batch: ZimContentBatch(
+          [(entry: 0, title: 'test', text: text)],
+          1,
+          1,
+          0,
+          false,
+        ),
+        allowed: () => true,
+      ),
+      throwsStateError,
+    );
     expect(index.progress(garden, fingerprint), isNull);
   });
 }
