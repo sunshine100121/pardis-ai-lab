@@ -116,7 +116,7 @@ void main() {
     expect(opened, ['garden.zim']);
   });
   test(
-    'a failed translation does not suppress indexed Persian evidence',
+    'indexed Persian evidence skips unnecessary Qwen translation',
     () async {
       final dir = await Directory.systemTemp.createTemp('pala-persian-search-');
       addTearDown(() => dir.delete(recursive: true));
@@ -134,18 +134,20 @@ void main() {
         storage,
       ).run(uri: 'fa.zim', allowed: () => true);
       final id = FolderLibrary.sourceId('fa.zim');
+      final engine = FakeLocalQueryEngine(['<think>unfinished']);
       final result = await ZimIndexedProjectSearch(library, storage).search(
         question: 'بهبهان کجاست',
         sourceIds: {id},
         allowed: (source) => source == id,
         cancelled: () => false,
-        engine: FakeLocalQueryEngine(['<think>unfinished']),
+        engine: engine,
         settings: const InferenceSettings(),
         fallbackTemplate: '',
       );
       expect(result.sources.single.title, 'بهبهان — دانشنامهٔ فارسی آزمون');
       expect(result.sources.single.pageText, contains('خوزستان'));
-      expect(result.errors, greaterThan(0));
+      expect(result.errors, 0);
+      expect(engine.calls, 0);
     },
   );
 }

@@ -141,14 +141,28 @@ class ZimIndexedProjectSearch {
           errors: errors,
         );
       }
-      final query = await ZimQueryTranslation.englishTerms(
+      final onlyPersianArchives = authorized.values.every((source) {
+        final code = source.language.toLowerCase().trim();
+        return const {'fa', 'fas', 'per', 'pes'}.contains(code);
+      });
+      final nativePersianEvidence =
+          onlyPersianArchives &&
+          RegExp(r'[\\u0600-\\u06ff]').hasMatch(question) &&
+          ZimIndexCitations(index)
+              .search(ZimWikipedia.subjectQuery(question), authorized)
+              .isNotEmpty;
+      // Avoid waking Qwen just to translate an already-answered Persian
+      // query. English or mixed project archives still use local translation.
+      final query = nativePersianEvidence
+          ? null
+          : await ZimQueryTranslation.englishTerms(
         question,
         engine: engine,
         settings: settings,
         fallbackTemplate: fallbackTemplate,
         cancelled: cancelled,
       );
-      if (query == null) errors++;
+      if (query == null && !nativePersianEvidence) errors++;
       if (cancelled())
         return (
           sources: <SearchResult>[],

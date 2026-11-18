@@ -179,9 +179,11 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
         'گفتگو: $chatId؛ پیام: $messageId)';
     final updatedNotes = project.memoryNotes.isEmpty
         ? entry
-        : '${project.memoryNotes}\\n$entry';
+        : '${project.memoryNotes}\n$entry';
     if (updatedNotes.length > 6000) {
-      throw StateError('فضای یادداشت‌های پروژه پر شده است؛ ابتدا آن‌ها را ویرایش کنید.');
+      throw StateError(
+        'فضای یادداشت‌های پروژه پر شده است؛ ابتدا آن‌ها را ویرایش کنید.',
+      );
     }
     final updatedProject = ChatProject(
       project.id,
@@ -252,4 +254,34 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       states: {...s.states}..remove(id),
     ),
   );
+}
+
+/// Project memories can answer owner-specific questions, never unrelated
+/// encyclopedic claims or current sensor readings. This is a deterministic
+/// guard, not an LLM judgment and not a substitute for source citations.
+class ProjectMemoryGate {
+  static final _words = RegExp(r'[\\p{L}\\p{N}]{3,}', unicode: true);
+  static final _personal = RegExp(
+    r'(?<![\\p{L}\\p{N}])(?:من|ما|خودم|دارم|داریم|قبلاً|یادته|یادت|حافظه|یادداشت|my|our|remember)(?![\\p{L}\\p{N}])',
+    caseSensitive: false,
+    unicode: true,
+  );
+  static const _common = <String>{
+    'the', 'and', 'what', 'have', 'your', 'that',
+    'من', 'ما', 'برای', 'چند', 'چطور', 'است', 'هست', 'دارم',
+    'داریم', 'این', 'اون', 'یادداشت', 'حافظه',
+  };
+
+  static bool relevant(String question, String ownerNotes) {
+    if (ownerNotes.trim().isEmpty || !_personal.hasMatch(question)) {
+      return false;
+    }
+    Set<String> tokens(String text) => {
+      for (final match in _words.allMatches(text.toLowerCase()))
+        if (!_common.contains(match.group(0)!)) match.group(0)!,
+    };
+    final questionTerms = tokens(question);
+    final shared = questionTerms.intersection(tokens(ownerNotes));
+    return shared.length >= 2;
+  }
 }

@@ -34,6 +34,30 @@ class _Paths extends PathProviderPlatform {
 }
 
 void main() {
+  test('only an owner-specific matching note can justify a no-source answer', () {
+    expect(
+      ProjectMemoryGate.relevant(
+        'در باغ من چند درخت گردو وجود دارد؟',
+        'در باغ من ۵ درخت گردو وجود دارد.',
+      ),
+      isTrue,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'آبیاری درخت گردو طبق تحقیقات علمی چگونه است؟',
+        'در باغ من ۵ درخت گردو وجود دارد.',
+      ),
+      isFalse,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'در باغ من چند درخت گردو وجود دارد؟',
+        'گلخانه این پروژه فقط کاکتوس دارد.',
+      ),
+      isFalse,
+    );
+  });
+
   test(
     'owner-edited project notes persist without mixing project scopes',
     () async {
@@ -74,18 +98,22 @@ void main() {
       final stored = second.read(conversationWorkspaceProvider);
       expect(
         stored.projectFor('garden-chat')?.memoryNotes,
-        'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+        contains('در این باغ آزمایشی یک درخت گردو وجود دارد.'),
       );
       expect(stored.projects.last.memoryNotes, isEmpty);
-      expect(stored.projectFor('garden-chat')?.memoryNotes,
-          contains('درخت گردوی آزمایشی آبیاری قطره‌ای دارد.'));
-      expect(stored.projectFor('garden-chat')?.memoryNotes,
-          contains('message-1'));
+      expect(
+        stored.projectFor('garden-chat')?.memoryNotes,
+        contains('درخت گردوی آزمایشی آبیاری قطره‌ای دارد.'),
+      );
+      expect(
+        stored.projectFor('garden-chat')?.memoryNotes,
+        contains('message-1'),
+      );
       await restored.saveProject(id: garden.id, name: garden.name);
       final updated = second.read(conversationWorkspaceProvider);
       expect(
         updated.projectFor('garden-chat')?.memoryNotes,
-        'در این باغ آزمایشی یک درخت گردو وجود دارد.',
+        contains('درخت گردوی آزمایشی آبیاری قطره‌ای دارد.'),
       );
     },
   );

@@ -838,8 +838,8 @@ class ChatNotifier extends _ChatBase
     );
     var settings = saverReason == null ? base : BatterySaver.apply(base);
     if (_projectId != null) {
-      // Project memory and external retrieval are disabled until they can be
-      // scoped to explicit owner choices. Existing data stays untouched.
+      // Global memory and external retrieval are disabled: the owner-approved
+      // project notes below are separate. Existing data stays untouched.
       settings = settings.copyWith(
         webMode: WebMode.off,
         memoryEnabled: false,
@@ -1714,6 +1714,15 @@ class ChatNotifier extends _ChatBase
     );
     if (fitted == null) return null;
     t.sources = fitted;
+    final activeProject = ref
+        .read(conversationWorkspaceProvider)
+        .projects
+        .where((p) => p.id == _projectId)
+        .firstOrNull;
+    final ownerFactQuestion =
+        activeProject != null &&
+        found.shared.system.contains(activeProject.memoryNotes) &&
+        ProjectMemoryGate.relevant(input, activeProject.memoryNotes);
     final projectExternalRequest =
         _projectId != null &&
         RegExp(
@@ -1743,6 +1752,7 @@ class ChatNotifier extends _ChatBase
         t.attachments.isEmpty &&
         !RetrievalPlan.smallTalk(input) &&
         !RetrievalPlan.localTask(input) &&
+        !ownerFactQuestion &&
         !RegExp(r'^\s*(سلام|درود|ممنون|متشکرم)\s*[!؟?]*\s*$').hasMatch(input)) {
       t.offlineRefusal =
           'در منابع متصل به این پروژه شاهد مرتبطی پیدا نشد. برای پاسخ مستند، '
@@ -1777,6 +1787,7 @@ class ChatNotifier extends _ChatBase
       if (!haExpected &&
           t.offlineRefusal == null &&
           t.offlineRead!['requiredEncyclopedia'] == true &&
+          !ownerFactQuestion &&
           !supplied) {
         t.offlineRefusal = 'مقالهٔ قابل‌استناد از دانشنامهٔ آفلاین بازیابی و به مدل داده نشد؛ بنابراین پاسخ مستند تولید نمی‌کنم. وضعیت منبع زیر همین پیام را بررسی کنید. هیچ استفاده‌ای از ویکی‌پدیا برای این پاسخ تأیید نشده است.';
         // No unrelated source or failed-read status is an encyclopedia citation.
@@ -3382,7 +3393,8 @@ class ChatNotifier extends _ChatBase
     if (project != null && project.memoryNotes.isNotEmpty) {
       baseSystem.write(
         '\nOwner-confirmed facts for this project only; these are not live '
-        'sensor readings or current weather:\n${project.memoryNotes}',
+        'sensor readings or current weather. Answer only what the stored '
+        'notes establish, and say when a detail is unknown:\n${project.memoryNotes}',
       );
     }
     baseSystem.write('\n${settings.systemPrompt}');

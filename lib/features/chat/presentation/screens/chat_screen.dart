@@ -1045,7 +1045,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                       m.role == ChatRole.user &&
                                                       !m.isSuperseded &&
                                                       !m.isAlternative
-                                                  ? () => _rememberProjectMessage(m)
+                                                  ? () => unawaited(
+                                                      _rememberProjectMessage(m),
+                                                    )
                                                   : null,
                                               onDelete:
                                                   !busy &&
