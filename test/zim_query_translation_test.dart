@@ -61,104 +61,101 @@ void main() {
       'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const fingerprint =
       'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
-  test(
-    'local translated Persian query retrieves only the allowed English source',
-    () async {
-      final db = sqlite3.openInMemory();
-      addTearDown(db.close);
-      final index = ZimContentIndex(db);
-      final source = persianZim(
-        englishGarden: true,
-        archive: 'Gardening fixture',
-      );
-      final wiki = ZimWikipedia(
-        'garden.zim',
-        openSource: (_) async => source.fresh(),
-      );
-      final actualName = await wiki.name();
-      final actualId = await wiki.archiveIdentity();
-      final actualDate = await wiki.archiveMetadata('Date');
-      final actualLanguage = await wiki.archiveMetadata('Language');
-      await wiki.close();
-      expect(actualName, 'Gardening fixture');
-      expect(actualLanguage, 'eng');
-      final garden = FolderLibrary.sourceId('garden.zim');
-      final gardenFingerprint = ZimContentIndex.fingerprint(
-        archiveId: actualId,
+  test('local translated Persian query retrieves only the allowed English source', () async {
+    final db = sqlite3.openInMemory();
+    addTearDown(db.close);
+    final index = ZimContentIndex(db);
+    final source = persianZim(
+      englishGarden: true,
+      archive: 'Gardening fixture',
+    );
+    final wiki = ZimWikipedia(
+      'garden.zim',
+      openSource: (_) async => source.fresh(),
+    );
+    final actualName = await wiki.name();
+    final actualId = await wiki.archiveIdentity();
+    final actualDate = await wiki.archiveMetadata('Date');
+    final actualLanguage = await wiki.archiveMetadata('Language');
+    await wiki.close();
+    expect(actualName, 'Gardening fixture');
+    expect(actualLanguage, 'eng');
+    final garden = FolderLibrary.sourceId('garden.zim');
+    final gardenFingerprint = ZimContentIndex.fingerprint(
+      archiveId: actualId,
+      size: source.size,
+      modified: 1,
+    );
+    final job = ZimIndexStep(index);
+    var cursor = 0, total = 1;
+    while (cursor < total) {
+      final result = await job.run(
+        uri: 'garden.zim',
         size: source.size,
         modified: 1,
-      );
-      final job = ZimIndexStep(index);
-      var cursor = 0, total = 1;
-      while (cursor < total) {
-        final result = await job.run(
-          uri: 'garden.zim',
-          size: source.size,
-          modified: 1,
-          allowed: () => true,
-          sourceUnchanged: () async => true,
-          hasStorageHeadroom: () async => true,
-          limit: 2,
-          openSource: (_) async => source.fresh(),
-        );
-        cursor = result.cursor;
-        total = result.total;
-      }
-      index.commit(
-        sourceId: medical,
-        fingerprint: fingerprint,
-        expectedCursor: 0,
-        batch: const ZimContentBatch(
-          [
-            (
-              entry: 0,
-              title: 'Clinical',
-              text: 'Walnut allergy is a medical condition.',
-            ),
-          ],
-          1,
-          1,
-          0,
-          false,
-        ),
         allowed: () => true,
+        sourceUnchanged: () async => true,
+        hasStorageHeadroom: () async => true,
+        limit: 2,
+        openSource: (_) async => source.fresh(),
       );
-      final engine = FakeLocalQueryEngine([
-        '<think>private reasoning</think>walnut ',
-        'tree watering',
-      ]);
-      final query = await ZimQueryTranslation.englishTerms(
-        'آبیاری درخت گردو',
-        engine: engine,
-        settings: const InferenceSettings(),
-        fallbackTemplate: '',
-        cancelled: () => false,
-      );
-      expect(query, 'walnut tree watering');
-      expect(engine.received?.thinkingModeEnabled, isFalse);
-      expect(engine.received?.remoteEnabled, isFalse);
-      final hits = index.search(query!, {garden: gardenFingerprint});
-      expect(hits.single.sourceId, garden);
-      expect(hits.single.title, 'Plant care');
-      expect(hits.single.text, contains('walnut'));
-      final citations = ZimIndexCitations(index).search(query!, {
-        garden: (
-          fingerprint: gardenFingerprint,
-          archiveId: actualId,
-          name: actualName,
-          date: actualDate,
-          language: actualLanguage,
-        ),
-      });
-      expect(citations.single.source, 'Gardening fixture');
-      expect(citations.single.title, 'Plant care — Gardening fixture');
-      expect(
-        citations.single.url,
-        'zim://01000000000000000000000000000000/Plant_care?entry=0&source=$garden',
-      );
-      expect(citations.single.pageText, contains('walnut'));
-    },
-  );
+      cursor = result.cursor;
+      total = result.total;
+    }
+    index.commit(
+      sourceId: medical,
+      fingerprint: fingerprint,
+      expectedCursor: 0,
+      batch: const ZimContentBatch(
+        [
+          (
+            entry: 0,
+            title: 'Clinical',
+            text: 'Walnut allergy is a medical condition.',
+          ),
+        ],
+        1,
+        1,
+        0,
+        false,
+      ),
+      allowed: () => true,
+    );
+    final engine = FakeLocalQueryEngine([
+      '<think>private reasoning</think>walnut ',
+      'tree watering',
+    ]);
+    final query = await ZimQueryTranslation.englishTerms(
+      'آبیاری درخت گردو',
+      engine: engine,
+      settings: const InferenceSettings(),
+      fallbackTemplate: '',
+      cancelled: () => false,
+    );
+    expect(query, 'walnut tree watering');
+    expect(engine.received?.thinkingModeEnabled, isFalse);
+    expect(engine.received?.remoteEnabled, isFalse);
+    final hits = index.search(query!, {garden: gardenFingerprint});
+    expect(hits.single.sourceId, garden);
+    expect(hits.single.title, 'Plant care');
+    expect(hits.single.text, contains('walnut'));
+    final citations = ZimIndexCitations(index).search(query!, {
+      garden: (
+        fingerprint: gardenFingerprint,
+        archiveId: actualId,
+        name: actualName,
+        date: actualDate,
+        language: actualLanguage,
+      ),
+    });
+    expect(citations.single.source, 'Gardening fixture');
+    expect(citations.single.title, 'Plant care — Gardening fixture');
+    expect(
+      citations.single.url,
+      'zim://01000000000000000000000000000000/Plant_care?entry=0&source=$garden',
+    );
+    expect(citations.single.pageText, contains('walnut'));
+  });
 
   test('citation preserves a match late in a long article', () {
     final db = sqlite3.openInMemory();

@@ -27,7 +27,14 @@ class ZimIndexCitations {
     return [
       for (final hit in hits)
         if (authorized[hit.sourceId] case final source?)
-          _citation(hit.sourceId, hit.entry, hit.title, hit.text, source, query),
+          _citation(
+            hit.sourceId,
+            hit.entry,
+            hit.title,
+            hit.text,
+            source,
+            query,
+          ),
     ];
   }
 
