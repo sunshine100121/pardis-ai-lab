@@ -299,7 +299,10 @@ class ProjectMemoryGate {
         if (!_common.contains(match.group(0)!)) match.group(0)!,
     };
     final questionTerms = tokens(question);
-    final shared = questionTerms.intersection(tokens(ownerNotes));
-    return shared.length >= 2;
+    // Two terms appearing in different notes are not evidence for one
+    // personal claim. Each owner-confirmed entry must match on its own.
+    return ownerNotes.split('\n').any(
+      (entry) => questionTerms.intersection(tokens(entry)).length >= 2,
+    );
   }
 }
