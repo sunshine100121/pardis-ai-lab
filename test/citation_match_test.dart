@@ -62,6 +62,10 @@ void main() {
       'Verified [1]. Invented . Mixed [1, 2]. Internal .',
     );
     expect(CitationMatch.stripUnknown('No source [1]', 0), 'No source ');
+    expect(
+      CitationMatch.stripUnknown('واقعی [۲] و ساختگی [۹۹]', 2),
+      'واقعی [2] و ساختگی ',
+    );
   });
 
   test('in-range fabricated citation is removed, real evidence corrected', () {
