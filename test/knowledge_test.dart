@@ -59,27 +59,31 @@ void main() {
           addedAt: now,
         ),
         [
-          for (var i = 0; i < 300; i++)
+          for (var i = 0; i < 299; i++)
             KnowledgeChunksCompanion.insert(
               id: i.toString().padLeft(4, '0'),
               docId: 'synthetic-doc',
               ordinal: i,
-              content: i == 299
-                  ? 'walnut irrigation evidence'
-                  : 'walnut unrelated',
+              content: 'walnut unrelated',
             ),
         ],
       );
-      db.knowledgeFtsAvailable = false;
-      final results = await db.searchKnowledge(
-        'fixture',
-        'walnut irrigation',
-        limit: 3,
+      await db.insertKnowledgeDoc(
+        KnowledgeDocsCompanion.insert(
+          id: 'best-doc', collection: 'fixture', name: 'best.txt', addedAt: now,
+        ),
+        [KnowledgeChunksCompanion.insert(
+          id: '0299', docId: 'best-doc', ordinal: 0,
+          content: 'walnut irrigation evidence',
+        )],
       );
-      expect(results, hasLength(3));
-      expect(results.first.$1.id, '0299');
-      expect(results.first.$1.content, 'walnut irrigation evidence');
-      expect(await db.searchKnowledge('fixture', 'walnut', limit: 0), isEmpty);
+      db.knowledgeFtsAvailable = false;
+      final store = KnowledgeStore(db);
+      final results = await store.search('fixture', 'walnut irrigation', maxPassages: 1, maxDocs: 1);
+      expect(results, hasLength(1));
+      expect(results.single.title, 'best.txt');
+      expect(results.single.pageText, 'walnut irrigation evidence');
+      expect(await store.search('fixture', 'walnut', maxPassages: 0), isEmpty);
     },
   );
 

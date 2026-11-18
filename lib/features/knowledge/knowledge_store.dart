@@ -7,6 +7,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:crypto/crypto.dart';
+import '../../core/utils/search_terms.dart';
 
 import '../../data/local/database/app_database.dart';
 import '../../data/network/web_search/search_models.dart';
@@ -519,7 +520,7 @@ class KnowledgeStore {
     int maxDocs = 4,
   }) async {
     if (maxPassages <= 0 || maxDocs <= 0) return const [];
-    final lexical = await _db.searchKnowledge(
+    final lexical = await _searchLexical(
       collection,
       query,
       limit: maxPassages * 2,
@@ -557,6 +558,71 @@ class KnowledgeStore {
           fetchedAt: docs[e.key]!.addedAt.toUtc(),
         ),
     ];
+  }
+
+  Future<List<(KnowledgeChunk, KnowledgeDoc)>> _searchLexical(
+    String collection,
+    String query, {
+    required int limit,
+  }) async {
+    final docs = {for (final d in await _db.knowledgeDocsIn(collection)) if (d.active) d.id: d};
+    if (docs.isEmpty || limit <= 0) return const [];
+    final ids = docs.keys.toList();
+    if (_db.knowledgeFtsAvailable) {
+      final queryText = AppDatabase.ftsAnyQuery(query);
+      if (queryText.isEmpty) return const [];
+      try {
+        final rows = await _db.customSelect(
+          'SELECT chunk_id FROM knowledge_fts WHERE knowledge_fts MATCH ? '
+          'AND doc_id IN (${List.filled(ids.length, '?').join(',')}) '
+          'ORDER BY bm25(knowledge_fts) LIMIT ?',
+          variables: [
+            drift.Variable.withString(queryText),
+            for (final id in ids) drift.Variable.withString(id),
+            drift.Variable.withInt(limit),
+          ],
+        ).get();
+        final order = [for (final row in rows) row.read<String>('chunk_id')];
+        final chunks = await _db.knowledgeChunksByIds(order);
+        final byId = {for (final chunk in chunks) chunk.id: chunk};
+        return [for (final id in order) if (byId[id] case final chunk?) (chunk, docs[chunk.docId]!)];
+      } catch (_) {
+        // A missing or unusable FTS index falls through to a bounded scan.
+      }
+    }
+    final terms = unicodeWords(query, cjkBigrams: true).where((word) => word.length > 1).toSet();
+    if (terms.isEmpty) return const [];
+    final last = await (_db.select(_db.knowledgeChunks)
+          ..where((t) => t.docId.isIn(ids))
+          ..orderBy([(t) => drift.OrderingTerm.desc(t.id)])
+          ..limit(1)).getSingleOrNull();
+    if (last == null) return const [];
+    String? cursor;
+    const pageSize = 128;
+    final scored = <(int, KnowledgeChunk)>[];
+    while (true) {
+      final pageQuery = _db.select(_db.knowledgeChunks)
+        ..where((t) => t.docId.isIn(ids) & t.id.isSmallerOrEqualValue(last.id))
+        ..orderBy([(t) => drift.OrderingTerm.asc(t.id)])
+        ..limit(pageSize);
+      if (cursor != null) pageQuery.where((t) => t.id.isBiggerThanValue(cursor!));
+      final page = await pageQuery.get();
+      if (page.isEmpty) break;
+      for (final chunk in page) {
+        final text = chunk.content.toLowerCase();
+        final count = terms.where(text.contains).length;
+        if (count == 0) continue;
+        scored.add((count, chunk));
+        scored.sort((a, b) {
+          final rank = b.$1.compareTo(a.$1);
+          return rank != 0 ? rank : a.$2.id.compareTo(b.$2.id);
+        });
+        if (scored.length > limit) scored.removeLast();
+      }
+      if (page.length < pageSize) break;
+      cursor = page.last.id;
+    }
+    return [for (final item in scored) (item.$2, docs[item.$2.docId]!)];
   }
 
   /// Lexical hits merged with the semantic ranking when the collection has

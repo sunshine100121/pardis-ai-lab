@@ -5,7 +5,6 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-
 import '../../../core/storage/app_directories.dart';
 
 import '../../../core/utils/search_terms.dart';
@@ -168,12 +167,9 @@ class AppDatabase extends _$AppDatabase {
   /// FTS5 query for retrieval: any word may match (OR), as a prefix; the
   /// bm25 rank decides. Recall matters more than precision here because the
   /// chat re-ranks the passages it is given.
-  static String ftsAnyQuery(String text) =>
-      unicodeWords(text)
-          .where((w) => w.length > 1)
-          .toSet()
-          .map((w) => '"$w"*')
-          .join(' OR ');
+  static String ftsAnyQuery(String text) => unicodeWords(
+    text,
+  ).where((w) => w.length > 1).toSet().map((w) => '"$w"*').join(' OR ');
 
   // ----- Knowledge library -----
   Stream<List<KnowledgeDoc>> watchKnowledgeDocs() =>
@@ -351,7 +347,6 @@ class AppDatabase extends _$AppDatabase {
     String query, {
     int limit = 12,
   }) async {
-    if (limit <= 0) return const [];
     final docs = {
       for (final d in await knowledgeDocsIn(collection))
         if (d.active) d.id: d,
@@ -391,40 +386,17 @@ class AppDatabase extends _$AppDatabase {
       cjkBigrams: true,
     ).where((w) => w.length > 1).toSet();
     if (terms.isEmpty) return const [];
+    final all = await (select(
+      knowledgeChunks,
+    )..where((t) => t.docId.isIn(ids))).get();
     final scored = <(int, KnowledgeChunk)>[];
-    final last =
-        await (select(knowledgeChunks)
-              ..where((t) => t.docId.isIn(ids))
-              ..orderBy([(t) => OrderingTerm.desc(t.id)])
-              ..limit(1))
-            .getSingleOrNull();
-    if (last == null) return const [];
-    String? cursor;
-    const pageSize = 128;
-    while (true) {
-      final pageQuery = select(knowledgeChunks)
-        ..where((t) => t.docId.isIn(ids) & t.id.isSmallerOrEqualValue(last.id))
-        ..orderBy([(t) => OrderingTerm.asc(t.id)])
-        ..limit(pageSize);
-      if (cursor != null)
-        pageQuery.where((t) => t.id.isBiggerThanValue(cursor!));
-      final page = await pageQuery.get();
-      if (page.isEmpty) break;
-      for (final c in page) {
-        final lower = c.content.toLowerCase();
-        final hits = terms.where(lower.contains).length;
-        if (hits == 0) continue;
-        scored.add((hits, c));
-        scored.sort((a, b) {
-          final rank = b.$1.compareTo(a.$1);
-          return rank != 0 ? rank : a.$2.id.compareTo(b.$2.id);
-        });
-        if (scored.length > limit) scored.removeLast();
-      }
-      if (page.length < pageSize) break;
-      cursor = page.last.id;
+    for (final c in all) {
+      final lower = c.content.toLowerCase();
+      final hits = terms.where(lower.contains).length;
+      if (hits > 0) scored.add((hits, c));
     }
-    return [for (final e in scored) (e.$2, docs[e.$2.docId]!)];
+    scored.sort((a, b) => b.$1.compareTo(a.$1));
+    return [for (final e in scored.take(limit)) (e.$2, docs[e.$2.docId]!)];
   }
 
   /// FTS5 query from free text: every word required, as a prefix.
