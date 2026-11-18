@@ -53,7 +53,7 @@ void main() {
       final second = ProviderContainer();
       addTearDown(second.dispose);
       final restored = second.read(conversationWorkspaceProvider.notifier);
-    await restored.ready;
+      await restored.ready;
       final stored = second.read(conversationWorkspaceProvider);
       expect(
         stored.projectFor('garden-chat')?.memoryNotes,
