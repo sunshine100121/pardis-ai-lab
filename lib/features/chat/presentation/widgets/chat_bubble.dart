@@ -71,6 +71,8 @@ class ChatBubble extends StatelessWidget {
 
   /// User-approved local memory; never available in general or temporary chat.
   final VoidCallback? onSaveProjectMemory;
+  final VoidCallback? onForgetProjectMemory;
+  final bool savedProjectMemory;
 
   const ChatBubble({
     super.key,
@@ -92,6 +94,8 @@ class ChatBubble extends StatelessWidget {
     this.onRestoreVersion,
     this.onBranch,
     this.onSaveProjectMemory,
+    this.onForgetProjectMemory,
+    this.savedProjectMemory = false,
   });
 
   @override
@@ -200,9 +204,19 @@ extension on ChatBubble {
       if (isUser && onSaveProjectMemory != null)
         _MessageAction(
           'save-project-memory',
-          Icons.bookmark_add_outlined,
-          'ذخیره در حافظه پروژه',
+          savedProjectMemory
+              ? Icons.bookmark_added_outlined
+              : Icons.bookmark_add_outlined,
+          savedProjectMemory ? 'ویرایش حافظه پروژه' : 'ذخیره در حافظه پروژه',
           onSaveProjectMemory!,
+        ),
+      if (isUser && savedProjectMemory && onForgetProjectMemory != null)
+        _MessageAction(
+          'forget-project-memory',
+          Icons.bookmark_remove_outlined,
+          'حذف از حافظه پروژه',
+          onForgetProjectMemory!,
+          danger: true,
         ),
       if (!isUser && message.content.isNotEmpty && onSpeak != null)
         _MessageAction(
