@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+
 import '../../../core/storage/app_directories.dart';
 
 import '../../../core/utils/search_terms.dart';
@@ -167,9 +168,12 @@ class AppDatabase extends _$AppDatabase {
   /// FTS5 query for retrieval: any word may match (OR), as a prefix; the
   /// bm25 rank decides. Recall matters more than precision here because the
   /// chat re-ranks the passages it is given.
-  static String ftsAnyQuery(String text) => unicodeWords(
-    text,
-  ).where((w) => w.length > 1).toSet().map((w) => '"$w"*').join(' OR ');
+  static String ftsAnyQuery(String text) =>
+      unicodeWords(text)
+          .where((w) => w.length > 1)
+          .toSet()
+          .map((w) => '"$w"*')
+          .join(' OR ');
 
   // ----- Knowledge library -----
   Stream<List<KnowledgeDoc>> watchKnowledgeDocs() =>
@@ -388,11 +392,12 @@ class AppDatabase extends _$AppDatabase {
     ).where((w) => w.length > 1).toSet();
     if (terms.isEmpty) return const [];
     final scored = <(int, KnowledgeChunk)>[];
-    final last = await (select(knowledgeChunks)
-          ..where((t) => t.docId.isIn(ids))
-          ..orderBy([(t) => OrderingTerm.desc(t.id)])
-          ..limit(1))
-        .getSingleOrNull();
+    final last =
+        await (select(knowledgeChunks)
+              ..where((t) => t.docId.isIn(ids))
+              ..orderBy([(t) => OrderingTerm.desc(t.id)])
+              ..limit(1))
+            .getSingleOrNull();
     if (last == null) return const [];
     String? cursor;
     const pageSize = 128;
@@ -401,7 +406,8 @@ class AppDatabase extends _$AppDatabase {
         ..where((t) => t.docId.isIn(ids) & t.id.isSmallerOrEqualValue(last.id))
         ..orderBy([(t) => OrderingTerm.asc(t.id)])
         ..limit(pageSize);
-      if (cursor != null) pageQuery.where((t) => t.id.isBiggerThanValue(cursor!));
+      if (cursor != null)
+        pageQuery.where((t) => t.id.isBiggerThanValue(cursor!));
       final page = await pageQuery.get();
       if (page.isEmpty) break;
       for (final c in page) {

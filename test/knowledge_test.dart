@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 import 'local_backup_service_test.dart' show BackupPaths;
+
 import 'package:ondevice_llm/core/providers/shared_providers.dart';
 import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/features/chat/domain/entities/chat_message.dart';
@@ -46,82 +47,90 @@ void main() {
     await files.delete(recursive: true);
   });
 
-  test('lexical fallback scans bounded pages and keeps the best passages', () async {
-    final now = DateTime(2026);
-    await db.insertKnowledgeDoc(
-      KnowledgeDocsCompanion.insert(id: 'synthetic-doc', collection: 'fixture', name: 'fixture.txt', addedAt: now),
-      [
-        for (var i = 0; i < 300; i++)
-          KnowledgeChunksCompanion.insert(
-            id: i.toString().padLeft(4, '0'),
-            docId: 'synthetic-doc',
-            ordinal: i,
-            content: i == 299 ? 'walnut irrigation evidence' : 'walnut unrelated',
-          ),
-      ],
-    );
-    db.knowledgeFtsAvailable = false;
-    final results = await db.searchKnowledge('fixture', 'walnut irrigation', limit: 3);
-    expect(results, hasLength(3));
-    expect(results.first.$1.id, '0299');
-    expect(results.first.$1.content, 'walnut irrigation evidence');
-    expect(await db.searchKnowledge('fixture', 'walnut', limit: 0), isEmpty);
-  });
-
   test(
-    'imports split into passages and retrieval ranks the right document',
+    'lexical fallback scans bounded pages and keeps the best passages',
     () async {
-      final store = KnowledgeStore(db);
-      final boiler = await store.import(
-        collection: 'Manuals',
-        name: 'boiler.txt',
-        bytes: bytes(
-          'Boiler manual.\n${'The pressure gauge should read between one and two bar when cold. ' * 30}'
-          '\nTo reset the boiler after a lockout, hold the reset button for five seconds.\n'
-          '${'Annual service is required to keep the warranty. ' * 30}',
+      final now = DateTime(2026);
+      await db.insertKnowledgeDoc(
+        KnowledgeDocsCompanion.insert(
+          id: 'synthetic-doc',
+          collection: 'fixture',
+          name: 'fixture.txt',
+          addedAt: now,
         ),
+        [
+          for (var i = 0; i < 300; i++)
+            KnowledgeChunksCompanion.insert(
+              id: i.toString().padLeft(4, '0'),
+              docId: 'synthetic-doc',
+              ordinal: i,
+              content: i == 299
+                  ? 'walnut irrigation evidence'
+                  : 'walnut unrelated',
+            ),
+        ],
       );
-      await store.import(
-        collection: 'Manuals',
-        name: 'dishwasher.md',
-        bytes: bytes(
-          '# Dishwasher\n${'Rinse aid improves drying performance on glassware. ' * 40}',
-        ),
+      db.knowledgeFtsAvailable = false;
+      final results = await db.searchKnowledge(
+        'fixture',
+        'walnut irrigation',
+        limit: 3,
       );
-      await store.import(
-        collection: 'Other',
-        name: 'unrelated.txt',
-        bytes: bytes(
-          'Reset instructions for a completely different boiler model. ' * 20,
-        ),
-      );
-      expect(boiler.chunkCount, greaterThan(1));
-      expect(await store.collections(), ['Manuals', 'Other']);
-
-      final hits = await store.search(
-        'Manuals',
-        'how do I reset the boiler after lockout',
-      );
-      expect(hits, isNotEmpty);
-      expect(hits.first.title, 'boiler.txt');
-      expect(hits.first.url, startsWith('knowledge://'));
-      expect(hits.first.pageText, contains('hold the reset button'));
-      // Other collections are never consulted.
-      expect(hits.any((h) => h.title == 'unrelated.txt'), false);
-      // Nothing matching → nothing returned (no padding with random passages).
-      expect(
-        await store.search('Manuals', 'zebra migration patterns'),
-        isEmpty,
-      );
-
-      await store.remove(boiler.id);
-      expect((await store.docsIn('Manuals')).map((d) => d.name), [
-        'dishwasher.md',
-      ]);
-      await store.removeCollection('Manuals');
-      expect(await store.collections(), ['Other']);
+      expect(results, hasLength(3));
+      expect(results.first.$1.id, '0299');
+      expect(results.first.$1.content, 'walnut irrigation evidence');
+      expect(await db.searchKnowledge('fixture', 'walnut', limit: 0), isEmpty);
     },
   );
+
+  test('imports split into passages and retrieval ranks the right document', () async {
+    final store = KnowledgeStore(db);
+    final boiler = await store.import(
+      collection: 'Manuals',
+      name: 'boiler.txt',
+      bytes: bytes(
+        'Boiler manual.\n${'The pressure gauge should read between one and two bar when cold. ' * 30}'
+        '\nTo reset the boiler after a lockout, hold the reset button for five seconds.\n'
+        '${'Annual service is required to keep the warranty. ' * 30}',
+      ),
+    );
+    await store.import(
+      collection: 'Manuals',
+      name: 'dishwasher.md',
+      bytes: bytes(
+        '# Dishwasher\n${'Rinse aid improves drying performance on glassware. ' * 40}',
+      ),
+    );
+    await store.import(
+      collection: 'Other',
+      name: 'unrelated.txt',
+      bytes: bytes(
+        'Reset instructions for a completely different boiler model. ' * 20,
+      ),
+    );
+    expect(boiler.chunkCount, greaterThan(1));
+    expect(await store.collections(), ['Manuals', 'Other']);
+
+    final hits = await store.search(
+      'Manuals',
+      'how do I reset the boiler after lockout',
+    );
+    expect(hits, isNotEmpty);
+    expect(hits.first.title, 'boiler.txt');
+    expect(hits.first.url, startsWith('knowledge://'));
+    expect(hits.first.pageText, contains('hold the reset button'));
+    // Other collections are never consulted.
+    expect(hits.any((h) => h.title == 'unrelated.txt'), false);
+    // Nothing matching → nothing returned (no padding with random passages).
+    expect(await store.search('Manuals', 'zebra migration patterns'), isEmpty);
+
+    await store.remove(boiler.id);
+    expect((await store.docsIn('Manuals')).map((d) => d.name), [
+      'dishwasher.md',
+    ]);
+    await store.removeCollection('Manuals');
+    expect(await store.collections(), ['Other']);
+  });
 
   test(
     'selected chat text becomes searchable without reasoning or older branches',
@@ -137,8 +146,7 @@ void main() {
         ChatMessage(
           id: 'a',
           role: ChatRole.assistant,
-          content:
-              'The solar inverter converts direct current into alternating current.',
+          content: 'The solar inverter converts direct current into alternating current.',
           reasoning: 'private analysis token',
           timestamp: now,
         ),
