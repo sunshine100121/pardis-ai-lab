@@ -84,6 +84,7 @@ SparseZimSource persianZim({
   }
   if (englishGarden) {
     final entry = entries.firstWhere((e) => e['url'] == 'Behbahan');
+    entries.firstWhere((e) => e['ns'] == 'M' && e['url'] == 'Language')['text'] = 'eng';
     entry['title'] = 'Plant care';
     entry['text'] = '<html><body><h1>Plant care</h1><article><p>How can I care for this tree through a dry season?</p></article><article><p>Deep watering of a mature walnut tree depends on soil drainage and seasonal rainfall. In dry weather irrigation should reach the root zone without leaving the soil waterlogged.</p></article></body></html>';
   }

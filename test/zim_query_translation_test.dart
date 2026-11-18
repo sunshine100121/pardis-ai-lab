@@ -10,6 +10,7 @@ import 'package:ondevice_llm/features/zim/zim_content_index.dart';
 import 'package:ondevice_llm/features/zim/zim_index_citations.dart';
 import 'package:ondevice_llm/features/zim/zim_index_step.dart';
 import 'package:ondevice_llm/features/zim/zim_query_translation.dart';
+import 'package:ondevice_llm/features/zim/zim_wikipedia.dart';
 import 'package:ondevice_llm/inference/engine/llama_engine.dart';
 
 import 'support/persian_zim_fixture.dart';
@@ -66,10 +67,18 @@ void main() {
       final db = sqlite3.openInMemory();
       addTearDown(db.close);
       final index = ZimContentIndex(db);
-      final source = persianZim(englishGarden: true);
+      final source = persianZim(englishGarden: true, archive: 'Gardening fixture');
+      final wiki = ZimWikipedia('garden.zim', openSource: (_) async => source.fresh());
+      final actualName = await wiki.name();
+      final actualId = await wiki.archiveIdentity();
+      final actualDate = await wiki.archiveMetadata('Date');
+      final actualLanguage = await wiki.archiveMetadata('Language');
+      await wiki.close();
+      expect(actualName, 'Gardening fixture');
+      expect(actualLanguage, 'eng');
       final garden = FolderLibrary.sourceId('garden.zim');
       final gardenFingerprint = ZimContentIndex.fingerprint(
-        archiveId: '01000000000000000000000000000000',
+        archiveId: actualId,
         size: source.size,
         modified: 1,
       );
@@ -127,13 +136,20 @@ void main() {
       expect(hits.single.title, 'Plant care');
       expect(hits.single.text, contains('walnut'));
       final citations = ZimIndexCitations(index).search(query!, {
-        garden: (fingerprint: gardenFingerprint,
-          archiveId: '01000000000000000000000000000000',
-          name: 'Gardening fixture', date: '2026-11-15', language: 'eng'),
+        garden: (
+          fingerprint: gardenFingerprint,
+          archiveId: actualId,
+          name: actualName,
+          date: actualDate,
+          language: actualLanguage,
+        ),
       });
       expect(citations.single.source, 'Gardening fixture');
       expect(citations.single.title, 'Plant care — Gardening fixture');
-      expect(citations.single.url, 'zim://01000000000000000000000000000000/Plant_care');
+      expect(
+        citations.single.url,
+        'zim://01000000000000000000000000000000/Plant_care',
+      );
       expect(citations.single.pageText, contains('walnut'));
     },
   );
@@ -142,14 +158,30 @@ void main() {
     final db = sqlite3.openInMemory();
     addTearDown(db.close);
     final index = ZimContentIndex(db);
-    const id = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const id =
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     final body = '${List.filled(42000, 'x').join()} walnut watering evidence';
-    index.commit(sourceId: id, fingerprint: fingerprint, expectedCursor: 0,
-      batch: ZimContentBatch([(entry: 0, title: 'Long article', text: body)], 1, 1, 0, false),
-      allowed: () => true);
+    index.commit(
+      sourceId: id,
+      fingerprint: fingerprint,
+      expectedCursor: 0,
+      batch: ZimContentBatch(
+        [(entry: 0, title: 'Long article', text: body)],
+        1,
+        1,
+        0,
+        false,
+      ),
+      allowed: () => true,
+    );
     final result = ZimIndexCitations(index).search('walnut watering', {
-      id: (fingerprint: fingerprint, archiveId: '01000000000000000000000000000000',
-        name: 'Fixture', date: null, language: 'eng'),
+      id: (
+        fingerprint: fingerprint,
+        archiveId: '01000000000000000000000000000000',
+        name: 'Fixture',
+        date: null,
+        language: 'eng',
+      ),
     });
     expect(result.single.pageText, contains('walnut watering evidence'));
   });
