@@ -10,8 +10,8 @@ import 'package:ondevice_llm/features/knowledge/offline_knowledge.dart';
 
 class UnrelatedLibrary extends FolderLibrary {
   @override
-  Future<KnowledgeReadReport> searchDetailed(String question) async =>
-      const KnowledgeReadReport([
+  Future<KnowledgeReadReport> searchDetailed(String question, {Set<String>? sourceIds}) async =>
+      sourceIds != null ? const KnowledgeReadReport([], []) : const KnowledgeReadReport([
         SearchResult(
           title: 'Fixture encyclopedia',
           url: 'zim://fixture/article',

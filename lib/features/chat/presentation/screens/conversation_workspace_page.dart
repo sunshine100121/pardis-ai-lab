@@ -218,9 +218,11 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                 if (_project != null)
                   IconButton(
                     icon: const Icon(Icons.edit_outlined),
-                    onPressed: () => _editProject(
-                      workspace.projects.firstWhere((p) => p.id == _project),
-                    ),
+                    onPressed: busy
+                        ? null
+                        : () => _editProject(
+                            workspace.projects.firstWhere((p) => p.id == _project),
+                          ),
                   ),
                 if (_project != null)
                   IconButton(

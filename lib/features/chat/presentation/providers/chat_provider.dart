@@ -1547,6 +1547,7 @@ class ChatNotifier extends _ChatBase
           _projectId != null &&
           (project == null ||
               currentProject == null ||
+              settings.knowledgeCollection != project.collection ||
               currentProject.collection != project.collection ||
               currentIds.length != projectSourceIds.length ||
               !currentIds.containsAll(projectSourceIds));
@@ -1637,7 +1638,7 @@ class ChatNotifier extends _ChatBase
           r'دما|رطوبت|آلودگی|الودگی|pm\s*2[.٫]?\s*5|حسگر|سنسور',
           caseSensitive: false,
         ).hasMatch(input) &&
-        RegExp(r'باغ|حسگر|سنسور|داخل|اتاق').hasMatch(input) &&
+        RegExp(r'باغ|حسگر|سنسور|داخل|اتاق|الان|اکنون|فعلی').hasMatch(input) &&
         RegExp(r'چقدر|چقدره|چند|الان|اکنون|فعلی|وضعیت').hasMatch(input);
     if (t.offlineRefusal != null) {
       t.sources = [];
