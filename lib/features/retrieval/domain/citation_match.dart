@@ -8,7 +8,7 @@ import 'claim_passages.dart';
 /// a sentence no source supports stays uncited. Code, tables and headings
 /// are left as written.
 class CitationMatch {
-  static final _marker = RegExp(r'\[\d+(?:\s*,\s*\d+)*\]');
+  static final _marker = RegExp(r'\[[0-9۰-۹٠-٩]+(?:\s*,\s*[0-9۰-۹٠-٩]+)*\]');
   // Not inside "the U.S. is": a lowercase word goes on the sentence
   // (phone, 2026-10-08: "in the U.S [1]. is $499.99").
   static final _sentence = RegExp(
@@ -26,7 +26,7 @@ class CitationMatch {
   /// Keep Markdown code examples unchanged.
   static String stripUnknown(String answer, int sourceCount) {
     if (sourceCount < 0) throw ArgumentError('Invalid source count');
-    final marker = RegExp(r'\[([0-9]+(?:\s*,\s*[0-9]+)*)\]');
+    final marker = RegExp(r'\[([0-9۰-۹٠-٩]+(?:\s*,\s*[0-9۰-۹٠-٩]+)*)\]');
     var code = false;
     final lines = answer.split('\n');
     for (var i = 0; i < lines.length; i++) {
@@ -38,7 +38,16 @@ class CitationMatch {
       lines[i] = lines[i].replaceAllMapped(marker, (match) {
         final valid = <int>{};
         for (final part in match.group(1)!.split(',')) {
-          final number = int.tryParse(part.trim());
+          final ascii = String.fromCharCodes([
+            for (final rune in part.trim().runes)
+              if (rune >= 0x06f0 && rune <= 0x06f9)
+                rune - 0x06f0 + 48
+              else if (rune >= 0x0660 && rune <= 0x0669)
+                rune - 0x0660 + 48
+              else
+                rune,
+          ]);
+          final number = int.tryParse(ascii);
           if (number != null && number > 0 && number <= sourceCount) {
             valid.add(number);
           }
