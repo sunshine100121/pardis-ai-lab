@@ -46,6 +46,28 @@ void main() {
     await files.delete(recursive: true);
   });
 
+  test('lexical fallback scans bounded pages and keeps the best passages', () async {
+    final now = DateTime(2026);
+    await db.insertKnowledgeDoc(
+      KnowledgeDocsCompanion.insert(id: 'synthetic-doc', collection: 'fixture', name: 'fixture.txt', addedAt: now),
+      [
+        for (var i = 0; i < 300; i++)
+          KnowledgeChunksCompanion.insert(
+            id: i.toString().padLeft(4, '0'),
+            docId: 'synthetic-doc',
+            ordinal: i,
+            content: i == 299 ? 'walnut irrigation evidence' : 'walnut unrelated',
+          ),
+      ],
+    );
+    db.knowledgeFtsAvailable = false;
+    final results = await db.searchKnowledge('fixture', 'walnut irrigation', limit: 3);
+    expect(results, hasLength(3));
+    expect(results.first.$1.id, '0299');
+    expect(results.first.$1.content, 'walnut irrigation evidence');
+    expect(await db.searchKnowledge('fixture', 'walnut', limit: 0), isEmpty);
+  });
+
   test(
     'imports split into passages and retrieval ranks the right document',
     () async {
