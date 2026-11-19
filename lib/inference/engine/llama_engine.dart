@@ -3,7 +3,6 @@ import '../../data/storage/gguf_split.dart';
 import 'package:path/path.dart' as p;
 import 'dart:async';
 import '../../core/utils/inference_admission.dart';
-import '../../core/utils/memory_admission.dart';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -315,13 +314,7 @@ class LlamaEngine implements TextEngine {
     _fileLeases.clear();
   }
 
-  // Upstream v1.6/1.7: heavy native loads must not race across engines.
-  // Each admitted load measures current free RAM after older loads finish.
-  // The queue does not change the user's model or context settings.
-  Future<void> _load(String path, String config) =>
-      MemoryAdmission.shared.run(() => _loadAdmitted(path, config));
-
-  Future<void> _loadAdmitted(String path, String config) async {
+  Future<void> _load(String path, String config) async {
     await closeSide();
     final data = jsonDecode(config) as Map;
     final files = <String>[
