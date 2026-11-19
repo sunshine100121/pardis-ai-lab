@@ -166,6 +166,16 @@ void main() {
     final stamp = HaReadClient.localIso(DateTime.utc(2026, 11, 13, 10));
     expect(RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(stamp), isTrue);
   });
+  test('HA timestamps require explicit timezone and preserve UTC offsets', () {
+    expect(HaReadClient.parseHaTimestamp('2026-11-13T10:00:00'), isNull);
+    expect(HaReadClient.parseHaTimestamp('2026-11-13T10:00:00Z'),
+        DateTime.utc(2026, 11, 13, 10));
+    expect(HaReadClient.parseHaTimestamp('2026-11-13T13:30:00+03:30'),
+        DateTime.utc(2026, 11, 13, 10));
+    expect(HaReadClient.parseHaTimestamp('2026-11-13T10:00:00+99:99'),
+        isNull);
+    expect(HaReadClient.parseHaTimestamp(null), isNull);
+  });
   test('empty history never fills missing measurements with zero', () {
     final start = DateTime.utc(2026),
         end = DateTime.utc(2026).add(const Duration(hours: 1));
