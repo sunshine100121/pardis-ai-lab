@@ -240,7 +240,7 @@ class ZimIndexedProjectSearch {
         final text = (result.title + ' ' + (result.pageText ?? ''))
             .toLowerCase();
         final count = queryWords.where(text.contains).length;
-        final archive = result.source.toLowerCase();
+        final archive = result.source?.toLowerCase() ?? '';
         final specialist =
             (gardenQuestion && archive.contains('garden')) ||
             (travelQuestion && archive.contains('voyage'));
