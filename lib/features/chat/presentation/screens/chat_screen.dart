@@ -999,50 +999,65 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                             child: NotificationListener<UserScrollNotification>(
                               onNotification: _onUserScroll,
-                              child:
-                                  NotificationListener<
-                                    ScrollMetricsNotification
-                                  >(
-                                    onNotification: _keepBottom,
-                                    child: ListView.builder(
-                                      controller: _scroll,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: AppDesign.lg,
-                                      ),
-                                      itemCount:
-                                          state.messages.length +
-                                          (state.showsLiveAnswer ? 1 : 0),
-                                      itemBuilder: (_, i) {
-                                        if (i < state.messages.length) {
-                                          final m = state.messages[i];
-                                          // Turn actions apply to the last live question and
-                                          // answer only (CHAT-02); earlier turns are history.
-                                          final notifier = ref.read(
-                                            chatProvider.notifier,
-                                          );
-                                          final isLastAnswer =
+                              child: NotificationListener<ScrollMetricsNotification>(
+                                onNotification: _keepBottom,
+                                child: ListView.builder(
+                                  controller: _scroll,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppDesign.lg,
+                                  ),
+                                  itemCount:
+                                      state.messages.length +
+                                      (state.showsLiveAnswer ? 1 : 0),
+                                  itemBuilder: (_, i) {
+                                    if (i < state.messages.length) {
+                                      final m = state.messages[i];
+                                      // Turn actions apply to the last live question and
+                                      // answer only (CHAT-02); earlier turns are history.
+                                      final notifier = ref.read(
+                                        chatProvider.notifier,
+                                      );
+                                      final isLastAnswer =
+                                          !busy &&
+                                          m.id == lastAssistant?.id &&
+                                          m == liveMessages.last;
+                                      final springs = _springsIn(m);
+                                      return SpringEntrance(
+                                        key: ValueKey('in-${m.id}'),
+                                        animate: springs,
+                                        from: const Offset(0, 22),
+                                        fromScale: 0.94,
+                                        scaleAlignment: Alignment.bottomRight,
+                                        child: ChatBubble(
+                                          message: m,
+                                          helperChip: HelperUsedChip(
+                                            messageId: m.id,
+                                          ),
+                                          savedProjectMemory:
+                                              state.chatId != null &&
+                                              ProjectMemoryEntry.noteFor(
+                                                    workspace.projects
+                                                            .where(
+                                                              (p) =>
+                                                                  p.id ==
+                                                                  selectedProject,
+                                                            )
+                                                            .firstOrNull
+                                                            ?.memoryNotes ??
+                                                        '',
+                                                    chatId: state.chatId!,
+                                                    messageId: m.id,
+                                                  ) !=
+                                                  null,
+                                          onForgetProjectMemory:
                                               !busy &&
-                                              m.id == lastAssistant?.id &&
-                                              m == liveMessages.last;
-                                          final springs = _springsIn(m);
-                                          return SpringEntrance(
-                                            key: ValueKey('in-${m.id}'),
-                                            animate: springs,
-                                            from: const Offset(0, 22),
-                                            fromScale: 0.94,
-                                            scaleAlignment:
-                                                Alignment.bottomRight,
-                                            child: ChatBubble(
-                                              message: m,
-                                              helperChip: HelperUsedChip(
-                                                messageId: m.id,
-                                              ),
-                                              savedProjectMemory:
                                                   state.chatId != null &&
                                                   ProjectMemoryEntry.noteFor(
                                                         workspace.projects
                                                                 .where(
-                                                                  (p) => p.id == selectedProject,
+                                                                  (p) =>
+                                                                      p.id ==
+                                                                      selectedProject,
                                                                 )
                                                                 .firstOrNull
                                                                 ?.memoryNotes ??
@@ -1050,155 +1065,118 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                                         chatId: state.chatId!,
                                                         messageId: m.id,
                                                       ) !=
-                                                      null,
-                                              onForgetProjectMemory:
-                                                  !busy &&
-                                                      state.chatId != null &&
-                                                      ProjectMemoryEntry.noteFor(
-                                                            workspace.projects
-                                                                    .where(
-                                                                      (p) => p.id == selectedProject,
-                                                                    )
-                                                                    .firstOrNull
-                                                                    ?.memoryNotes ??
-                                                                '',
-                                                            chatId: state.chatId!,
-                                                            messageId: m.id,
-                                                          ) !=
-                                                          null
-                                                  ? () => unawaited(
-                                                      _forgetProjectMessage(m),
+                                                      null
+                                              ? () => unawaited(
+                                                  _forgetProjectMessage(m),
+                                                )
+                                              : null,
+                                          onSaveProjectMemory:
+                                              !busy &&
+                                                  selectedProject != null &&
+                                                  state.chatId != null &&
+                                                  !state.temporary &&
+                                                  m.role == ChatRole.user &&
+                                                  !m.isSuperseded &&
+                                                  !m.isAlternative
+                                              ? () => unawaited(
+                                                  _rememberProjectMessage(m),
+                                                )
+                                              : null,
+                                          onDelete:
+                                              !busy &&
+                                                  !m.isSuperseded &&
+                                                  !m.isAlternative
+                                              ? (pair) =>
+                                                    _deleteTurn(m, pair: pair)
+                                              : null,
+                                          versions: m.role == ChatRole.user
+                                              ? versionsByParent[m.parentId] ??
+                                                    const []
+                                              : const [],
+                                          onRestoreVersion:
+                                              !busy && m.role == ChatRole.user
+                                              ? (branch) => unawaited(
+                                                  notifier.restoreBranch(
+                                                    branch,
+                                                  ),
+                                                )
+                                              : null,
+                                          modelName:
+                                              m.role == ChatRole.assistant
+                                              ? modelName(m.modelId)
+                                              : null,
+                                          onSpeak: m.role == ChatRole.assistant
+                                              ? () => ref
+                                                    .read(
+                                                      voiceProvider.notifier,
                                                     )
-                                                  : null,
-                                              onSaveProjectMemory:
-                                                  !busy &&
-                                                      selectedProject != null &&
-                                                      state.chatId != null &&
-                                                      !state.temporary &&
+                                                    .speak(m.content, id: m.id)
+                                              : null,
+                                          speaking: speakingId == m.id,
+                                          onEdit:
+                                              !busy && m.role == ChatRole.user
+                                              ? (text) => m.id == lastUser?.id
+                                                    ? notifier.editLast(text)
+                                                    : notifier.editTurn(m, text)
+                                              : null,
+                                          onRestore: !busy && m.branch != null
+                                              ? () => notifier.restoreBranch(
+                                                  m.branch!,
+                                                )
+                                              : null,
+                                          onRegenerate:
+                                              isLastAnswer ||
+                                                  (!busy &&
                                                       m.role == ChatRole.user &&
-                                                      !m.isSuperseded &&
-                                                      !m.isAlternative
-                                                  ? () => unawaited(
-                                                      _rememberProjectMessage(
-                                                        m,
-                                                      ),
+                                                      m == liveMessages.last)
+                                              ? notifier.regenerate
+                                              : null,
+                                          onSearchWeb:
+                                              isLastAnswer &&
+                                                  memoryAnswerQuestion !=
+                                                      null &&
+                                                  m.responseStatus ==
+                                                      'complete' &&
+                                                  m.content.isNotEmpty
+                                              ? notifier.searchAgain
+                                              : null,
+                                          onCompare:
+                                              isLastAnswer &&
+                                                  !remoteActive &&
+                                                  downloadedModelCount > 1
+                                              ? () => _compare(m)
+                                              : null,
+                                          onContinue:
+                                              isLastAnswer &&
+                                                  m.content.isNotEmpty &&
+                                                  const {
+                                                    'stopped',
+                                                    'interrupted',
+                                                    'error',
+                                                  }.contains(m.status)
+                                              ? notifier.continueAnswer
+                                              : null,
+                                        ),
+                                      );
+                                    }
+                                    return SpringEntrance(
+                                      key: const ValueKey('live-answer'),
+                                      from: const Offset(0, 10),
+                                      child: state.isLoadingModel
+                                          ? const _LoadingModelRow()
+                                          : _LiveAnswer(
+                                              modelName: remote != null
+                                                  ? modelName(
+                                                      'remote:${remote.$2}',
                                                     )
-                                                  : null,
-                                              onDelete:
-                                                  !busy &&
-                                                      !m.isSuperseded &&
-                                                      !m.isAlternative
-                                                  ? (pair) => _deleteTurn(
-                                                      m,
-                                                      pair: pair,
-                                                    )
-                                                  : null,
-                                              versions: m.role == ChatRole.user
-                                                  ? versionsByParent[m
-                                                            .parentId] ??
-                                                        const []
-                                                  : const [],
-                                              onRestoreVersion:
-                                                  !busy &&
-                                                      m.role == ChatRole.user
-                                                  ? (branch) => unawaited(
-                                                      notifier.restoreBranch(
-                                                        branch,
-                                                      ),
-                                                    )
-                                                  : null,
-                                              modelName:
-                                                  m.role == ChatRole.assistant
-                                                  ? modelName(m.modelId)
-                                                  : null,
-                                              onSpeak:
-                                                  m.role == ChatRole.assistant
-                                                  ? () => ref
-                                                        .read(
-                                                          voiceProvider
-                                                              .notifier,
-                                                        )
-                                                        .speak(
-                                                          m.content,
-                                                          id: m.id,
-                                                        )
-                                                  : null,
-                                              speaking: speakingId == m.id,
-                                              onEdit:
-                                                  !busy &&
-                                                      m.role == ChatRole.user
-                                                  ? (text) =>
-                                                        m.id == lastUser?.id
-                                                        ? notifier.editLast(
-                                                            text,
-                                                          )
-                                                        : notifier.editTurn(
-                                                            m,
-                                                            text,
-                                                          )
-                                                  : null,
-                                              onRestore:
-                                                  !busy && m.branch != null
-                                                  ? () =>
-                                                        notifier.restoreBranch(
-                                                          m.branch!,
-                                                        )
-                                                  : null,
-                                              onRegenerate:
-                                                  isLastAnswer ||
-                                                      (!busy &&
-                                                          m.role ==
-                                                              ChatRole.user &&
-                                                          m ==
-                                                              liveMessages.last)
-                                                  ? notifier.regenerate
-                                                  : null,
-                                              onSearchWeb:
-                                                  isLastAnswer &&
-                                                      memoryAnswerQuestion !=
-                                                          null &&
-                                                      m.responseStatus ==
-                                                          'complete' &&
-                                                      m.content.isNotEmpty
-                                                  ? notifier.searchAgain
-                                                  : null,
-                                              onCompare:
-                                                  isLastAnswer &&
-                                                      !remoteActive &&
-                                                      downloadedModelCount > 1
-                                                  ? () => _compare(m)
-                                                  : null,
-                                              onContinue:
-                                                  isLastAnswer &&
-                                                      m.content.isNotEmpty &&
-                                                      const {
-                                                        'stopped',
-                                                        'interrupted',
-                                                        'error',
-                                                      }.contains(m.status)
-                                                  ? notifier.continueAnswer
-                                                  : null,
+                                                  : models
+                                                        .loadedModel
+                                                        ?.displayName,
                                             ),
-                                          );
-                                        }
-                                        return SpringEntrance(
-                                          key: const ValueKey('live-answer'),
-                                          from: const Offset(0, 10),
-                                          child: state.isLoadingModel
-                                              ? const _LoadingModelRow()
-                                              : _LiveAnswer(
-                                                  modelName: remote != null
-                                                      ? modelName(
-                                                          'remote:${remote.$2}',
-                                                        )
-                                                      : models
-                                                            .loadedModel
-                                                            ?.displayName,
-                                                ),
-                                        );
-                                      },
-                                    ),
-                                  ),
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
                           ),
                         ),

@@ -425,9 +425,9 @@ class FolderLibrary {
           // A SAF grant, file revision or project selection may change
           // during a long scan; do not return evidence from a stale source.
           final still = await access.list();
-          final currentFile = still.files.where(
-            (item) => item.uri == f['uri'],
-          ).firstOrNull;
+          final currentFile = still.files
+              .where((item) => item.uri == f['uri'])
+              .firstOrNull;
           final saved = await state();
           final approved = (saved['files'] as List).whereType<Map>().any(
             (row) =>
@@ -449,10 +449,8 @@ class FolderLibrary {
             found.add((
               hit.score,
               SearchResult(
-                title: (f['name'] as String) + ' · صفحه ' +
-                    hit.page.toString(),
-                url: 'pala-knowledge://' + id +
-                    '?page=' + hit.page.toString(),
+                title: (f['name'] as String) + ' · صفحه ' + hit.page.toString(),
+                url: 'pala-knowledge://' + id + '?page=' + hit.page.toString(),
                 snippet: '',
                 source: 'پوشه AI Knowledge',
                 rank: hit.score,

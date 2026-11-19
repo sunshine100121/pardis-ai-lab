@@ -74,17 +74,20 @@ class CitationMatch {
         continue;
       }
       if (code || line.trimLeft().startsWith('|')) continue;
-      lines[i] = line.split(_sentence).map((sentence) {
-        if (!_marker.hasMatch(sentence)) return sentence;
-        final plain = sentence.replaceAll(_marker, '').trim();
-        final supported = EvidenceRanker.terms(plain).length >= minWords
-            ? ClaimPassages.best(plain, prepared)
-            : null;
-        final verified = supported != null && supported.states
-            ? '[' + (supported.source + 1).toString() + ']'
-            : '';
-        // One claim has one evidence decision: multiple model markers must\n        // not multiply the same verified citation.\n        var inserted = false;\n        return sentence.replaceAllMapped(_marker, (_) {\n          if (inserted || verified.isEmpty) return '';\n          inserted = true;\n          return verified;\n        });
-      }).join(' ');
+      lines[i] = line
+          .split(_sentence)
+          .map((sentence) {
+            if (!_marker.hasMatch(sentence)) return sentence;
+            final plain = sentence.replaceAll(_marker, '').trim();
+            final supported = EvidenceRanker.terms(plain).length >= minWords
+                ? ClaimPassages.best(plain, prepared)
+                : null;
+            final verified = supported != null && supported.states
+                ? '[' + (supported.source + 1).toString() + ']'
+                : '';
+            // One claim has one evidence decision: multiple model markers must\n        // not multiply the same verified citation.\n        var inserted = false;\n        return sentence.replaceAllMapped(_marker, (_) {\n          if (inserted || verified.isEmpty) return '';\n          inserted = true;\n          return verified;\n        });
+          })
+          .join(' ');
     }
     return lines.join('\n');
   }

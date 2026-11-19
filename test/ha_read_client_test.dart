@@ -168,10 +168,14 @@ void main() {
   });
   test('HA timestamps require explicit timezone and preserve UTC offsets', () {
     expect(HaReadClient.parseHaTimestamp('2026-11-13T10:00:00'), isNull);
-    expect(HaReadClient.parseHaTimestamp('2026-11-13T10:00:00Z'),
-        DateTime.utc(2026, 11, 13, 10));
-    expect(HaReadClient.parseHaTimestamp('2026-11-13T13:30:00+03:30'),
-        DateTime.utc(2026, 11, 13, 10));
+    expect(
+      HaReadClient.parseHaTimestamp('2026-11-13T10:00:00Z'),
+      DateTime.utc(2026, 11, 13, 10),
+    );
+    expect(
+      HaReadClient.parseHaTimestamp('2026-11-13T13:30:00+03:30'),
+      DateTime.utc(2026, 11, 13, 10),
+    );
     expect(HaReadClient.parseHaTimestamp(null), isNull);
   });
   test('empty history never fills missing measurements with zero', () {

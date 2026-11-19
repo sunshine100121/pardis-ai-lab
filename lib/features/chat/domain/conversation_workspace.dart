@@ -351,6 +351,7 @@ class ProjectMemoryGate {
         ? normalized.substring(0, normalized.length - 1)
         : normalized;
   }
+
   static final _personal = RegExp(
     r'(?<![\p{L}\p{N}])(?:من|ما|خودم|دارم|داریم|قبلاً|یادته|یادت|حافظه|یادداشت|my|our|remember)(?![\p{L}\p{N}])',
     caseSensitive: false,

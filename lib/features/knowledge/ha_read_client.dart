@@ -112,8 +112,10 @@ class HaReadClient {
   /// Accept only timestamps with an explicit zone; never assume local time.
   static DateTime? parseHaTimestamp(Object? value) {
     if (value is! String ||
-        !RegExp(r'(?:Z|[+-]\d{2}:\d{2})$', caseSensitive: false)
-            .hasMatch(value)) {
+        !RegExp(
+          r'(?:Z|[+-]\d{2}:\d{2})$',
+          caseSensitive: false,
+        ).hasMatch(value)) {
       return null;
     }
     return DateTime.tryParse(value);

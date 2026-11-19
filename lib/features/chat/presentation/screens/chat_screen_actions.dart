@@ -110,11 +110,13 @@ extension _ChatScreenActions on _ChatScreenState {
       return;
     }
     try {
-      await ref.read(conversationWorkspaceProvider.notifier).forgetChatMessage(
-        projectId: project.id,
-        chatId: chatId,
-        messageId: message.id,
-      );
+      await ref
+          .read(conversationWorkspaceProvider.notifier)
+          .forgetChatMessage(
+            projectId: project.id,
+            chatId: chatId,
+            messageId: message.id,
+          );
       if (mounted) {
         showIslandToast(
           context,
