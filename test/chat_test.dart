@@ -1176,7 +1176,7 @@ void main() {
     final combined = ChatTitles.titleAndNotesMessages(
       'به انگلیسی درباره آفت گلابی توضیح بده',
       'An English explanation.',
-      const [],
+      notes: const [],
     );
     expect(
       combined.last['content'] as String,
