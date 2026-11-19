@@ -711,7 +711,10 @@ class _AssistantTurn extends StatelessWidget {
         if (!streaming && sources.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: AppDesign.md),
-            child: _SourcesBubble(sources: sources),
+            child: _SourcesBubble(
+              sources: sources,
+              question: bubble.sourceImageQuestion,
+            ),
           ),
         if (!streaming && sources.isNotEmpty)
           ZimInlineGallery(
@@ -1068,7 +1071,8 @@ class _HelperHandoffs extends StatelessWidget {
 
 class _SourcesBubble extends StatelessWidget {
   final List<Map<String, dynamic>> sources;
-  const _SourcesBubble({required this.sources});
+  final String question;
+  const _SourcesBubble({required this.sources, required this.question});
 
   static String label(BuildContext context, Map<String, dynamic> s) {
     final url = s['url'] as String? ?? '';
@@ -1199,6 +1203,7 @@ class _SourcesBubble extends StatelessWidget {
     List<Map<String, dynamic>> sponsored,
   ) {
     final c = context.colors;
+    final previews = localSearchPreviewSources(evidence).toSet();
     return [
       if (sponsored.isNotEmpty)
         Padding(
@@ -1208,7 +1213,7 @@ class _SourcesBubble extends StatelessWidget {
             style: context.text.mono.copyWith(color: c.textMuted),
           ),
         ),
-      for (final s in evidence)
+      for (final s in evidence) ...[
         ListTile(
           key: Key('source-${s['number']}'),
           dense: true,
@@ -1267,6 +1272,16 @@ class _SourcesBubble extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right, size: 18),
           onTap: () => showSourceSheet(context, s),
         ),
+        if (previews.contains(s))
+          ZimInlineGallery(
+            key: ValueKey('zim-source-preview-${s['number']}'),
+            sources: [s],
+            question: question.isEmpty
+                ? (s['title'] as String? ?? '')
+                : question,
+            previewOnly: true,
+          ),
+      ],
       if (sponsored.isNotEmpty)
         Padding(
           padding: const EdgeInsets.fromLTRB(

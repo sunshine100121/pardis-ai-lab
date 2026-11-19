@@ -32,6 +32,20 @@ class _ImageFolder implements FolderAccess {
 }
 
 void main() {
+  test('search previews only approved local archive citations, bounded to four', () {
+    final sources = <Map<String, dynamic>>[
+      {'url': 'https://example.org/pear', 'archiveId': 'remote'},
+      {'url': 'zim://first/pear', 'archiveId': 'wrong'},
+      for (var i = 0; i < 8; i++)
+        {'url': 'zim://archive$i/pear', 'archiveId': 'archive$i'},
+    ];
+    final previews = localSearchPreviewSources(sources);
+    expect(previews, hasLength(4));
+    expect(previews.first['archiveId'], 'archive0');
+    expect(previews.last['archiveId'], 'archive3');
+    expect(localSearchPreviewSources(sources, maxPreviews: 0), isEmpty);
+  });
+
   test(
     'tries the next approved article when first citation has no photos',
     () async {

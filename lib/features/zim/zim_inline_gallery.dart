@@ -8,6 +8,30 @@ import '../knowledge/folder_library.dart';
 import '../settings/presentation/providers/effective_settings_provider.dart';
 import 'zim_image_selection.dart';
 
+/// Only ZIM citations with an explicitly matching archive identity
+/// may offer offline thumbnails. The underlying read validates SAF and scope.
+bool canPreviewLocalImageSource(Map<String, dynamic> source) {
+  final url = source['url'];
+  final archiveId = source['archiveId'];
+  if (url is! String || archiveId is! String || archiveId.isEmpty) {
+    return false;
+  }
+  final parsed = Uri.tryParse(url);
+  return parsed != null &&
+      parsed.scheme == 'zim' &&
+      parsed.host == archiveId;
+}
+
+/// Bound automatic previews when search returns many sources. Others remain
+/// reachable through their source details, without hidden network I/O.
+List<Map<String, dynamic>> localSearchPreviewSources(
+  List<Map<String, dynamic>> sources, {
+  int maxPreviews = 4,
+}) {
+  if (maxPreviews <= 0) return const [];
+  return sources.where(canPreviewLocalImageSource).take(maxPreviews).toList();
+}
+
 /// Verified image result attached to the exact local citation that supplied it.
 class ZimGalleryMatch {
   const ZimGalleryMatch(this.citation, this.gallery);
@@ -31,10 +55,7 @@ Future<ZimGalleryMatch?> findFirstLocalGallery(
   for (final source in sources) {
     final url = source['url'];
     final archive = source['archiveId'];
-    if (url is! String ||
-        !url.startsWith('zim://') ||
-        archive is! String ||
-        archive.isEmpty ||
+    if (!canPreviewLocalImageSource(source) ||
         !seen.add('$archive|$url')) {
       continue;
     }
@@ -58,10 +79,13 @@ class ZimInlineGallery extends ConsumerStatefulWidget {
     super.key,
     required this.sources,
     required this.question,
+    this.previewOnly = false,
   });
 
   final List<Map<String, dynamic>> sources;
   final String question;
+  /// Compact single-image thumbnail for the already visible source list.
+  final bool previewOnly;
 
   @override
   ConsumerState<ZimInlineGallery> createState() => _ZimInlineGalleryState();
@@ -71,11 +95,7 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
   Future<ZimGalleryMatch?>? _gallery;
   bool _expanded = false;
 
-  bool get _hasZimCitation => widget.sources.any(
-    (source) =>
-        (source['url'] as String? ?? '').startsWith('zim://') &&
-        source['archiveId'] is String,
-  );
+  bool get _hasZimCitation => widget.sources.any(canPreviewLocalImageSource);
 
   @override
   void initState() {
@@ -87,7 +107,8 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
   void didUpdateWidget(covariant ZimInlineGallery oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.question != widget.question ||
-        oldWidget.sources != widget.sources) {
+        oldWidget.sources != widget.sources ||
+        oldWidget.previewOnly != widget.previewOnly) {
       _expanded = false;
       _gallery = _read();
     }
@@ -128,7 +149,7 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
             citation['archiveId'] as String,
             citation['archiveDate'] as String?,
             question: widget.question,
-            maxImages: _expanded ? 6 : 2,
+            maxImages: widget.previewOnly ? 1 : (_expanded ? 6 : 2),
             allowSource: allowed,
           );
     });
@@ -178,6 +199,57 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
         final sourceName =
             (selected.citation['title'] as String? ?? 'دانشنامه آفلاین').trim();
         final hasPictures = gallery.images.isNotEmpty;
+        if (widget.previewOnly) {
+          if (!hasPictures) return const SizedBox.shrink();
+          final picture = gallery.images.first;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(52, 0, 16, 10),
+            child: Semantics(
+              label: 'تصویر از منبع آفلاین: $sourceName',
+              child: InkWell(
+                key: const Key('zim-search-thumbnail'),
+                onTap: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: InteractiveViewer(
+                      child: Image.memory(picture.bytes),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        picture.bytes,
+                        width: 88,
+                        height: 76,
+                        cacheWidth: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox(
+                          width: 88,
+                          height: 76,
+                          child: Icon(Icons.broken_image_outlined),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        picture.caption.trim().isEmpty
+                            ? 'عکس مقاله · منبع آفلاین'
+                            : 'عکس مقاله · منبع آفلاین\n${picture.caption}',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
         return Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 8),
           child: Column(
