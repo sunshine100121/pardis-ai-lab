@@ -52,13 +52,13 @@ class ZimImageSelection {
     final seen = <String>{};
     final found = <ZimImageCandidate>[];
     for (final img in document.querySelectorAll('img')) {
-      final raw = (img.attributes['src'] ??
-              img.attributes['data-src'] ??
-              '')
+      final raw = (img.attributes['src'] ?? img.attributes['data-src'] ?? '')
           .trim();
       if (raw.isEmpty || raw.length > 2048) continue;
       final uri = Uri.tryParse(raw);
-      if (uri == null || uri.hasScheme || uri.hasAuthority ||
+      if (uri == null ||
+          uri.hasScheme ||
+          uri.hasAuthority ||
           raw.startsWith('//')) {
         continue;
       }
@@ -79,11 +79,13 @@ class ZimImageSelection {
         r'logo|icon|badge|sprite|placeholder|favicon',
         caseSensitive: false,
       ).hasMatch(text);
-      found.add(ZimImageCandidate(
-        reference: path,
-        caption: caption,
-        score: matches * 10 - (isDecoration ? 20 : 0),
-      ));
+      found.add(
+        ZimImageCandidate(
+          reference: path,
+          caption: caption,
+          score: matches * 10 - (isDecoration ? 20 : 0),
+        ),
+      );
     }
     found.sort((a, b) => b.score.compareTo(a.score));
     return ZimImageSelection(
