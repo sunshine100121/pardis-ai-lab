@@ -9,6 +9,7 @@ import '../knowledge/folder_library.dart';
 import '../chat/domain/conversation_workspace.dart';
 import '../chat/presentation/providers/chat_provider.dart';
 import '../settings/presentation/providers/effective_settings_provider.dart';
+import 'zim_inline_gallery.dart';
 
 /// Local article links stay inside the imported archive. The saved excerpt
 /// remains available if that archive has since been replaced or removed.
@@ -121,6 +122,17 @@ class ZimArticlePage extends ConsumerWidget {
             if (s.data == null) Text(context.l10n.sourceArchiveUnavailable),
             const SizedBox(height: AppDesign.lg),
             SelectableText(s.data?.pageText ?? excerpt),
+            if (s.data != null && archiveId != null)
+              ZimInlineGallery(
+                sources: [
+                  {
+                    'url': url,
+                    'archiveId': archiveId,
+                    'archiveDate': archiveDate,
+                  },
+                ],
+                question: title,
+              ),
           ],
         );
       },
