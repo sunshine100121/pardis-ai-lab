@@ -124,7 +124,8 @@ class HaHistoricalCoverage {
       'reported_statistic_hours': recordedAny.length,
       'coverage': coverage,
       'coverage_percent': double.parse((coverage * 100).toStringAsFixed(2)),
-      'coverage_basis': 'ساعت‌های دارای میانگین واقعی در آمار ساعتی HA / ساعت‌های درخواستی؛ '
+      'coverage_basis':
+          'ساعت‌های دارای میانگین واقعی در آمار ساعتی HA / ساعت‌های درخواستی؛ '
           'این نسبت اثبات‌کننده کارکرد پیوسته حسگر درون هر ساعت نیست.',
       'missing_hours': expected - valid,
       'missing_intervals': gaps,
@@ -136,13 +137,15 @@ class HaHistoricalCoverage {
           : last.add(const Duration(hours: 1)).toIso8601String(),
       'mean': valid == 0 ? null : sumMeans / valid,
       'mean_hours': valid,
-      'mean_basis': 'میانگین ساده میانگین‌های ساعتی موجود؛ '
+      'mean_basis':
+          'میانگین ساده میانگین‌های ساعتی موجود؛ '
           'میانگین تمام شش ماه یا میانگین زمان‌وزن‌دار خام نیست.',
       'min': lowest,
       'max': highest,
       'min_hours': minHours,
       'max_hours': maxHours,
-      'extrema_basis': 'فقط min و max واقعی بازه‌های ساعتی HA؛ '
+      'extrema_basis':
+          'فقط min و max واقعی بازه‌های ساعتی HA؛ '
           'از میانگین‌ها حداقل و حداکثر ساخته نمی‌شود.',
       'period_representative': valid == expected,
       'limitation_period': valid == expected

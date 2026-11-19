@@ -94,9 +94,7 @@ class HaHourlyStatistics {
       if (minimum != null && maximum != null && minimum > maximum) {
         throw const FormatException('حداقل و حداکثر آماری ناسازگارند.');
       }
-      parsed.add(
-        HourlyValue(at, mean, minimum: minimum, maximum: maximum),
-      );
+      parsed.add(HourlyValue(at, mean, minimum: minimum, maximum: maximum));
     }
     return parsed;
   }

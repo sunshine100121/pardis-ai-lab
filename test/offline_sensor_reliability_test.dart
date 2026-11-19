@@ -252,7 +252,7 @@ void main() {
         } else {
           expect(data['type'], 'recorder/statistics_during_period');
           expect(data['statistic_ids'], ['sensor.fixture_pm25']);
-           expect(data['types'], ['mean', 'min', 'max']);
+          expect(data['types'], ['mean', 'min', 'max']);
           ws.add(
             jsonEncode({
               'id': data['id'],
@@ -280,6 +280,64 @@ void main() {
       expect(seen, ['auth', 'recorder/statistics_during_period']);
     });
   });
+  test('sparse six-month PM2.5 remains visible with coverage', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final seen = <String>[];
+    server.listen((req) async {
+      final ws = await WebSocketTransformer.upgrade(req);
+      ws.add(jsonEncode({'type': 'auth_required'}));
+      await for (final frame in ws) {
+        final data = jsonDecode(frame as String) as Map;
+        seen.add(data['type'] as String);
+        if (data['type'] == 'auth') {
+          ws.add(jsonEncode({'type': 'auth_ok'}));
+        } else {
+          expect(data['type'], 'recorder/statistics_during_period');
+          expect(data['statistic_ids'], ['sensor.fixture_pm25']);
+          expect(data['types'], ['mean', 'min', 'max']);
+          ws.add(
+            jsonEncode({
+              'id': data['id'],
+              'type': 'result',
+              'success': true,
+              'result': {
+                'sensor.fixture_pm25': [
+                  {
+                    'start': DateTime.utc(2026, 11, 16, 10).millisecondsSinceEpoch,
+                    'mean': 15,
+                    'min': 10,
+                    'max': 21,
+                  },
+                ],
+              },
+            }),
+          );
+        }
+      }
+    });
+    await config(server.port, {'sensor.fixture_pm25': 'PM2.5 باغ'});
+    final knowledge = OfflineKnowledge(
+      UnrelatedLibrary(),
+      readToken: () async => 'synthetic-test-only',
+      clock: () => DateTime.utc(2026, 11, 16, 12, 34),
+    );
+    await _withRealHttp(() async {
+      final report = await knowledge.searchDetailed('PM2.5 باغ در شش ماه');
+      expect(report.checks.single['code'], 'ha_partial_coverage');
+      expect(report.checks.single['coverage_percent'], 0.02);
+      expect(report.checks.single['valid_hours'], 1);
+      expect(report.sources.single.url, startsWith('pala-ha://sensor'));
+      final evidence = report.sources.single.pageText!;
+      expect(evidence, contains('"mean":15'));
+      expect(evidence, contains('"min":10'));
+      expect(evidence, contains('"max":21'));
+      expect(evidence, contains('"missing_hours":'));
+      expect(evidence, isNot(contains('synthetic-test-only')));
+      expect(seen, ['auth', 'recorder/statistics_during_period']);
+    });
+  });
+
   test(
     'successful current sensor supersedes unrelated encyclopedia evidence',
     () async {

@@ -37,21 +37,24 @@ void main() {
     expect(result['period_representative'], false);
   });
 
-  test('empty six-month statistic has no fabricated number or observed period', () {
-    final result = HaHistoricalCoverage.summarize(
-      fromUtc: DateTime.utc(2026, 1, 1),
-      toUtc: DateTime.utc(2026, 7, 1),
-      samples: const <HourlyValue>[],
-    );
-    expect(result['coverage_percent'], 0);
-    expect(result['valid_hours'], 0);
-    expect(result['reported_statistic_hours'], 0);
-    expect(result['mean'], isNull);
-    expect(result['min'], isNull);
-    expect(result['max'], isNull);
-    expect(result['available_from_utc'], isNull);
-    expect((result['missing_intervals'] as List).single['hours'], 4344);
-  });
+  test(
+    'empty six-month statistic has no fabricated number or observed period',
+    () {
+      final result = HaHistoricalCoverage.summarize(
+        fromUtc: DateTime.utc(2026, 1, 1),
+        toUtc: DateTime.utc(2026, 7, 1),
+        samples: const <HourlyValue>[],
+      );
+      expect(result['coverage_percent'], 0);
+      expect(result['valid_hours'], 0);
+      expect(result['reported_statistic_hours'], 0);
+      expect(result['mean'], isNull);
+      expect(result['min'], isNull);
+      expect(result['max'], isNull);
+      expect(result['available_from_utc'], isNull);
+      expect((result['missing_intervals'] as List).single['hours'], 4344);
+    },
+  );
 
   test('mean-only stats cannot masquerade as observed min or max', () {
     final from = DateTime.utc(2026, 1, 1);
@@ -106,19 +109,22 @@ void main() {
     }
   });
 
-  test('long scattered missing intervals are listed with explicit truncation', () {
-    final from = DateTime.utc(2026, 1, 1);
-    final result = HaHistoricalCoverage.summarize(
-      fromUtc: from,
-      toUtc: from.add(const Duration(hours: 200)),
-      samples: [
-        for (var hour = 1; hour < 200; hour += 2)
-          HourlyValue(from.add(Duration(hours: hour)), 5),
-      ],
-    );
-    expect(result['missing_intervals_total'], 100);
-    expect((result['missing_intervals'] as List).length, 48);
-    expect(result['missing_intervals_omitted'], 52);
-    expect(result['missing_hours'], 100);
-  });
+  test(
+    'long scattered missing intervals are listed with explicit truncation',
+    () {
+      final from = DateTime.utc(2026, 1, 1);
+      final result = HaHistoricalCoverage.summarize(
+        fromUtc: from,
+        toUtc: from.add(const Duration(hours: 200)),
+        samples: [
+          for (var hour = 1; hour < 200; hour += 2)
+            HourlyValue(from.add(Duration(hours: hour)), 5),
+        ],
+      );
+      expect(result['missing_intervals_total'], 100);
+      expect((result['missing_intervals'] as List).length, 48);
+      expect(result['missing_intervals_omitted'], 52);
+      expect(result['missing_hours'], 100);
+    },
+  );
 }
