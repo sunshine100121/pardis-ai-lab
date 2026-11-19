@@ -8,7 +8,51 @@ import '../knowledge/folder_library.dart';
 import '../settings/presentation/providers/effective_settings_provider.dart';
 import 'zim_image_selection.dart';
 
-/// Gallery of real images from the same approved offline citation, not AI art.
+/// Verified image result attached to the exact local citation that supplied it.
+class ZimGalleryMatch {
+  const ZimGalleryMatch(this.citation, this.gallery);
+
+  final Map<String, dynamic> citation;
+  final ZimLocalGallery gallery;
+}
+
+/// Try several already cited local articles without touching the network.
+/// A text-only first citation must not conceal pictures in the next one.
+/// Every read still goes through the same SAF, revision and project checks.
+Future<ZimGalleryMatch?> findFirstLocalGallery(
+  List<Map<String, dynamic>> sources,
+  Future<ZimLocalGallery?> Function(Map<String, dynamic>) read, {
+  int maxSources = 4,
+}) async {
+  if (maxSources <= 0) return null;
+  final seen = <String>{};
+  var checked = 0;
+  ZimGalleryMatch? textOnly;
+  for (final source in sources) {
+    final url = source['url'];
+    final archive = source['archiveId'];
+    if (url is! String ||
+        !url.startsWith('zim://') ||
+        archive is! String ||
+        archive.isEmpty ||
+        !seen.add('$archive|$url')) {
+      continue;
+    }
+    if (checked++ >= maxSources) break;
+    try {
+      final gallery = await read(source);
+      if (gallery == null) continue;
+      final result = ZimGalleryMatch(source, gallery);
+      if (gallery.images.isNotEmpty) return result;
+      textOnly ??= result;
+    } catch (_) {
+      // An inaccessible citation cannot suppress another approved source.
+    }
+  }
+  return textOnly;
+}
+
+/// Gallery of real images from approved offline citations, not AI art.
 class ZimInlineGallery extends ConsumerStatefulWidget {
   const ZimInlineGallery({
     super.key,
@@ -24,18 +68,14 @@ class ZimInlineGallery extends ConsumerStatefulWidget {
 }
 
 class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
-  Future<ZimLocalGallery?>? _gallery;
+  Future<ZimGalleryMatch?>? _gallery;
   bool _expanded = false;
 
-  Map<String, dynamic>? get _citation {
-    for (final source in widget.sources) {
-      if ((source['url'] as String? ?? '').startsWith('zim://') &&
-          source['archiveId'] is String) {
-        return source;
-      }
-    }
-    return null;
-  }
+  bool get _hasZimCitation => widget.sources.any(
+    (source) =>
+        (source['url'] as String? ?? '').startsWith('zim://') &&
+        source['archiveId'] is String,
+  );
 
   @override
   void initState() {
@@ -53,9 +93,8 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
     }
   }
 
-  Future<ZimLocalGallery?> _read() async {
-    final citation = _citation;
-    if (citation == null) return null;
+  Future<ZimGalleryMatch?> _read() async {
+    if (!_hasZimCitation) return null;
     await ref.read(conversationWorkspaceProvider.notifier).ready;
     final workspace = ref.read(conversationWorkspaceProvider);
     if (!workspace.loaded || !workspace.readable) return null;
@@ -81,20 +120,16 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
       );
     }
 
-    try {
-      return await ref
-          .read(folderLibraryProvider)
-          .articleGallery(
-            citation['url'] as String,
-            citation['archiveId'] as String,
-            citation['archiveDate'] as String?,
-            question: widget.question,
-            maxImages: _expanded ? 6 : 2,
-            allowSource: allowed,
-          );
-    } catch (_) {
-      return null;
-    }
+    return findFirstLocalGallery(widget.sources, (citation) async {
+      return ref.read(folderLibraryProvider).articleGallery(
+        citation['url'] as String,
+        citation['archiveId'] as String,
+        citation['archiveDate'] as String?,
+        question: widget.question,
+        maxImages: _expanded ? 6 : 2,
+        allowSource: allowed,
+      );
+    });
   }
 
   Future<void> _offerInternet() async {
@@ -129,14 +164,18 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
 
   @override
   Widget build(BuildContext context) {
-    if (_citation == null || _gallery == null) {
+    if (!_hasZimCitation || _gallery == null) {
       return const SizedBox.shrink();
     }
-    return FutureBuilder<ZimLocalGallery?>(
+    return FutureBuilder<ZimGalleryMatch?>(
       future: _gallery,
       builder: (context, snapshot) {
-        final gallery = snapshot.data;
-        if (gallery == null) return const SizedBox.shrink();
+        final selected = snapshot.data;
+        if (selected == null) return const SizedBox.shrink();
+        final gallery = selected.gallery;
+        final sourceName =
+            (selected.citation['title'] as String? ?? 'دانشنامه آفلاین')
+                .trim();
         final hasPictures = gallery.images.isNotEmpty;
         return Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 8),
@@ -145,9 +184,9 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
             children: [
               Text(
                 hasPictures
-                    ? '${gallery.referencedCount} تصویر در مقاله آفلاین معرفی شده؛ '
-                          '${gallery.images.length} تصویر نمایش داده می‌شود'
-                    : 'تصویر قابل‌نمایشی در این منبع آفلاین پیدا نشد.',
+                    ? '${gallery.images.length} تصویر از منبع محلی «$sourceName» '
+                          '(از ${gallery.referencedCount} ارجاع تصویری مقاله)'
+                    : 'در منابع محلی بررسی‌شده تصویر قابل‌نمایشی پیدا نشد.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               if (hasPictures) ...[
@@ -170,19 +209,39 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
                               ),
                             ),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: SizedBox(
-                              width: 156,
-                              height: 142,
-                              child: Image.memory(
-                                photo.bytes,
-                                cacheWidth: 360,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(Icons.broken_image),
+                          child: SizedBox(
+                            width: 156,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: SizedBox(
+                                    width: 156,
+                                    height: 142,
+                                    child: Image.memory(
+                                      photo.bytes,
+                                      cacheWidth: 360,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => const Center(
+                                        child: Icon(Icons.broken_image),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (photo.caption.trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      photo.caption,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ),
