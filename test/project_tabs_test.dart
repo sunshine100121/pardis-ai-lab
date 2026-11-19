@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -76,6 +77,48 @@ void main() {
     },
   );
 
+  test('owner memory understands colloquial phrases and explicit overviews',
+      () {
+    const saved = '• درخت گردو آبیاری قطره‌ای دارد. '
+        '(تأیید مالک؛ تاریخ: 2026-11-18T00:00:00Z؛ '
+        'گفتگو: garden-chat؛ پیام: first)';
+    expect(
+      ProjectMemoryGate.relevant(
+        'در مورد درخت گردوی من چی یادت هست؟',
+        saved,
+      ),
+      isTrue,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'روش آبیاری درخت گردوی من چیه؟',
+        saved,
+      ),
+      isTrue,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'چه اطلاعاتی از باغ من ثبت کردی؟',
+        saved,
+      ),
+      isTrue,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'در مورد فشار خون من چی یادت هست؟',
+        saved,
+      ),
+      isFalse,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'این روش آبیاری طبق تحقیقات علمی بهتر است؟',
+        saved,
+      ),
+      isFalse,
+    );
+  });
+
   test(
     'owner-edited project notes persist without mixing project scopes',
     () async {
@@ -135,6 +178,113 @@ void main() {
       );
     },
   );
+
+  test('renaming a project preserves instructions, sources and saved memory',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final first = ProviderContainer();
+    addTearDown(first.dispose);
+    final editor = first.read(conversationWorkspaceProvider.notifier);
+    await editor.ready;
+    await editor.saveProject(
+      name: 'باغ',
+      instructions: 'پاسخ‌ها به فارسی باشند.',
+      collection: 'gardening',
+      memoryNotes: 'دو درخت آزمایشی دارم.',
+      sourceIds: const ['source-garden'],
+    );
+    final id = first.read(conversationWorkspaceProvider).projects.single.id;
+    // An older caller may supply only name/id and must not erase fields.
+    await editor.saveProject(id: id, name: 'باغ پردیس');
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    final restored = second.read(conversationWorkspaceProvider.notifier);
+    await restored.ready;
+    final saved = second.read(conversationWorkspaceProvider).projects.single;
+    expect(saved.name, 'باغ پردیس');
+    expect(saved.instructions, 'پاسخ‌ها به فارسی باشند.');
+    expect(saved.collection, 'gardening');
+    expect(saved.memoryNotes, 'دو درخت آزمایشی دارم.');
+    expect(saved.sourceIds, ['source-garden']);
+    // Explicit clearing through the editor must still be possible.
+    await restored.saveProject(
+      id: id,
+      name: 'باغ پردیس',
+      instructions: '',
+      collection: '',
+    );
+    final cleared = second.read(conversationWorkspaceProvider).projects.single;
+    expect(cleared.instructions, isEmpty);
+    expect(cleared.collection, isEmpty);
+    expect(cleared.memoryNotes, 'دو درخت آزمایشی دارم.');
+    expect(cleared.sourceIds, ['source-garden']);
+  });
+
+  test('legacy workspace metadata loads and failed update preserves stored data',
+      () async {
+    final original = jsonEncode({
+      'projects': [
+        {
+          'id': 'legacy-garden',
+          'name': 'باغ قدیمی',
+          'instructions': 'فقط منابع باغبانی.',
+          'collection': 'garden-index',
+        },
+      ],
+      'memberships': {'garden-chat': 'legacy-garden'},
+      'states': <String, String>{},
+    });
+    SharedPreferences.setMockInitialValues({
+      ConversationWorkspaceNotifier.key: original,
+    });
+    final first = ProviderContainer();
+    addTearDown(first.dispose);
+    final editor = first.read(conversationWorkspaceProvider.notifier);
+    await editor.ready;
+    final legacy = first.read(conversationWorkspaceProvider).projects.single;
+    expect(legacy.memoryNotes, isEmpty);
+    expect(legacy.sourceIds, isEmpty);
+    await editor.saveProject(id: legacy.id, name: 'باغ قدیمی اصلاح‌شده');
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    final reopened = second.read(conversationWorkspaceProvider.notifier);
+    await reopened.ready;
+    final project = second.read(conversationWorkspaceProvider).projects.single;
+    expect(project.instructions, 'فقط منابع باغبانی.');
+    expect(project.collection, 'garden-index');
+    expect(project.memoryNotes, isEmpty);
+    expect(project.name, 'باغ قدیمی اصلاح‌شده');
+    final prefs = await SharedPreferences.getInstance();
+    final previous = prefs.getString(ConversationWorkspaceNotifier.key);
+    await expectLater(
+      reopened.saveProject(
+        id: project.id,
+        name: project.name,
+        memoryNotes: List.filled(6100, 'ا').join(),
+      ),
+      throwsFormatException,
+    );
+    expect(prefs.getString(ConversationWorkspaceNotifier.key), previous);
+  });
+
+  test('unreadable saved project metadata fails closed without overwriting it',
+      () async {
+    const malformed = '{"projects": broken-json';
+    SharedPreferences.setMockInitialValues({
+      ConversationWorkspaceNotifier.key: malformed,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final editor = container.read(conversationWorkspaceProvider.notifier);
+    await editor.ready;
+    expect(container.read(conversationWorkspaceProvider).readable, isFalse);
+    await expectLater(
+      editor.saveProject(name: 'جدید'),
+      throwsStateError,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(ConversationWorkspaceNotifier.key), malformed);
+  });
 
   test('approved message memory can be revised and removed per project',
       () async {
