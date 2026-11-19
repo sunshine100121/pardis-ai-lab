@@ -245,9 +245,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
   }) async {
     if (state.listening) return stop();
     final epoch = ++_listenEpoch;
-    final futureChoice = await VoiceChoiceStorage.current(
-      VoiceSelectionKind.stt,
-    );
+    final futureChoice = await VoiceChoiceStorage.current(VoiceSelectionKind.stt);
     if (!_alive || epoch != _listenEpoch) return;
     if (futureChoice != null) {
       state = state.copyWith(
@@ -689,9 +687,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
 
   /// Reads [markdown] aloud; tapping the same message again stops it.
   Future<void> speak(String markdown, {String? id, double? rate}) async {
-    final futureChoice = await VoiceChoiceStorage.current(
-      VoiceSelectionKind.tts,
-    );
+    final futureChoice = await VoiceChoiceStorage.current(VoiceSelectionKind.tts);
     if (futureChoice != null) {
       state = state.copyWith(
         speaking: false,
