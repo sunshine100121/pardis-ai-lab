@@ -323,6 +323,13 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
 /// encyclopedic claims or current sensor readings. This is a deterministic
 /// guard, not an LLM judgment and not a substitute for source citations.
 class ProjectMemoryGate {
+  // Offline inference always stays local. A remote profile must explicitly
+  // allow sharing saved memory before any project note enters its prompt.
+  static bool mayShareWithModel({
+    required bool usesRemote,
+    required bool shareMemory,
+  }) => !usesRemote || shareMemory;
+
   static final _words = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true);
   static final _overview = RegExp(
     r'(?:چه|چیا|چی|همه).{0,48}(?:اطلاعات|یادداشت|خاطره|چیز).{0,60}(?:ثبت|یاد|ذخیره|داری|دارم)',
