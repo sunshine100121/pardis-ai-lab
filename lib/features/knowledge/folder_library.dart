@@ -12,6 +12,7 @@ import '../../data/network/web_search/search_models.dart';
 import '../attachments/domain/document_text.dart';
 import '../zim/zim_source.dart';
 import '../zim/zim_wikipedia.dart';
+import '../zim/zim_image_selection.dart';
 import 'knowledge_read_report.dart';
 
 typedef LibraryFile = ({String uri, String name, int size, int modified});
@@ -500,6 +501,178 @@ class FolderLibrary {
     return KnowledgeReadReport(found.take(4).map((e) => e.$2).toList(), [
       for (final c in checks) Map<String, dynamic>.from(c),
     ]);
+  }
+
+  /// Pictures from a verified, still-enabled source, never from a remote URL.
+  /// Every display request rechecks the Android SAF grant, project scope,
+  /// archive ID and revision. A revoked grant results in no photographs.
+  Future<ZimLocalGallery?> articleGallery(
+    String url,
+    String archiveId,
+    String? date, {
+    required String question,
+    int maxImages = 2,
+    bool Function(String uri)? allowSource,
+  }) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        uri.scheme != 'zim' ||
+        uri.host != archiveId ||
+        uri.pathSegments.length != 1 ||
+        uri.hasFragment ||
+        uri.queryParametersAll.keys.any(
+          (key) => key != 'entry' && key != 'source',
+        ) ||
+        (uri.queryParametersAll['entry']?.length ?? 0) > 1 ||
+        (uri.queryParametersAll['source']?.length ?? 0) > 1) {
+      return null;
+    }
+    final entryText = uri.queryParameters['entry'];
+    final entry = entryText == null ? null : int.tryParse(entryText);
+    if (entryText != null && (entry == null || entry < 0)) return null;
+    final sourceId = uri.queryParameters['source'];
+    if (sourceId != null &&
+        (!RegExp(r'^[0-9a-f]{64}
+    String url,
+    String archiveId,
+    String? date, {
+    bool Function(String uri)? allowSource,
+  }) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        uri.scheme != 'zim' ||
+        uri.host != archiveId ||
+        uri.pathSegments.length != 1 ||
+        uri.hasFragment ||
+        uri.queryParametersAll.keys.any(
+          (key) => key != 'entry' && key != 'source',
+        ) ||
+        (uri.queryParametersAll['entry']?.length ?? 0) > 1 ||
+        (uri.queryParametersAll['source']?.length ?? 0) > 1)
+      return null;
+    final entryText = uri.queryParameters['entry'];
+    final entry = entryText == null ? null : int.tryParse(entryText);
+    if (entryText != null && (entry == null || entry < 0)) return null;
+    final sourceId = uri.queryParameters['source'];
+    if (sourceId != null &&
+        (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sourceId) || entry == null))
+      return null;
+    final listing = await access.list();
+    final live = {for (final f in listing.files) f.uri: f};
+    final data = await state();
+    for (final row in data['files'] as List) {
+      if (sourceId != null &&
+          FolderLibrary.sourceId(row['uri'] as String) != sourceId)
+        continue;
+      if (allowSource != null && !allowSource(row['uri'] as String)) continue;
+      final file = live[row['uri']];
+      if (row['enabled'] != true ||
+          file == null ||
+          !file.name.toLowerCase().endsWith('.zim') ||
+          file.size != row['size'] ||
+          file.modified != row['modified'])
+        continue;
+      final wiki = ZimWikipedia(
+        file.uri,
+        openSource: (uri) {
+          if (allowSource != null && !allowSource(uri)) {
+            throw StateError('محدوده منابع پروژه تغییر کرده است.');
+          }
+          return access.open(uri);
+        },
+      );
+      try {
+        if (await wiki.archiveIdentity() != archiveId ||
+            await wiki.archiveMetadata('Date') != date)
+          continue;
+        final title = uri.pathSegments.single.replaceAll('_', ' ');
+        return entry == null
+            ? await wiki.article(title)
+            : await wiki.articleAt(entry, expectedTitle: title);
+      } catch (_) {
+        /* Keep the saved excerpt if access was revoked. */
+      } finally {
+        await wiki.close();
+      }
+    }
+    return null;
+  }
+}
+
+final folderLibraryProvider = Provider<FolderLibrary>((ref) => FolderLibrary());
+
+class _MeteredZimSource implements ZimSource {
+  final ZimSource source;
+  final Map<String, dynamic> check;
+  _MeteredZimSource(this.source, this.check);
+  @override
+  Future<int> length() => source.length();
+  @override
+  Future<Uint8List> readAt(int offset, int count) async {
+    check['readCalls'] = (check['readCalls'] as int) + 1;
+    if (offset > (check['highestOffset'] as int))
+      check['highestOffset'] = offset;
+    final bytes = await source.readAt(offset, count);
+    check['readBytes'] = (check['readBytes'] as int) + bytes.length;
+    return bytes;
+  }
+
+  @override
+  Future<void> close() => source.close();
+}
+).hasMatch(sourceId) || entry == null)) {
+      return null;
+    }
+    final listing = await access.list();
+    final live = {for (final f in listing.files) f.uri: f};
+    final data = await state();
+    for (final row in data['files'] as List) {
+      final fileUri = row['uri'] as String;
+      if (sourceId != null && FolderLibrary.sourceId(fileUri) != sourceId) {
+        continue;
+      }
+      if (allowSource != null && !allowSource(fileUri)) continue;
+      final file = live[fileUri];
+      if (row['enabled'] != true ||
+          file == null ||
+          !file.name.toLowerCase().endsWith('.zim') ||
+          file.size != row['size'] ||
+          file.modified != row['modified']) {
+        continue;
+      }
+      final wiki = ZimWikipedia(fileUri, openSource: (uri) {
+        if (allowSource != null && !allowSource(uri)) {
+          throw StateError('محدوده منابع پروژه تغییر کرده است.');
+        }
+        return access.open(uri);
+      });
+      try {
+        if (await wiki.archiveIdentity() != archiveId ||
+            await wiki.archiveMetadata('Date') != date) {
+          continue;
+        }
+        final gallery = await wiki.gallery(
+          uri.pathSegments.single.replaceAll('_', ' '),
+          entryIndex: entry,
+          question: question,
+          maxImages: maxImages,
+        );
+        if (allowSource != null && !allowSource(fileUri)) return null;
+        final fresh = await access.list();
+        final current = fresh.files.where((f) => f.uri == fileUri).firstOrNull;
+        if (current == null ||
+            current.size != file.size ||
+            current.modified != file.modified) {
+          return null;
+        }
+        return gallery;
+      } catch (_) {
+        // Preserve the answer text even when optional media is unreadable.
+      } finally {
+        await wiki.close();
+      }
+    }
+    return null;
   }
 
   Future<SearchResult?> article(
