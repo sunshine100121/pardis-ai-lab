@@ -35,6 +35,18 @@ void main() {
     expect(await gate.run(() async => 7), 7);
   });
 
+  test('synchronous failure does not poison the pending allocation queue',
+      () async {
+    final gate = MemoryAdmission();
+    final first = gate.run<int>(() {
+      throw StateError('native allocation refused');
+    });
+    final later = gate.run<int>(() async => 23);
+    await expectLater(first, throwsStateError);
+    expect(await later, 23);
+    expect(await gate.run(() async => 42), 42);
+  });
+
   test(
     'immediate allocation returns its result and releases the queue',
     () async {
