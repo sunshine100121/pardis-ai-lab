@@ -41,3 +41,11 @@
 - تا زمان CI و انتشار رسمی با امضای معتبر، «نصب‌شده روی تبلت» و «تأیید تجربه واقعی کاربر» **NOT VERIFIED** هستند.
 - همه داده‌های مالک، مدل Qwen، PDF/ZIM، Home Assistant، PVM، نسخه نصب‌شده 0.3.3+6 و شاخه `main` حفظ شده‌اند.
 - [Checkpoint اصلی](PALA_034_M01-M05_Checkpoint_2026-11-19_FA.md) | [GitHub Actions](https://github.com/sunshine100121/pardis-ai-lab/actions) | [نسخه ۱.۷ upstream](https://github.com/sebytzr16/on-device-llm/releases/tag/v1.7.0)
+
+## نتیجه نهایی CI #174 — تأییدشده
+- گردش‌کار موجود و یکپارچه `PALA 0.3.4 integrated source validation (no APK)` بدون ساخت گردش‌کار یا نصاب موازی، در [اجرای #174](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44562180872) برای آخرین Commit اجرایی/آزمون `1b7be7640ec8dbf3b4fd0a31f3d00277f6f2bf0e` با نتیجه رسمی **SUCCESS** پایان یافت.
+- در اجرای نخست [#173](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44559881281) **۲۹۲ آزمون** و کامپایل Android موفق بودند؛ بررسی لاگ نشان داد تست‌های `test/app_dialog_test.dart` و `test/chat_widgets_test.dart` جزو انتخاب اولیه CI نبوده‌اند. هر دو به **همان گام آزمونِ workflow موجود** افزوده شدند (Commit `1b7be764`)، بدون job جدید.
+- اجرای نهایی **۳۰۹ آزمون موفق، صفر ناموفق**، بررسی قالب‌بندی Dart و `flutter analyze` موفق، **BUILD SUCCESSFUL** برای کامپایل غیرنصبی Android. `baseline=success`، `mvp=success` و `format=skipped` به علت انجام قالب‌بندی در `mvp`.
+- در لاگ، آزمون زبان عنوان گفتگو، `multiline edit sends on Enter, but not Shift+Enter` و `question version picker restores an earlier branch` صریحاً حضور داشتند و موفق شدند؛ رگرسیون PDF ۳۱۰صفحه‌ای/صفحه ۲۹۷ نیز موفق ماند.
+- **محدودیت پذیرش:** تست‌ها نرم‌افزاری و مبتنی بر fixture هستند؛ تولید عنوان توسط Qwen فارسی، تعامل صفحه‌کلید فیزیکی/مجازی واقعی روی Galaxy Tab S10 Ultra، حفظ داده پس از ارتقای امضاشده و UX عملی هنوز آزمون دستگاهی **NOT VERIFIED** است. APK ساخته یا نصب نشده است.
+- هیچ تغییری در مدل، حافظه پروژه‌ها، تاریخچه واقعی، ZIM/PDF، Home Assistant، PVM یا شاخه `main` در این مأموریت انجام نشد.
