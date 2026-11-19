@@ -1093,8 +1093,7 @@ class _SourcesBubble extends StatelessWidget {
   static String label(BuildContext context, Map<String, dynamic> s) {
     final url = s['url'] as String? ?? '';
     if (KnowledgeStore.isKnowledgeUrl(url)) {
-      return s['title'] as String? ??
-          context.l10n.uiChatBubbleKnowledgeLibrary;
+      return s['title'] as String? ?? context.l10n.uiChatBubbleKnowledgeLibrary;
     }
     if (url.startsWith('pala-knowledge://')) {
       return s['title'] as String? ?? 'سند محلی';

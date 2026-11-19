@@ -2749,10 +2749,8 @@ class ChatNotifier extends _ChatBase
           final decided = CitationMatch.appControlled(
             t.answer.toString(),
             eligible,
-            labelModelKnowledge:
-                t.aboutUser == null && t.attachments.isEmpty,
-            sensitiveAdvice:
-                CitationMatch.sensitiveRecommendation(t.input),
+            labelModelKnowledge: t.aboutUser == null && t.attachments.isEmpty,
+            sensitiveAdvice: CitationMatch.sensitiveRecommendation(t.input),
           );
           t.citationDecision = decided;
           if (decided.text != t.answer.toString()) {

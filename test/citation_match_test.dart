@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/features/retrieval/domain/citation_match.dart';
 
 void main() {
-
   test('PALA source zero is program-owned with no fetched evidence', () {
     final result = CitationMatch.appControlled(
       'درخت گلابی ممکن است آفت‌های متفاوت داشته باشد [۹۹].',
@@ -49,19 +48,22 @@ void main() {
     expect(result.text, isNot(contains('[1]')));
   });
 
-  test('unsupported sensitive electrical advice receives a visible caution', () {
-    final result = CitationMatch.appControlled(
-      'Turn the electrical inverter voltage to 300 volts [99].',
-      const [],
-      sensitiveAdvice: CitationMatch.sensitiveRecommendation(
-        'چطور ولتاژ اینورتر را تغییر بدهم؟',
-      ),
-    );
-    expect(result.caution, true);
-    expect(result.text, contains('[۰]'));
-    expect(result.text, contains('شاهد کافی ندارد'));
-    expect(result.text, isNot(contains('[99]')));
-  });
+  test(
+    'unsupported sensitive electrical advice receives a visible caution',
+    () {
+      final result = CitationMatch.appControlled(
+        'Turn the electrical inverter voltage to 300 volts [99].',
+        const [],
+        sensitiveAdvice: CitationMatch.sensitiveRecommendation(
+          'چطور ولتاژ اینورتر را تغییر بدهم؟',
+        ),
+      );
+      expect(result.caution, true);
+      expect(result.text, contains('[۰]'));
+      expect(result.text, contains('شاهد کافی ندارد'));
+      expect(result.text, isNot(contains('[99]')));
+    },
+  );
 
   test('literal code and inline array indexes do not become citations', () {
     final result = CitationMatch.appControlled(

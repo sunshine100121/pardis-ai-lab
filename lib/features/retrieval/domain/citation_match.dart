@@ -1,7 +1,6 @@
 import 'evidence.dart';
 import 'claim_passages.dart';
 
-
 /// The app's provenance decision, never a citation number supplied by Qwen.
 class CitationDecision {
   const CitationDecision({
@@ -80,7 +79,8 @@ class CitationMatch {
         out.add(line);
         continue;
       }
-      final headingsOrTables = trimmed.startsWith('|') ||
+      final headingsOrTables =
+          trimmed.startsWith('|') ||
           trimmed.startsWith('#') ||
           trimmed.startsWith('---');
       final items = <String>[];
@@ -116,7 +116,8 @@ class CitationMatch {
     final caution = sensitiveAdvice && unverified > 0;
     var text = out.join('\n');
     if (caution) {
-      text += '\n\n⚠️ برای اقدام حساس، این بخش پاسخ شاهد کافی ندارد؛ '
+      text +=
+          '\n\n⚠️ برای اقدام حساس، این بخش پاسخ شاهد کافی ندارد؛ '
           'پیش از تغییر یا اجرای توصیه، آن را با منبع معتبر یا متخصص بررسی کنید.';
     }
     return CitationDecision(
@@ -131,9 +132,7 @@ class CitationMatch {
   /// [n] in inline code is an example or array index, not a source marker.
   /// Only standalone model-written numeric markers outside code are removed.
   static String _withoutModelMarkers(String sentence) {
-    final marker = RegExp(
-      r'\[\s*[0-9۰-۹٠-٩]+(?:\s*[,،]\s*[0-9۰-۹٠-٩]+)*\s*\]',
-    );
+    final marker = RegExp(r'\[\s*[0-9۰-۹٠-٩]+(?:\s*[,،]\s*[0-9۰-۹٠-٩]+)*\s*\]');
     final inline = RegExp(r'`[^`\n]*`');
     final out = StringBuffer();
     var at = 0;
@@ -143,7 +142,8 @@ class CitationMatch {
       at = code.end;
     }
     out.write(sentence.substring(at).replaceAll(marker, ''));
-    return out.toString()
+    return out
+        .toString()
         .replaceAll(RegExp(r' {2,}'), ' ')
         .replaceAll(RegExp(r'\s+([.!?؟،؛])'), r'$1')
         .trimRight();
