@@ -2,10 +2,13 @@ import '../../../helper/helper_runner.dart';
 import '../../domain/entities/model_suggestions.dart';
 import '../widgets/download_center.dart';
 import '../widgets/model_categories.dart';
+
 import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/design/app_design.dart';
 import '../../../../core/platform/device_info.dart';
 import '../../../../core/providers/shared_providers.dart';
@@ -384,9 +387,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(
-                        height: AppDesign.xl,
-                      ), // Search is the main way in; a link or a file are the two others.
+                      const SizedBox(height: AppDesign.xl), // Search is the main way in; a link or a file are the two others.
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

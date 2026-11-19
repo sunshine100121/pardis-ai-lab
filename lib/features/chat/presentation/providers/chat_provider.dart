@@ -939,18 +939,20 @@ class ChatNotifier extends _ChatBase
       // used as it is (audit P1-18).
       // Preserve the protected native/runtime baseline: only UI-initiated
       // model allocations share the existing admission queue.
-      await MemoryAdmission.shared.run(() => manager.loadModel(
-        model,
-        forChat: true,
-        settings: settings,
-        onLoadStart: () => state = state.copyWith(isLoadingModel: true),
-        // The projector loads only for a chat with a photo in it.
-        vision:
-            t.attachments.any((a) => a.isImage) ||
-            state.messages.any(
-              (m) => isLive(m) && m.attachments.any((a) => a.isImage),
-            ),
-      ));
+      await MemoryAdmission.shared.run(
+        () => manager.loadModel(
+          model,
+          forChat: true,
+          settings: settings,
+          onLoadStart: () => state = state.copyWith(isLoadingModel: true),
+          // The projector loads only for a chat with a photo in it.
+          vision:
+              t.attachments.any((a) => a.isImage) ||
+              state.messages.any(
+                (m) => isLive(m) && m.attachments.any((a) => a.isImage),
+              ),
+        ),
+      );
       t.stage('loadMs');
       state = state.copyWith(isLoadingModel: false, metrics: t.engine.metrics);
     }

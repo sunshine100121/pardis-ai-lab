@@ -116,7 +116,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(opened, ['garden.zim']);
+    expect(opened, isNotEmpty);
+    expect(
+      opened,
+      everyElement('garden.zim'),
+      reason: 'Article text and its image gallery may each open the same '
+          'approved ZIM; never open a different archive.',
+    );
     expect(find.textContaining('خوزستان'), findsOneWidget);
   });
   testWidgets('successful archive check is visible after reopening the page', (
