@@ -83,7 +83,18 @@ class ZimImageSelection {
             : '',
       ].where((t) => t.trim().isNotEmpty).join(' ').trim();
       final text = '$caption $path'.toLowerCase();
-      final matches = terms.where(text.contains).length;
+      // Prioritise the asked symptom/problem, not merely a general photo
+      // of the same tree. This is a transparent lexical ranking, not
+      // image recognition or a diagnosis of a photographed pest.
+      const focus = {
+        'آفت', 'آفات', 'بیماری', 'بیماریها', 'بیماری‌ها', 'نشانه',
+        'symptom', 'pest', 'disease', 'damage',
+      };
+      final matches = terms.fold<int>(
+        0,
+        (score, term) =>
+            score + (text.contains(term) ? (focus.contains(term) ? 20 : 10) : 0),
+      );
       final isDecoration = RegExp(
         r'logo|icon|badge|sprite|placeholder|favicon',
         caseSensitive: false,
@@ -92,7 +103,7 @@ class ZimImageSelection {
         ZimImageCandidate(
           reference: path,
           caption: caption,
-          score: matches * 10 - (isDecoration ? 20 : 0),
+          score: matches - (isDecoration ? 200 : 0),
         ),
       );
     }
