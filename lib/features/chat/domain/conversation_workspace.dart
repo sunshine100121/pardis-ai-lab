@@ -119,17 +119,19 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
   Future<void> saveProject({
     String? id,
     required String name,
-    String instructions = '',
-    String collection = '',
+    String? instructions,
+    String? collection,
     String? memoryNotes,
     List<String>? sourceIds,
   }) => _change((s) {
     final previous = s.projects.where((p) => p.id == id).firstOrNull;
+    final nextInstructions = instructions ?? previous?.instructions ?? '';
+    final nextCollection = collection ?? previous?.collection ?? '';
     final notes = memoryNotes ?? previous?.memoryNotes ?? '';
     if (name.trim().isEmpty ||
         name.length > 100 ||
-        instructions.length > 4000 ||
-        collection.length > 200 ||
+        nextInstructions.length > 4000 ||
+        nextCollection.length > 200 ||
         notes.length > 6000) {
       throw const FormatException('Invalid project name or instructions.');
     }
@@ -139,8 +141,8 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     final project = ChatProject(
       id ?? const Uuid().v4(),
       name.trim(),
-      instructions: instructions.trim(),
-      collection: collection.trim(),
+      instructions: nextInstructions.trim(),
+      collection: nextCollection.trim(),
       memoryNotes: notes.trim(),
       sourceIds: List.unmodifiable(
         sourceIds ?? previous?.sourceIds ?? const [],
