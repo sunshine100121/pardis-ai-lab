@@ -113,22 +113,76 @@ class FolderLibrary {
     }
   }
 
-  /// Reads all text pages one by one, retaining only the best four matches.
-  /// The caller checks source identity, approval and maximum input bytes.
-  static Future<List<({int page, int score, String text})>> findPdfPages(
-    Uint8List bytes,
-    Set<String> questionTerms,
-  ) async {
-    if (questionTerms.isEmpty) return const [];
-    if (bytes.length > maxDocumentBytes) {
-      throw const FormatException('سند برای خواندن مستقیم بزرگ است');
+  /// A PDF opened directly from the approved read-only SAF/file descriptor.
+  /// No full-document Uint8List, duplicate archive or persisted text index.
+  /// PDFium may request offsets out of order; readAt is serialized for local
+  /// RandomAccessFile providers and split into small bounded chunks.
+  static const maxPdfReadChunkBytes = 64 * 1024;
+  static const maxPdfCachedBytes = 1024 * 1024;
+
+  static Future<
+    ({
+      List<({int page, int score, String text})> matches,
+      int pagesScanned,
+      int pagesWithText,
+    })
+  > scanPdfSource(
+    ZimSource source,
+    int expectedBytes,
+    Set<String> questionTerms, {
+    required String sourceName,
+  }) async {
+    if (expectedBytes <= 0 || await source.length() != expectedBytes) {
+      throw const FormatException('اندازه PDF تغییر کرده یا نامعتبر است');
     }
     await pdfrxFlutterInitialize();
-    final document = await PdfDocument.openData(bytes);
+    Future<void> previousRead = Future<void>.value();
+    Future<int> read(Uint8List buffer, int position, int size) async {
+      final waiting = previousRead;
+      final release = Completer<void>();
+      previousRead = release.future;
+      await waiting;
+      try {
+        if (position < 0 || size < 0 || size > buffer.length) {
+          throw RangeError('PDF read request');
+        }
+        if (position >= expectedBytes || size == 0) return 0;
+        final needed = size < expectedBytes - position
+            ? size
+            : expectedBytes - position;
+        var copied = 0;
+        while (copied < needed) {
+          final count = (needed - copied) < maxPdfReadChunkBytes
+              ? needed - copied
+              : maxPdfReadChunkBytes;
+          final chunk = await source.readAt(position + copied, count);
+          if (chunk.isEmpty || chunk.length > count) {
+            throw const FormatException('خواندن ناقص PDF');
+          }
+          buffer.setRange(copied, copied + chunk.length, chunk);
+          copied += chunk.length;
+        }
+        return copied;
+      } finally {
+        release.complete();
+      }
+    }
+
+    final document = await PdfDocument.openCustom(
+      read: read,
+      fileSize: expectedBytes,
+      sourceName: sourceName,
+      maxSizeToCacheOnMemory: maxPdfCachedBytes,
+    );
     try {
-      final results = <({int page, int score, String text})>[];
+      final matches = <({int page, int score, String text})>[];
+      var pagesWithText = 0;
       for (var i = 0; i < document.pages.length; i++) {
+        // Drop each page's text after scoring; keep only four short excerpts.
         final text = (await document.pages[i].loadText())?.fullText ?? '';
+        if (text.trim().isEmpty) continue;
+        pagesWithText++;
+        if (questionTerms.isEmpty) continue;
         final normalized = normalize(text);
         final score = questionTerms.where(normalized.contains).length;
         if (score == 0) continue;
@@ -138,15 +192,19 @@ class FolderLibrary {
             .fold<int>(text.length, (a, b) => a < b ? a : b);
         final start = (first - 200).clamp(0, text.length);
         final end = (start + 1500).clamp(0, text.length);
-        results.add((
+        matches.add((
           page: i + 1,
           score: score,
           text: text.substring(start, end).trim(),
         ));
-        results.sort((a, b) => b.score.compareTo(a.score));
-        if (results.length > 4) results.removeLast();
+        matches.sort((a, b) => b.score.compareTo(a.score));
+        if (matches.length > 4) matches.removeLast();
       }
-      return results;
+      return (
+        matches: matches,
+        pagesScanned: document.pages.length,
+        pagesWithText: pagesWithText,
+      );
     } finally {
       await document.dispose();
     }
@@ -211,10 +269,21 @@ class FolderLibrary {
             row['status'] = 'غیرفعال؛ برای ساخت نمایه بازخوانی کنید';
             continue;
           }
-          if (file.size < 0 || file.size > maxDocumentBytes)
+          if (file.size < 0) {
+            throw const FormatException('اندازه فایل نامعتبر است');
+          }
+          if (file.name.toLowerCase().endsWith('.pdf') &&
+              file.size > maxDocumentBytes) {
+            row['status'] =
+                'PDF بزرگ؛ نمایه آغازین ساخته نشد؛ جست‌وجوی تدریجی همه صفحات '
+                'هنگام پرسش انجام می‌شود (تشخیص متن در زمان جست‌وجو)';
+            continue;
+          }
+          if (file.size > maxDocumentBytes) {
             throw const FormatException(
-              'اندازه نامعلوم یا بیش از ۸ MiB؛ بدون ساخت کپی رد شد.',
+              'فایل غیر PDF بیش از ۸ MiB؛ بدون ساخت کپی رد شد.',
             );
+          }
           if (same != null &&
               same['size'] == file.size &&
               same['modified'] == file.modified &&
@@ -398,33 +467,35 @@ class FolderLibrary {
         }
         continue;
       }
-      // Preview metadata contains only early passages. On a miss, inspect
-      // the full text layer of the same authorized, unchanged PDF on demand.
+      // Search every page of each approved PDF, even when the short preview
+      // also contains a match. This prevents early matches hiding later,
+      // more relevant chapters. Reads are sparse and no full PDF is copied.
       if ((f['name'] as String).toLowerCase().endsWith('.pdf') &&
-          terms.isNotEmpty &&
-          now.size >= 0 &&
-          now.size <= maxDocumentBytes &&
-          !(f['passages'] as List).any((p) {
-            final excerpt = normalize(p['text'] as String);
-            final overlap = terms.where(excerpt.contains).length;
-            return overlap >= (terms.length == 1 ? 1 : 2);
-          })) {
+          terms.isNotEmpty) {
         try {
           final source = await access.open(f['uri'] as String);
-          late Uint8List bytes;
+          late ({
+            List<({int page, int score, String text})> matches,
+            int pagesScanned,
+            int pagesWithText,
+          }) scan;
           try {
             final length = await source.length();
-            if (length != now.size || length > maxDocumentBytes) {
-              throw StateError('اندازه فایل تغییر کرده است');
+            if (length != now.size) {
+              throw const FormatException('اندازه PDF تغییر کرده است');
             }
-            bytes = await source.readAt(0, length);
-            if (bytes.length != length) throw StateError('خواندن ناقص');
+            scan = await scanPdfSource(
+              source,
+              length,
+              terms,
+              sourceName:
+                  'pala-pdf:${sourceId(f['uri'] as String)}:${now.modified}',
+            );
           } finally {
             await source.close();
           }
-          final matches = await findPdfPages(bytes, terms);
-          // A SAF grant, file revision or project selection may change
-          // during a long scan; do not return evidence from a stale source.
+          // A SAF grant, file revision or approval can change during the
+          // scan. Fail closed rather than serving text from a stale file.
           final still = await access.list();
           final currentFile = still.files
               .where((item) => item.uri == f['uri'])
@@ -445,13 +516,21 @@ class FolderLibrary {
             checks.add({'file': f['name'], 'code': 'changed'});
             continue;
           }
-          for (final hit in matches) {
+          if (scan.pagesWithText == 0) {
+            checks.add({
+              'file': f['name'],
+              'code': 'pdf_no_text',
+              'pagesScanned': scan.pagesScanned,
+            });
+            continue;
+          }
+          for (final hit in scan.matches) {
             final id = sourceId(f['uri'] as String);
             found.add((
               hit.score,
               SearchResult(
-                title: (f['name'] as String) + ' · صفحه ' + hit.page.toString(),
-                url: 'pala-knowledge://' + id + '?page=' + hit.page.toString(),
+                title: '${f['name']} · صفحه ${hit.page}',
+                url: 'pala-knowledge://$id?page=${hit.page}',
                 snippet: '',
                 source: 'پوشه AI Knowledge',
                 rank: hit.score,
@@ -463,13 +542,14 @@ class FolderLibrary {
           checks.add({
             'file': f['name'],
             'code': 'pdf_page_scan',
-            'pagesMatched': matches.length,
+            'pagesScanned': scan.pagesScanned,
+            'pagesWithText': scan.pagesWithText,
+            'pagesMatched': scan.matches.length,
           });
           continue;
         } catch (_) {
           checks.add({'file': f['name'], 'code': 'pdf_page_scan_failed'});
-          // Do not substitute potentially stale preview evidence after
-          // the source failed its live read or permission checks.
+          // No stale excerpts or unverified synthetic page labels.
           continue;
         }
       }
