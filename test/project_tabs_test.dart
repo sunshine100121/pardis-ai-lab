@@ -77,6 +77,30 @@ void main() {
     },
   );
 
+  test('project facts require explicit memory sharing for remote models', () {
+    expect(
+      ProjectMemoryGate.mayShareWithModel(
+        usesRemote: false,
+        shareMemory: false,
+      ),
+      isTrue,
+    );
+    expect(
+      ProjectMemoryGate.mayShareWithModel(
+        usesRemote: true,
+        shareMemory: false,
+      ),
+      isFalse,
+    );
+    expect(
+      ProjectMemoryGate.mayShareWithModel(
+        usesRemote: true,
+        shareMemory: true,
+      ),
+      isTrue,
+    );
+  });
+
   test('owner memory understands colloquial phrases and explicit overviews',
       () {
     const saved = '• درخت گردو آبیاری قطره‌ای دارد. '
@@ -263,6 +287,14 @@ void main() {
         memoryNotes: List.filled(6100, 'ا').join(),
       ),
       throwsFormatException,
+    );
+    expect(prefs.getString(ConversationWorkspaceNotifier.key), previous);
+    await expectLater(
+      reopened.saveProject(
+        id: 'already-deleted-project',
+        name: 'بازسازی ناخواسته',
+      ),
+      throwsStateError,
     );
     expect(prefs.getString(ConversationWorkspaceNotifier.key), previous);
   });
