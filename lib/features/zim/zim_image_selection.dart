@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:html/parser.dart' as html_parser;
+
 /// A verified, bounded image read from a previously approved ZIM archive.
 class ZimLocalImage {
   const ZimLocalImage({
@@ -18,8 +19,6 @@ class ZimLocalGallery {
   final int referencedCount;
   final List<ZimLocalImage> images;
 }
-
-
 
 /// Offline article image metadata. No network requests or binary image copies.
 /// Actual image bytes must be read from the same approved ZIM archive only.
@@ -108,13 +107,22 @@ class ZimImageSelection {
       // of the same tree. This is a transparent lexical ranking, not
       // image recognition or a diagnosis of a photographed pest.
       const focus = {
-        'آفت', 'آفات', 'بیماری', 'بیماریها', 'بیماری‌ها', 'نشانه',
-        'symptom', 'pest', 'disease', 'damage',
+        'آفت',
+        'آفات',
+        'بیماری',
+        'بیماریها',
+        'بیماری‌ها',
+        'نشانه',
+        'symptom',
+        'pest',
+        'disease',
+        'damage',
       };
       final matches = terms.fold<int>(
         0,
         (score, term) =>
-            score + (text.contains(term) ? (focus.contains(term) ? 20 : 10) : 0),
+            score +
+            (text.contains(term) ? (focus.contains(term) ? 20 : 10) : 0),
       );
       final isDecoration = RegExp(
         r'logo|icon|badge|sprite|placeholder|favicon',

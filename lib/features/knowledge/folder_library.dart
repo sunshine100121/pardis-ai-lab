@@ -540,8 +540,7 @@ class FolderLibrary {
     final data = await state();
     for (final row in data['files'] as List) {
       final fileUri = row['uri'] as String;
-      if (sourceId != null &&
-          FolderLibrary.sourceId(fileUri) != sourceId) {
+      if (sourceId != null && FolderLibrary.sourceId(fileUri) != sourceId) {
         continue;
       }
       if (allowSource != null && !allowSource(fileUri)) continue;
@@ -553,12 +552,15 @@ class FolderLibrary {
           file.modified != row['modified']) {
         continue;
       }
-      final wiki = ZimWikipedia(fileUri, openSource: (uri) {
-        if (allowSource != null && !allowSource(uri)) {
-          throw StateError('محدوده منابع پروژه تغییر کرده است.');
-        }
-        return access.open(uri);
-      });
+      final wiki = ZimWikipedia(
+        fileUri,
+        openSource: (uri) {
+          if (allowSource != null && !allowSource(uri)) {
+            throw StateError('محدوده منابع پروژه تغییر کرده است.');
+          }
+          return access.open(uri);
+        },
+      );
       try {
         if (await wiki.archiveIdentity() != archiveId ||
             await wiki.archiveMetadata('Date') != date) {
@@ -572,9 +574,9 @@ class FolderLibrary {
         );
         if (allowSource != null && !allowSource(fileUri)) return null;
         final checked = await access.list();
-        final current = checked.files.where(
-          (f) => f.uri == fileUri,
-        ).firstOrNull;
+        final current = checked.files
+            .where((f) => f.uri == fileUri)
+            .firstOrNull;
         if (current == null ||
             current.size != file.size ||
             current.modified != file.modified) {

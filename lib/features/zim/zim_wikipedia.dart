@@ -128,11 +128,13 @@ class ZimWikipedia {
       try {
         final bytes = await zim.imageBytes(article, candidate.reference);
         if (bytes == null) continue;
-        images.add(ZimLocalImage(
-          caption: candidate.caption,
-          bytes: bytes,
-          reference: candidate.reference,
-        ));
+        images.add(
+          ZimLocalImage(
+            caption: candidate.caption,
+            bytes: bytes,
+            reference: candidate.reference,
+          ),
+        );
       } catch (_) {
         // An optional picture must not hide the actual article answer.
       }

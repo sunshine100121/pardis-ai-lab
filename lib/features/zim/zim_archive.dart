@@ -488,7 +488,9 @@ class ZimArchive {
       return null;
     }
     final base = Uri(path: '/' + article.namespace + '/' + article.url);
-    final path = base.resolveUri(relative).pathSegments
+    final path = base
+        .resolveUri(relative)
+        .pathSegments
         .where((segment) => segment.isNotEmpty)
         .toList();
     if (path.length < 2) return null;

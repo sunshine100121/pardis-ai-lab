@@ -28,90 +28,109 @@ class _ImageFolder implements FolderAccess {
 }
 
 void main() {
-  test('approved local ZIM image bytes are retrieved without copying archive',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    final access = _ImageFolder();
-    final library = FolderLibrary(access: access);
-    await library.refresh();
-    final wiki = ZimWikipedia('photo.zim', openSource: access.open);
-    final id = await wiki.archiveIdentity();
-    await wiki.close();
-    final citation = Uri(
-      scheme: 'zim',
-      host: id,
-      path: '/بهبهان',
-      queryParameters: {
-        'entry': '0',
-        'source': FolderLibrary.sourceId('photo.zim'),
-      },
-    ).toString();
-    final result = await library.articleGallery(
-      citation,
-      id,
-      '2026-11-15',
-      question: 'آفت گلابی',
-      allowSource: (uri) => uri == 'photo.zim',
-    );
-    expect(result, isNotNull);
-    expect(result!.referencedCount, 2);
-    expect(result.images, hasLength(2));
-    expect(result.images.first.caption, contains('آفت'));
-    expect(result.images.first.bytes.length, greaterThan(50));
-    expect(result.images.first.bytes.take(4).toList(), [137, 80, 78, 71]);
-    expect(access.opened, everyElement('photo.zim'));
-    final before = access.opened.length;
-    expect(
-      await library.articleGallery(
+  test(
+    'approved local ZIM image bytes are retrieved without copying archive',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final access = _ImageFolder();
+      final library = FolderLibrary(access: access);
+      await library.refresh();
+      final wiki = ZimWikipedia('photo.zim', openSource: access.open);
+      final id = await wiki.archiveIdentity();
+      await wiki.close();
+      final citation = Uri(
+        scheme: 'zim',
+        host: id,
+        path: '/بهبهان',
+        queryParameters: {
+          'entry': '0',
+          'source': FolderLibrary.sourceId('photo.zim'),
+        },
+      ).toString();
+      final result = await library.articleGallery(
         citation,
         id,
         '2026-11-15',
         question: 'آفت گلابی',
-        allowSource: (_) => false,
-      ),
-      isNull,
-    );
-    expect(access.opened.length, before);
-  });
-
-  test('illustrated archives beyond 4 GiB are opened with bounded reads',
-      () async {
-    final source = persianZim(large: true, illustrated: true);
-    final wiki = ZimWikipedia('large.zim', openSource: (_) async => source);
-    try {
-      final gallery = await wiki.gallery('بهبهان', question: 'آفت گلابی');
-      expect(gallery?.images, hasLength(2));
-      expect(source.highestOffset, greaterThan(1 << 32));
-      expect(source.bytesRead, lessThan(512 * 1024));
-      expect(source.maxRead, lessThanOrEqualTo(4096));
-    } finally {
-      await wiki.close();
-    }
-  });
-
-  test('remote, data and unsupported image references never read media',
-      () async {
-    final access = _ImageFolder();
-    final archive = await ZimArchive.open('photo.zim', openSource: access.open);
-    try {
-      final article = await archive.findByTitle('بهبهان');
-      expect(article, isNotNull);
-      expect(await archive.imageBytes(article!, 'https://example.org/p.png'),
-          isNull);
-      expect(await archive.imageBytes(article, '//example.org/p.png'), isNull);
-      expect(await archive.imageBytes(article, 'data:image/png;base64,AA'),
-          isNull);
+        allowSource: (uri) => uri == 'photo.zim',
+      );
+      expect(result, isNotNull);
+      expect(result!.referencedCount, 2);
+      expect(result.images, hasLength(2));
+      expect(result.images.first.caption, contains('آفت'));
+      expect(result.images.first.bytes.length, greaterThan(50));
+      expect(result.images.first.bytes.take(4).toList(), [137, 80, 78, 71]);
+      expect(access.opened, everyElement('photo.zim'));
+      final before = access.opened.length;
       expect(
-        await archive.imageBytes(article, '../I/pear-pest.png',
-            maxImageBytes: 0),
+        await library.articleGallery(
+          citation,
+          id,
+          '2026-11-15',
+          question: 'آفت گلابی',
+          allowSource: (_) => false,
+        ),
         isNull,
       );
-      expect(
-        await archive.imageBytes(article, '../I/pear-pest.png'),
-        isNotNull,
+      expect(access.opened.length, before);
+    },
+  );
+
+  test(
+    'illustrated archives beyond 4 GiB are opened with bounded reads',
+    () async {
+      final source = persianZim(large: true, illustrated: true);
+      final wiki = ZimWikipedia('large.zim', openSource: (_) async => source);
+      try {
+        final gallery = await wiki.gallery('بهبهان', question: 'آفت گلابی');
+        expect(gallery?.images, hasLength(2));
+        expect(source.highestOffset, greaterThan(1 << 32));
+        expect(source.bytesRead, lessThan(512 * 1024));
+        expect(source.maxRead, lessThanOrEqualTo(4096));
+      } finally {
+        await wiki.close();
+      }
+    },
+  );
+
+  test(
+    'remote, data and unsupported image references never read media',
+    () async {
+      final access = _ImageFolder();
+      final archive = await ZimArchive.open(
+        'photo.zim',
+        openSource: access.open,
       );
-    } finally {
-      await archive.close();
-    }
-  });
+      try {
+        final article = await archive.findByTitle('بهبهان');
+        expect(article, isNotNull);
+        expect(
+          await archive.imageBytes(article!, 'https://example.org/p.png'),
+          isNull,
+        );
+        expect(
+          await archive.imageBytes(article, '//example.org/p.png'),
+          isNull,
+        );
+        expect(
+          await archive.imageBytes(article, 'data:image/png;base64,AA'),
+          isNull,
+        );
+        expect(
+          await archive.imageBytes(
+            article,
+            '../I/pear-pest.png',
+            maxImageBytes: 0,
+          ),
+          isNull,
+        );
+        expect(
+          await archive.imageBytes(article, '../I/pear-pest.png'),
+          isNotNull,
+        );
+      } finally {
+        await archive.close();
+      }
+    },
+  );
 }

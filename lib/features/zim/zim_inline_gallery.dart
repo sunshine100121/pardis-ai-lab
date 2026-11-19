@@ -82,14 +82,16 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
     }
 
     try {
-      return await ref.read(folderLibraryProvider).articleGallery(
-        citation['url'] as String,
-        citation['archiveId'] as String,
-        citation['archiveDate'] as String?,
-        question: widget.question,
-        maxImages: _expanded ? 6 : 2,
-        allowSource: allowed,
-      );
+      return await ref
+          .read(folderLibraryProvider)
+          .articleGallery(
+            citation['url'] as String,
+            citation['archiveId'] as String,
+            citation['archiveDate'] as String?,
+            question: widget.question,
+            maxImages: _expanded ? 6 : 2,
+            allowSource: allowed,
+          );
     } catch (_) {
       return null;
     }
@@ -144,7 +146,7 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
               Text(
                 hasPictures
                     ? '${gallery.referencedCount} تصویر در مقاله آفلاین معرفی شده؛ '
-                      '${gallery.images.length} تصویر نمایش داده می‌شود'
+                          '${gallery.images.length} تصویر نمایش داده می‌شود'
                     : 'تصویر قابل‌نمایشی در این منبع آفلاین پیدا نشد.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -177,8 +179,9 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
                                 photo.bytes,
                                 cacheWidth: 360,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) =>
-                                    const Center(child: Icon(Icons.broken_image)),
+                                errorBuilder: (_, _, _) => const Center(
+                                  child: Icon(Icons.broken_image),
+                                ),
                               ),
                             ),
                           ),

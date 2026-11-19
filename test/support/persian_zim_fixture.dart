@@ -98,10 +98,11 @@ SparseZimSource persianZim({
         'bytes': base64Decode(pixel),
       },
     ]);
-    entries.sort((a, b) =>
-        (a['ns'] as String).compareTo(b['ns'] as String) != 0
-            ? (a['ns'] as String).compareTo(b['ns'] as String)
-            : (a['url'] as String).compareTo(b['url'] as String));
+    entries.sort(
+      (a, b) => (a['ns'] as String).compareTo(b['ns'] as String) != 0
+          ? (a['ns'] as String).compareTo(b['ns'] as String)
+          : (a['url'] as String).compareTo(b['url'] as String),
+    );
   }
   if (embeddedIndex) {
     entries.add({
