@@ -34,3 +34,11 @@
 ## ۵. پیوندها
 - [Checkpoint اصلی توسعه](PALA_034_M01-M05_Checkpoint_2026-11-19_FA.md)
 - [CI 182](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44580075347)
+
+## نتیجه قطعی CI #184 — تأییدشده
+- بعد از توقف اجرای #182 فقط به علت قالب‌بندی Dart، پچ رسمی در اجرای [#183](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44580882071) اخذ و در Commit [`0ccba9d`](https://github.com/sunshine100121/pardis-ai-lab/commit/0ccba9d5cae63de49295b3eaeaeffef0aa8f8a62) اعمال شد.
+- اجرای نهایی [#184](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44581129613) برای Commit کد `0ccba9d`، در attempt اول **SUCCESS** شد. `baseline=success` و `mvp=success`؛ `format=skipped` صرفاً به علت اجرای بررسی قالب‌بندی داخل `mvp` است.
+- لاگ واقعی `mvp`: **۳۲۵ آزمون PASS، صفر شکست، تحلیل Flutter و Dart format موفق، کامپایل Android بدون APK = BUILD SUCCESSFUL**.
+- آزمون‌های جدید `live_time_answer_test.dart` (ساعت/تاریخ/منطقه زمانی محلی، عدم ربودن پرسش تاریخی/مقدار حسگر، اختلاف UTC نیم‌ساعته، چهار زمان متمایز، نبود گزارش و ساعت جلوتر)، `ha_read_client_test.dart` و `offline_sensor_reliability_test.dart` (خواندن GET واقعی Mock بدون دانشنامه، حسگر مبهم و رد دسترسی غیرمجاز) همگی در لاگ PASS دیده شدند.
+- **توسعه و CI مأموریت ۰۶: ۱۰۰٪؛ قبولی عملی روی تبلت: هنوز تأییدنشده.** زمان دستگاه، محدوده واقعی Home Assistant، عملکرد پرسش‌های گفتاری فارسی، فعال‌بودن مجوز حسگرها و پاسخ بدون جست‌وجوی نامرتبط باید پس از انتشار امن PALA 0.3.4 روی Galaxy Tab S10 Ultra آزمایش شوند.
+- این آزمون‌ها با زمان تزریق‌شده/داده شبیه‌سازی‌شده انجام شده‌اند؛ ساعت صحیحِ فیزیکی سیستم‌عامل و درستی تنظیمات منطقه زمانی مالک در CI قابل‌تأیید نیست. هیچ APK ساخته یا نصب نشده و هیچ تغییری در `main`، Qwen، ZIM/PDF یا داده‌های مالک صورت نگرفته است.
