@@ -821,6 +821,13 @@ class ChatNotifier extends _ChatBase
           .read(conversationWorkspaceProvider)
           .memberships[state.chatId];
     }
+    // Project membership is a separate data boundary: previously approved
+    // global HA sensors must not override a project's scoped source policy.
+    if (_projectId != null &&
+        (HaSensorLanguage.isLiveQuestion(t.input) ||
+            LiveTimeAnswer.intent(t.input) == LiveTimeKind.sensorUpdate)) {
+      t.directTime = false;
+    }
     if (_projectId != null &&
         (t.reuseSourcesJson != null ||
             t.promptOverride != null ||
