@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/core/theme/app_theme.dart';
@@ -300,8 +301,7 @@ void main() {
       role: ChatRole.assistant,
       content: 'Answer [1].',
       timestamp: DateTime(2026),
-      sourcesJson:
-          r'[{"number":1,"title":"Docs","url":"https://docs.flutter.dev/x","retrievalStatus":"page_read","excerpt":"first passage\n[…]\nsecond passage","fetchedAt":"2026-09-15T10:00:00.000Z","publishedAt":"2026-09-01T00:00:00.000Z"}]',
+      sourcesJson: r'[{"number":1,"title":"Docs","url":"https://docs.flutter.dev/x","retrievalStatus":"page_read","excerpt":"first passage\n[…]\nsecond passage","fetchedAt":"2026-09-15T10:00:00.000Z","publishedAt":"2026-09-01T00:00:00.000Z"}]',
     );
     await tester.pumpWidget(_host(ChatBubble(message: message)));
     await tester.pumpAndSettle();
@@ -340,8 +340,7 @@ void main() {
       role: ChatRole.assistant,
       content: 'Answer [1].',
       timestamp: DateTime(2026),
-      sourcesJson:
-          r'[{"number":1,"title":"Docs","url":"https://docs.example/x","retrievalStatus":"page_read","excerpt":"evidence"},{"title":"Buy now","url":"https://shop.example/offer","retrievalStatus":"sponsored_not_used","sponsored":true}]',
+      sourcesJson: r'[{"number":1,"title":"Docs","url":"https://docs.example/x","retrievalStatus":"page_read","excerpt":"evidence"},{"title":"Buy now","url":"https://shop.example/offer","retrievalStatus":"sponsored_not_used","sponsored":true}]',
     );
     await tester.pumpWidget(_host(ChatBubble(message: message)));
     await tester.pumpAndSettle();
