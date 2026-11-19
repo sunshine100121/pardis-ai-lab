@@ -335,6 +335,10 @@ class ProjectMemoryGate {
     r'(?:چه|چیا|چی|همه).{0,48}(?:اطلاعات|یادداشت|خاطره|چیز).{0,60}(?:ثبت|یاد|ذخیره|داری|دارم)',
     unicode: true,
   );
+  static final _pastConversation = RegExp(
+    r'(?:قبلاً|قبلا|یادت|یادته).{0,64}(?:صحبت|گفتگو|گفت‌وگو|حرف|گفتیم|پرسید)',
+    unicode: true,
+  );
 
   // Very small Persian normalization for owner-memory questions:
   // «درخت گردوی من» and «درخت گردو» describe the same plant.
@@ -392,7 +396,13 @@ class ProjectMemoryGate {
     for (final entry in ownerNotes.split('\n')) {
       // Stored origin metadata is provenance, not evidence for a claim.
       final fact = entry.split(' (تأیید مالک؛ تاریخ: ').first;
-      if (questionTerms.intersection(tokens(fact)).length >= 2) {
+      final matching = questionTerms.intersection(tokens(fact));
+      if (matching.length >= 2) return true;
+      // A question about an earlier *conversation* may match one specific
+      // topic, but only a confirmed note that records its chat origin.
+      if (_pastConversation.hasMatch(question) &&
+          entry.contains(' (تأیید مالک؛ تاریخ: ') &&
+          matching.any((word) => word.length >= 4)) {
         return true;
       }
     }
