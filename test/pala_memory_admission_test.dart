@@ -35,10 +35,12 @@ void main() {
     expect(await gate.run(() async => 7), 7);
   });
 
-  test('immediate allocation returns its result and releases the queue',
-      () async {
-    final gate = MemoryAdmission();
-    expect(await gate.run(() async => 'done'), 'done');
-    expect(await gate.run(() async => 'again'), 'again');
-  });
+  test(
+    'immediate allocation returns its result and releases the queue',
+    () async {
+      final gate = MemoryAdmission();
+      expect(await gate.run(() async => 'done'), 'done');
+      expect(await gate.run(() async => 'again'), 'again');
+    },
+  );
 }
