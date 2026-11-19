@@ -3403,8 +3403,10 @@ class ChatNotifier extends _ChatBase
     // remote model unless this remote profile explicitly permits sharing.
     if (project != null &&
         project.memoryNotes.isNotEmpty &&
-        (!settings.usesRemote ||
-            settings.activeRemoteProfile?.shareMemory == true)) {
+        ProjectMemoryGate.mayShareWithModel(
+          usesRemote: settings.usesRemote,
+          shareMemory: settings.activeRemoteProfile?.shareMemory == true,
+        )) {
       baseSystem.write(
         '\nOwner-confirmed facts for this project only; these are not live '
         'sensor readings or current weather. Answer only what the stored '
