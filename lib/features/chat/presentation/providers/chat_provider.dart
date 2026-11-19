@@ -2735,7 +2735,11 @@ class ChatNotifier extends _ChatBase
             !t.spoken &&
             t.appAnswer == null &&
             t.offlineRefusal == null &&
-            t.sources.isNotEmpty) {
+            !AnswerChecks.refusal.hasMatch(t.answer.toString()) &&
+            (t.sources.isNotEmpty ||
+                (t.aboutUser == null &&
+                    t.attachments.isEmpty &&
+                    CitationMatch.sensitiveRecommendation(t.input)))) {
           final eligible = [
             for (final s in t.sources)
               s.pageText?.trim().isNotEmpty == true
@@ -3016,7 +3020,9 @@ class ChatNotifier extends _ChatBase
                     ...?t.metrics,
                     'lifecycle': t.lease.trace,
                     if (modelKnowledge) 'modelKnowledge': true,
-                    if (t.aboutUser != null || t.attachments.isNotEmpty)
+                    if (t.aboutUser != null ||
+                        t.attachments.isNotEmpty ||
+                        t.usedMemoryNotes.trim().isNotEmpty)
                       'ownerContext': true,
                     if (t.citationDecision != null)
                       'citationPolicy': t.citationDecision!.toJson(),
