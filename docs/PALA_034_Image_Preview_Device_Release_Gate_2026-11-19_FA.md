@@ -39,3 +39,9 @@
 - [Checkpoint اصلی مأموریت‌های ۰۱ تا ۰۵](PALA_034_M01-M05_Checkpoint_2026-11-19_FA.md)
 - [گزارش ارتقای درجا و امضای مالک](PALA-OFFLINE-UPGRADE-CHECKPOINT-20261115_FA.md)
 - [GitHub Actions #164](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44541904184)
+
+## تأیید نهایی GitHub Actions #164 — ۱۹ نوامبر ۲۰۲۶
+- اجرای [#164](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44541904184) در attempt 1 برای آخرین Commit اجرایی `972da02cd501d3ad57879f349c1646e90a757dcd` با نتیجه قطعی **SUCCESS** پایان یافت.
+- Job `baseline=success` و `mvp=success`؛ `format=skipped` به‌علت اجرای بررسی قالب‌بندی در خود `mvp` است، نه شکست.
+- لاگ واقعی `mvp`: **۲۸۹ آزمون PASS**، از جمله آزمون تازه `search previews only approved local archive citations, bounded to four`، و **BUILD SUCCESSFUL** برای کامپایل غیرنصبی Android. تحلیل Flutter و قالب‌بندی نیز موفق بودند.
+- **وضعیت مرحله:** توسعه پیش‌نمایش بندانگشتی منابع آفلاین گفت‌وگو و آزمون نرم‌افزاری تمام شد؛ آزمایش روی **Galaxy Tab S10 Ultra با ZIM فارسی تصویری واقعی**، آزمون حفظ داده پس از ارتقای امضاشده و ارزیابی مصرف RAM همچنان **NOT RUN**. هنوز هیچ APK منتشر، ساخته یا نصب نشده و این سند مجوز نصب خودکار نیست.
