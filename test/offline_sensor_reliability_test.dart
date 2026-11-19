@@ -284,6 +284,7 @@ void main() {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     final seen = <String>[];
+    final hourlyStamp = DateTime.utc(2026, 11, 16, 10).millisecondsSinceEpoch;
     server.listen((req) async {
       final ws = await WebSocketTransformer.upgrade(req);
       ws.add(jsonEncode({'type': 'auth_required'}));
@@ -304,7 +305,7 @@ void main() {
               'result': {
                 'sensor.fixture_pm25': [
                   {
-                    'start': DateTime.utc(2026, 11, 16, 10).millisecondsSinceEpoch,
+                    'start': hourlyStamp,
                     'mean': 15,
                     'min': 10,
                     'max': 21,
