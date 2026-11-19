@@ -55,12 +55,14 @@ class HaReadClient {
         'نشانی باید IP محلی Home Assistant و بدون مسیر اضافی باشد.',
       );
     }
+    // No arbitrary eight-sensor limit. Permission is still per ID.
+    // Each normal question issues only one approved GET with bounded bytes
+    // and timeouts; the number of configured sensors grants no new access.
     if (entities.isEmpty ||
-        entities.length > 8 ||
         entities.any(
           (e) => !RegExp(r'^(sensor|binary_sensor)\.[a-z0-9_]+$').hasMatch(e),
         )) {
-      throw const FormatException('یک تا هشت حسگر مجاز لازم است.');
+      throw const FormatException('حداقل یک حسگر مجاز و معتبر لازم است.');
     }
   }
   Future<dynamic> _get(String path, [Map<String, String>? query]) async {

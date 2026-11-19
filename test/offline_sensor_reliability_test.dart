@@ -45,6 +45,82 @@ void main() {
     );
   }
 
+
+  test('over eight approved sensors: Persian garden and rosemary use one GET each', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final paths = <String>[];
+    server.listen((req) async {
+      expect(req.method, 'GET');
+      paths.add(req.uri.path);
+      final garden = req.uri.path.endsWith('sensor.garden_temperature');
+      final rosemary = req.uri.path.endsWith('sensor.rosemary_soil_moisture');
+      expect(garden || rosemary, isTrue);
+      req.response.headers.contentType = ContentType.json;
+      req.response.write(jsonEncode({
+        'entity_id': garden
+            ? 'sensor.garden_temperature'
+            : 'sensor.rosemary_soil_moisture',
+        'state': garden ? '18.5' : '31',
+        'last_changed': '2026-11-19T11:45:00Z',
+        'last_updated': '2026-11-19T11:50:00Z',
+        'last_reported': '2026-11-19T11:55:00Z',
+        'attributes': {
+          'unit_of_measurement': garden ? '°C' : '%',
+        },
+      }));
+      await req.response.close();
+    });
+    final allowed = <String, String>{
+      for (var n = 0; n < 90; n++)
+        'sensor.fixture_$n': 'حسگر آزمایشی شماره $n',
+      'sensor.garden_temperature': 'دمای باغ',
+      'sensor.rosemary_soil_moisture': 'رطوبت خاک رزماری',
+    };
+    await config(server.port, allowed);
+    final knowledge = OfflineKnowledge(
+      UnrelatedLibrary(),
+      readToken: () async => 'test-only-token',
+      clock: () => DateTime.utc(2026, 11, 19, 12),
+    );
+    final garden = await _withRealHttp(
+      () => knowledge.sensorCurrentValue('دمای باغ چقدره؟'),
+    );
+    final rosemary = await _withRealHttp(
+      () => knowledge.sensorCurrentValue('رطوبت خاک رزماری چطوره؟'),
+    );
+    expect(garden, contains('18.5 °C'));
+    expect(garden, contains('Home Assistant'));
+    expect(garden, isNot(contains('Fixture encyclopedia')));
+    expect(rosemary, contains('31 %'));
+    expect(rosemary, isNot(contains('Fixture encyclopedia')));
+    expect(paths, [
+      '/api/states/sensor.garden_temperature',
+      '/api/states/sensor.rosemary_soil_moisture',
+    ]);
+  });
+
+  test('ambiguous garden sensors: no token or GET and names stay Persian', () async {
+    await config(9999, {
+      'sensor.east_temperature': 'دمای محوطه شرقی باغ',
+      'sensor.west_temperature': 'دمای محوطه غربی باغ',
+    });
+    var tokenReads = 0;
+    final knowledge = OfflineKnowledge(
+      UnrelatedLibrary(),
+      readToken: () async {
+        tokenReads++;
+        return 'must-not-be-read';
+      },
+    );
+    final answer = await knowledge.sensorCurrentValue('دمای باغ چقدره؟');
+    expect(answer, contains('دمای محوطه شرقی باغ'));
+    expect(answer, contains('دمای محوطه غربی باغ'));
+    expect(answer, contains('برای جلوگیری از اشتباه'));
+    expect(answer, isNot(contains('sensor.east_temperature')));
+    expect(tokenReads, 0);
+  });
+
   test(
     'timestamp question reads one approved sensor, not a wiki article',
     () async {

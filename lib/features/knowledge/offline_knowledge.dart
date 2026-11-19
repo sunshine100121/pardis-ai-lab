@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/network/web_search/search_models.dart';
 import 'folder_library.dart';
 import 'ha_read_client.dart';
+import 'ha_sensor_language.dart';
 import '../chat/domain/live_time_answer.dart';
 import 'ha_hourly_statistics.dart';
 import 'knowledge_read_report.dart';
@@ -39,23 +40,32 @@ class OfflineKnowledge {
     }
   }
 
-  /// Exact read-only timestamp question. Never searches folders, ZIM or web
-  /// and never lets Qwen choose an entity ID or invent a missing report time.
-  /// Project scope is fail-closed: global HA permissions are not project
-  /// source permissions.
+  /// All ordinary observations use the same owner-approved sensor list.
+  /// Neither the model nor the question may broaden that list.
+  Future<String> sensorCurrentValue(
+    String question, {
+    bool permitted = true,
+  }) => _directSensor(question, timestampOnly: false, permitted: permitted);
+
   Future<String> sensorLastUpdate(
     String question, {
     bool permitted = true,
+  }) => _directSensor(question, timestampOnly: true, permitted: permitted);
+
+  Future<String> _directSensor(
+    String question, {
+    required bool timestampOnly,
+    required bool permitted,
   }) async {
     if (!permitted) {
-      return 'در محدوده این پروژه، خواندن زمان حسگر Home Assistant '
+      return 'در محدوده این پروژه، خواندن حسگر Home Assistant '
           'مجاز نشده است؛ از منبع دیگری حدس نمی‌زنم.';
     }
     try {
       final raw = (await SharedPreferences.getInstance()).getString(configKey);
       if (raw == null) {
         return 'دسترسی خواندنی Home Assistant تنظیم نشده است؛ '
-            'زمان به‌روزرسانی حسگر را نمی‌توانم تأیید کنم.';
+            'اطلاعات حسگر را نمی‌توانم تأیید کنم.';
       }
       final parsed = jsonDecode(raw);
       if (parsed is! Map ||
@@ -63,35 +73,39 @@ class OfflineKnowledge {
           parsed['base'] is! String ||
           parsed['entities'] is! Map) {
         return 'اتصال خواندنی Home Assistant فعال یا معتبر نیست؛ '
-            'زمانی حدس نمی‌زنم.';
+            'داده‌ای حدس نمی‌زنم.';
       }
       final allowed = Map<String, dynamic>.from(parsed['entities'] as Map);
       if (allowed.isEmpty ||
-          allowed.length > 8 ||
           allowed.values.any((v) => v is! String || v.trim().isEmpty)) {
         return 'فهرست حسگرهای مجاز Home Assistant معتبر نیست.';
       }
-      final q = LiveTimeAnswer.normalize(question);
-      final matched = allowed.entries.where((entry) {
-        return q.contains(LiveTimeAnswer.normalize(entry.value as String)) ||
-            q.contains(entry.key.toLowerCase());
-      }).toList();
-      final selected = matched.length == 1
-          ? matched.single
-          : matched.isEmpty && allowed.length == 1
-          ? allowed.entries.single
-          : null;
+      // No eight-sensor cap: resolve locally, then GET only one approved ID.
+      final match = HaSensorLanguage.resolve(
+        question,
+        allowed,
+        singleFallback: timestampOnly,
+      );
+      if (match.ambiguous) {
+        final names = match.candidates
+            .take(4)
+            .map((e) => e.value as String)
+            .join('، ');
+        return 'چند حسگر با این پرسش مطابقت دارند: $names. '
+            'نام یکی را بگویید؛ برای جلوگیری از اشتباه، مقدار یا زمانی حدس نمی‌زنم.';
+      }
+      final selected = match.selected;
       if (selected == null) {
-        return matched.length > 1
-            ? 'چند حسگر با این پرسش مطابقت دارند؛ نام دقیق یک حسگر '
-                  'را بگویید تا زمان آن را بخوانم.'
-            : 'نام حسگر مشخص نیست؛ نام یکی از حسگرهای مجاز '
-                  'Home Assistant را بگویید. زمانی حدس نمی‌زنم.';
+        return timestampOnly
+            ? 'نام حسگر مشخص نیست؛ نام فارسی یکی از حسگرهای مجاز '
+                'Home Assistant را بگویید. زمانی حدس نمی‌زنم.'
+            : 'حسگر متناظر با پرسش در فهرست مجاز Home Assistant '
+                'پیدا نشد؛ مقدار دانشنامه را جای آن اعلام نمی‌کنم.';
       }
       final token = await readToken();
       if (token == null || token.trim().isEmpty) {
         return 'مجوز خواندن Home Assistant در دسترس نیست؛ '
-            'زمان به‌روزرسانی تأیید نشده است.';
+            'داده حسگر تأیید نشده است.';
       }
       final client = HaReadClient(
         base: Uri.parse(parsed['base'] as String),
@@ -100,11 +114,13 @@ class OfflineKnowledge {
         clock: clock,
       );
       final state = await client.state(selected.key);
-      return LiveTimeAnswer.sensor(selected.value as String, state);
+      return timestampOnly
+          ? LiveTimeAnswer.sensor(selected.value as String, state)
+          : HaSensorLanguage.currentValue(selected.value as String, state);
     } catch (_) {
-      return 'دریافت زمان واقعی حسگر از Home Assistant ممکن نشد؛ '
+      return 'دریافت اطلاعات واقعی حسگر از Home Assistant ممکن نشد؛ '
           'اتصال یا مجوز را بررسی کنید. از دانشنامه یا Qwen '
-          'برای حدس زمان حسگر استفاده نمی‌کنم.';
+          'برای حدس مقدار و زمان استفاده نمی‌کنم.';
     }
   }
 

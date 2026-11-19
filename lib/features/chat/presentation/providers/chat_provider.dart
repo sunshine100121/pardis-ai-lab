@@ -33,6 +33,7 @@ import '../../../attachments/domain/attachment.dart';
 import '../../../knowledge/knowledge_embedder.dart';
 import '../../../knowledge/knowledge_store.dart';
 import '../../../knowledge/offline_knowledge.dart';
+import '../../../knowledge/ha_sensor_language.dart';
 import '../../../zim/zim_wikipedia.dart';
 import '../../../zim/zim_index_storage.dart';
 import '../../../zim/zim_indexed_project_search.dart';
@@ -709,7 +710,8 @@ class ChatNotifier extends _ChatBase
     // device-clock/allow-listed HA timestamp path. Never intercept a Goal,
     // comparison, attachment or an explicit source-reuse operation.
     t.directTime =
-        LiveTimeAnswer.intent(input) != null &&
+        (LiveTimeAnswer.intent(input) != null ||
+            HaSensorLanguage.isLiveQuestion(input)) &&
         resume == null &&
         attachments.isEmpty &&
         compareWith == null &&
@@ -747,14 +749,22 @@ class ChatNotifier extends _ChatBase
       final asked = await _prepareTurn(t);
       if (asked == null) return t.accepted;
       if (t.directTime) {
-        final kind = LiveTimeAnswer.intent(t.input)!;
-        final result = kind == LiveTimeKind.sensorUpdate
-            ? await ref
-                  .read(offlineKnowledgeProvider)
-                  .sensorLastUpdate(t.input, permitted: _projectId == null)
+        final kind = LiveTimeAnswer.intent(t.input);
+        final knowledge = ref.read(offlineKnowledgeProvider);
+        final result = kind == null
+            ? await knowledge.sensorCurrentValue(
+                t.input,
+                permitted: _projectId == null,
+              )
+            : kind == LiveTimeKind.sensorUpdate
+            ? await knowledge.sensorLastUpdate(
+                t.input,
+                permitted: _projectId == null,
+              )
             : LiveTimeAnswer.device(kind);
         // Application-only result: no Qwen token, no encyclopedia,
         // no web judge, no remote service and no invented citation.
+        // The sensor path reads only one approved entity with a GET.
         t.appAnswer = result;
         t.replaceAnswer(result);
         return t.accepted;
