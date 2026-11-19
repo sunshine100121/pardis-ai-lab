@@ -21,6 +21,7 @@ import '../../../attachments/presentation/attachment_chips.dart';
 import '../../../knowledge/knowledge_store.dart';
 import '../../../knowledge/knowledge_read_status.dart';
 import '../../../zim/zim_article_page.dart';
+import '../../../zim/zim_inline_gallery.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/turn_run.dart';
 import '../../../tools/domain/tool_spec.dart';
@@ -38,6 +39,7 @@ import '../../../../core/design/app_dialog.dart';
 /// with a small mono caption above.
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
+  final String sourceImageQuestion;
   final bool streaming;
   final Widget? helperChip;
   final String? liveReasoningTitle;
@@ -77,6 +79,7 @@ class ChatBubble extends StatelessWidget {
   const ChatBubble({
     super.key,
     required this.message,
+    this.sourceImageQuestion = '',
     this.streaming = false,
     this.helperChip,
     this.liveReasoningTitle,
@@ -709,6 +712,12 @@ class _AssistantTurn extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: AppDesign.md),
             child: _SourcesBubble(sources: sources),
+          ),
+        if (!streaming && sources.isNotEmpty)
+          ZimInlineGallery(
+            key: ValueKey('zim-images-${bubble.message.id}'),
+            sources: sources,
+            question: bubble.sourceImageQuestion,
           ),
         if (!streaming && message.runJson?.contains('"ask_helper"') == true)
           _HelperHandoffs(
