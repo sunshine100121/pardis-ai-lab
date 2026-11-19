@@ -503,9 +503,9 @@ class FolderLibrary {
     ]);
   }
 
-  /// Pictures from a verified, still-enabled source, never from a remote URL.
-  /// Every display request rechecks the Android SAF grant, project scope,
-  /// archive ID and revision. A revoked grant results in no photographs.
+  /// Read bounded images from a verified, approved local ZIM article.
+  /// SAF permission, archive revision and project membership are checked
+  /// before and after I/O. No remote image URL is ever opened here.
   Future<ZimLocalGallery?> articleGallery(
     String url,
     String archiveId,
@@ -628,7 +628,8 @@ class _MeteredZimSource implements ZimSource {
     final data = await state();
     for (final row in data['files'] as List) {
       final fileUri = row['uri'] as String;
-      if (sourceId != null && FolderLibrary.sourceId(fileUri) != sourceId) {
+      if (sourceId != null &&
+          FolderLibrary.sourceId(fileUri) != sourceId) {
         continue;
       }
       if (allowSource != null && !allowSource(fileUri)) continue;
@@ -651,23 +652,25 @@ class _MeteredZimSource implements ZimSource {
             await wiki.archiveMetadata('Date') != date) {
           continue;
         }
-        final gallery = await wiki.gallery(
+        final result = await wiki.gallery(
           uri.pathSegments.single.replaceAll('_', ' '),
           entryIndex: entry,
           question: question,
           maxImages: maxImages,
         );
         if (allowSource != null && !allowSource(fileUri)) return null;
-        final fresh = await access.list();
-        final current = fresh.files.where((f) => f.uri == fileUri).firstOrNull;
+        final checked = await access.list();
+        final current = checked.files.where(
+          (f) => f.uri == fileUri,
+        ).firstOrNull;
         if (current == null ||
             current.size != file.size ||
             current.modified != file.modified) {
           return null;
         }
-        return gallery;
+        return result;
       } catch (_) {
-        // Preserve the answer text even when optional media is unreadable.
+        // Optional pictures never prevent a valid textual answer.
       } finally {
         await wiki.close();
       }
