@@ -17,9 +17,7 @@ bool canPreviewLocalImageSource(Map<String, dynamic> source) {
     return false;
   }
   final parsed = Uri.tryParse(url);
-  return parsed != null &&
-      parsed.scheme == 'zim' &&
-      parsed.host == archiveId;
+  return parsed != null && parsed.scheme == 'zim' && parsed.host == archiveId;
 }
 
 /// Bound automatic previews when search returns many sources. Others remain
@@ -55,8 +53,7 @@ Future<ZimGalleryMatch?> findFirstLocalGallery(
   for (final source in sources) {
     final url = source['url'];
     final archive = source['archiveId'];
-    if (!canPreviewLocalImageSource(source) ||
-        !seen.add('$archive|$url')) {
+    if (!canPreviewLocalImageSource(source) || !seen.add('$archive|$url')) {
       continue;
     }
     if (checked++ >= maxSources) break;
@@ -84,6 +81,7 @@ class ZimInlineGallery extends ConsumerStatefulWidget {
 
   final List<Map<String, dynamic>> sources;
   final String question;
+
   /// Compact single-image thumbnail for the already visible source list.
   final bool previewOnly;
 
