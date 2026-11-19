@@ -465,6 +465,53 @@ class ZimArchive {
     return null;
   }
 
+  /// Read a bounded image in the same ZIM archive as [article].
+  /// No external URLs, copies of the archive or executable image formats.
+  Future<Uint8List?> imageBytes(
+    ZimEntry article,
+    String reference, {
+    int maxImageBytes = 2 * 1024 * 1024,
+  }) => _run(() async {
+    if (!article.isArticle ||
+        reference.isEmpty ||
+        reference.length > 2048 ||
+        reference.startsWith('//') ||
+        maxImageBytes < 1 ||
+        maxImageBytes > 2 * 1024 * 1024) {
+      return null;
+    }
+    final relative = Uri.tryParse(reference);
+    if (relative == null ||
+        relative.hasScheme ||
+        relative.hasAuthority ||
+        relative.hasFragment) {
+      return null;
+    }
+    final base = Uri(path: '/' + article.namespace + '/' + article.url);
+    final path = base.resolveUri(relative).pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (path.length < 2) return null;
+    final ns = path.first;
+    if (ns != 'I' && ns != 'C' && ns != 'A') return null;
+    final entry = await _findPath(ns, path.skip(1).join('/'));
+    if (entry == null) return null;
+    final resolved = await _resolve(entry);
+    if (resolved == null) return null;
+    final mime = resolved.mime.toLowerCase();
+    if (!const {
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+    }.contains(mime)) {
+      return null;
+    }
+    final bytes = await _content(resolved);
+    if (bytes.isEmpty || bytes.length > maxImageBytes) return null;
+    return Uint8List.fromList(bytes);
+  });
+
   /// Presence only: using this embedded Xapian index requires a compatible
   /// search implementation; this reader does not treat it as searchable.
   Future<bool> hasEmbeddedFullTextIndex() => _run(
