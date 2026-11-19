@@ -1565,101 +1565,7 @@ class InferenceSettings {
         'supertonic-2' => 'supertonic-2',
         final value
             when RegExp(
-              r'^tts:[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9._-]{0,47}
-      talkOver: boolean('talkOver', false),
-      spokenSentences: integer('spokenSentences', 3, 0, 20),
-      readingSpeed: number('readingSpeed', 1.0, .6, 1.6),
-      conversationModelId: text('conversationModelId', 200),
-      listeningModel: switch (text('listeningModel', 32)) {
-        'parakeet-v3' => 'parakeet-v3',
-        'android-local' => 'android-local',
-        'whisper-fa' => 'whisper-fa',
-        'vosk-fa' => 'vosk-fa',
-        _ => '',
-      },
-      localeCode: const {'fa', 'en', 'fr', 'es'}.contains(text('localeCode', 8))
-          ? text('localeCode', 8)
-          : '',
-      searchRegion: searchRegions.contains(text('searchRegion', 8))
-          ? text('searchRegion', 8)
-          : '',
-      knowledgeCollection: text('knowledgeCollection', 200),
-      systemPrompt: text('systemPrompt', 16000),
-      seed: integer('seed', 0, 0, 0x7fffffff),
-      stopSequences: strings(
-        'stopSequences',
-        max: maxStopSequences,
-        each: maxStopSequenceLength,
-      ),
-      presencePenalty: number('presencePenalty', 0, -2, 2),
-      frequencyPenalty: number('frequencyPenalty', 0, -2, 2),
-      repeatLastN: integer('repeatLastN', 64, 0, 4096),
-      typicalP: number('typicalP', 1, 0, 1),
-      xtcProbability: number('xtcProbability', 0, 0, 1),
-      xtcThreshold: number('xtcThreshold', .1, 0, .5),
-      topNSigma: number('topNSigma', -1, -1, 10),
-      dryMultiplier: number('dryMultiplier', 0, 0, 5),
-      dryBase: number('dryBase', 1.75, 1, 4),
-      dryAllowedLength: integer('dryAllowedLength', 2, 1, 32),
-      dryPenaltyLastN: integer('dryPenaltyLastN', -1, -1, 8192),
-      samplerOrder: order.isEmpty
-          ? samplerNames
-          : [...order, ...samplerNames.where((n) => !order.contains(n))],
-      ropeScaling:
-          named(RopeScaling.values, 'ropeScaling') ?? RopeScaling.model,
-      ropeFreqBase: number('ropeFreqBase', 0, 0, 1e9),
-      ropeFreqScale: number('ropeFreqScale', 0, 0, 1),
-      yarnExtFactor: number('yarnExtFactor', -1, -1, 1),
-      yarnAttnFactor: number('yarnAttnFactor', 1, 0, 8),
-      yarnBetaFast: number('yarnBetaFast', 32, 0, 128),
-      yarnBetaSlow: number('yarnBetaSlow', 1, 0, 128),
-      yarnOrigCtx: integer('yarnOrigCtx', 0, 0, maxContext),
-      responseFormat: switch (j['responseFormat']) {
-        'json' => ResponseFormat.json,
-        'json_schema' || 'jsonSchema' => ResponseFormat.jsonSchema,
-        'gbnf' => ResponseFormat.gbnf,
-        _ => ResponseFormat.text,
-      },
-      jsonSchema: text('jsonSchema', 32000),
-      grammar: text('grammar', 32000),
-      chatTemplate: text('chatTemplate', 128000),
-      toolsEnabled: boolean('toolsEnabled', false),
-      toolChoice: named(ToolChoice.values, 'toolChoice') ?? ToolChoice.auto,
-      toolMaxRounds: integer('toolMaxRounds', 4, 1, maxToolRounds),
-      toolCalculator: boolean('toolCalculator', true),
-      toolWeb: boolean('toolWeb', true),
-      toolDocuments: boolean('toolDocuments', true),
-      toolMemory: boolean('toolMemory', true),
-      toolActions: boolean('toolActions', true),
-      toolHelper: boolean('toolHelper', false),
-      helperModelId: text('helperModelId', 300),
-      agentMaxTokens: integer('agentMaxTokens', 512, 64, 4096),
-      agentTemperature: number('agentTemperature', 0.3, 0, 2),
-      agentTopP: number('agentTopP', -1, -1, 1),
-      agentMinP: number('agentMinP', -1, -1, 1),
-      agentTopK: integer('agentTopK', -1, -1, 1000),
-      agentRepeatPenalty: number('agentRepeatPenalty', -1, -1, 2),
-      agentContextSize: integer('agentContextSize', 4096, 512, 65536),
-      agentMaxConcurrent: integer('agentMaxConcurrent', 3, 1, 4),
-      agentThinking: boolean('agentThinking', false),
-      agentToolRounds: integer('agentToolRounds', 3, 1, 8),
-      agentWebAccess:
-          named(AgentWebAccess.values, 'agentWebAccess') ??
-          AgentWebAccess.askOnce,
-      agentInstructions: text('agentInstructions', 8000),
-      agentInputBudget: integer('agentInputBudget', 4800, 256, 65536),
-      // An MTP head is a path (`mtp:<path>`), so room for long folders.
-      draftModelId: text('draftModelId', 1024),
-      draftMaxTokens: integer('draftMaxTokens', 6, 1, maxDraftTokens),
-      themeChoice: named(ThemeChoice.values, 'themeChoice') ?? ThemeChoice.dark,
-      accent: named(AccentChoice.values, 'accent') ?? AccentChoice.amber,
-      textScale: number('textScale', 1, .85, 1.4),
-      compactBubbles: boolean('compactBubbles', false),
-      motion: named(MotionChoice.values, 'motion') ?? MotionChoice.full,
-    );
-  }
-}
-,
+              r'^tts:[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9._-]{0,47}$',
             ).hasMatch(value) =>
           value,
         _ => 'kokoro',
@@ -1668,11 +1574,16 @@ class InferenceSettings {
       spokenSentences: integer('spokenSentences', 3, 0, 20),
       readingSpeed: number('readingSpeed', 1.0, .6, 1.6),
       conversationModelId: text('conversationModelId', 200),
-      listeningModel: switch (text('listeningModel', 32)) {
+      listeningModel: switch (text('listeningModel', 96)) {
         'parakeet-v3' => 'parakeet-v3',
         'android-local' => 'android-local',
         'whisper-fa' => 'whisper-fa',
         'vosk-fa' => 'vosk-fa',
+        final value
+            when RegExp(
+              r'^stt:[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9._-]{0,47}$',
+            ).hasMatch(value) =>
+          value,
         _ => '',
       },
       localeCode: const {'fa', 'en', 'fr', 'es'}.contains(text('localeCode', 8))
