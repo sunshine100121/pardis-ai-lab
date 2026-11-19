@@ -27,6 +27,7 @@ import 'voice_models.dart';
 import 'voice_models_provider.dart';
 import 'voice_pipeline.dart';
 import 'voice_service.dart';
+import 'persian_stt_policy.dart';
 
 part 'conversation_widgets.dart';
 part 'conversation_wave.dart';
@@ -987,11 +988,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
             onText: (t) => _set(() => _userCaption = t),
             onFinal: (t) {
               if (_closed) return;
-              if (t.trim().isEmpty) {
+              final prompt = PersianSttPolicy.finalPrompt(t);
+              if (prompt == null) {
                 _set(() => _phase = ConversationPhase.idle);
                 return;
               }
-              unawaited(_ask(t));
+              unawaited(_ask(prompt));
             },
           ),
     );
@@ -1221,6 +1223,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     final c = context.colors;
     final t = context.l10n;
     ref.listen(chatProvider, _onChat);
+    ref.listen(voiceProvider.select((v) => v.error), (_, error) {
+      if (!_closed &&
+          !_natural &&
+          error != null &&
+          _phase == ConversationPhase.listening) {
+        _set(() {
+          _notice = error;
+          _phase = ConversationPhase.idle;
+        });
+      }
+    });
     // System voice: when the answer has been read, listen again.
     ref.listen(voiceProvider.select((v) => v.speaking), (was, now) {
       if (!_natural && was == true && !now && !_turn) _listenSystem();

@@ -214,17 +214,14 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
     if (voiceLanguage(ref.read(settingsProvider).localeCode) == 'fa') {
       return switch (code) {
-        'offline_unavailable' =>
-          'موتور آفلاین Android موجود نیست؛ Vosk یا Whisper آماده را انتخاب کنید.',
-        'offline_recognition_failed' ||
-        'dictation_failed' =>
+        'offline_unavailable' => 'موتور آفلاین Android موجود نیست؛ Vosk یا Whisper آماده را انتخاب کنید.',
+        'offline_recognition_failed' || 'dictation_failed' =>
           'تشخیص گفتار آفلاین انجام نشد؛ میکروفون و مدل را بررسی کنید.',
         'error_no_match' => 'گفتار قابل‌تشخیص نبود؛ دوباره امتحان کنید.',
         'error_speech_timeout' => 'گفتاری شنیده نشد؛ زمان آزمایش تمام شد.',
         'error_permission' || 'error_audio' =>
           'مجوز میکروفون لازم است؛ در تنظیمات Android آن را فعال کنید.',
-        'error_language_unavailable' ||
-        'error_language_not_supported' =>
+        'error_language_unavailable' || 'error_language_not_supported' =>
           'بسته فارسی آفلاین آماده نیست؛ موتور نصب‌شده دیگری انتخاب کنید.',
         'error_network' =>
           'موتور انتخاب‌شده بدون شبکه کار نکرد؛ جایگزین خودکار فعال نشد.',
@@ -302,7 +299,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
             if (_alive && epoch == _listenEpoch) {
               state = state.copyWith(
                 listening: false,
-                error: 'بسته تشخیص گفتار فارسی Android آماده نیست؛ '
+                error:
+                    'بسته تشخیص گفتار فارسی Android آماده نیست؛ '
                     'از تنظیمات گفتار، Vosk یا Whisper نصب‌شده را '
                     'به‌صورت دستی انتخاب کنید. تشخیص آنلاین اجرا نشد.',
               );
@@ -313,7 +311,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
           if (_alive && epoch == _listenEpoch) {
             state = state.copyWith(
               listening: false,
-              error: 'آمادگی موتور آفلاین Android تأیید نشد. '
+              error:
+                  'آمادگی موتور آفلاین Android تأیید نشد. '
                   'موتور دیگری خودکار فعال نمی‌شود.',
             );
           }

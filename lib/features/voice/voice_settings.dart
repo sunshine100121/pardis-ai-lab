@@ -17,15 +17,15 @@ import 'voice_engine_catalog.dart';
 import 'persian_stt_policy.dart';
 import '../../core/platform/form_factor.dart';
 
-final _androidPersianSttStatusProvider = FutureProvider<Map<String, dynamic>>(
-  (ref) async {
-    try {
-      return await OfflineDictation.capabilities();
-    } catch (_) {
-      return <String, dynamic>{};
-    }
-  },
-);
+final _androidPersianSttStatusProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
+  try {
+    return await OfflineDictation.capabilities();
+  } catch (_) {
+    return <String, dynamic>{};
+  }
+});
 
 /// Settings › Voice: the on-device voice switch, its two downloads
 /// (Whisper listening, Kokoro speaking) and the Kokoro speaker.
@@ -107,9 +107,11 @@ class _PersianEngines extends ConsumerWidget {
     final voskReady =
         packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
     final androidReady =
-        ref.watch(_androidPersianSttStatusProvider).asData?.value[
-                'androidOfflineAvailable'] ==
-            true;
+        ref
+            .watch(_androidPersianSttStatusProvider)
+            .asData
+            ?.value['androidOfflineAvailable'] ==
+        true;
     return SettingsRow(
       key: const Key('persian-voice-engines'),
       leading: const Icon(Icons.hearing_outlined),
@@ -124,9 +126,7 @@ class _PersianEngines extends ConsumerWidget {
               ChoiceChip(
                 key: const Key('persian-stt-android'),
                 label: Text(
-                  androidReady
-                      ? 'Android · آماده'
-                      : 'Android · آفلاین ناموجود',
+                  androidReady ? 'Android · آماده' : 'Android · آفلاین ناموجود',
                 ),
                 selected:
                     PersianSttPolicy.selected(settings.listeningModel) ==
@@ -200,9 +200,11 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
     final settings = ref.watch(settingsProvider);
     final packs = ref.watch(voiceModelsProvider);
     final androidReady =
-        ref.watch(_androidPersianSttStatusProvider).asData?.value[
-                'androidOfflineAvailable'] ==
-            true;
+        ref
+            .watch(_androidPersianSttStatusProvider)
+            .asData
+            ?.value['androidOfflineAvailable'] ==
+        true;
     final whisperReady =
         packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
     final voskReady =
@@ -214,88 +216,83 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
       voskReady: voskReady,
     );
     return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextButton.icon(
-              key: const Key('persian-stt-try'),
-              onPressed:
-                  (!ready && !(voice.listening && _ownsSession)) ||
-                      (voice.listening && !_ownsSession)
-                  ? null
-                  : () async {
-                      if (_ownsSession && voice.listening) {
-                        _ownsSession = false;
-                        await _voice.stop();
-                        return;
-                      }
-                      setState(() {
-                        _started = true;
-                        _startFailed = false;
-                        _ownsSession = true;
-                        _lastFinal = '';
-                      });
-                      try {
-                        await _voice.listen(
-                          onText: (_) {},
-                          onFinal: (text) {
-                            if (!mounted) return;
-                            setState(() {
-                              _lastFinal =
-                                  PersianSttPolicy.finalPrompt(text) ?? '';
-                              _ownsSession = false;
-                            });
-                          },
-                        );
-                        if (mounted && !ref.read(voiceProvider).listening) {
-                          setState(() => _ownsSession = false);
-                        }
-                      } catch (_) {
-                        _ownsSession = false;
-                        if (mounted) setState(() => _startFailed = true);
-                      }
-                    },
-              icon: Icon(
-                voice.listening && _ownsSession ? Icons.stop : Icons.mic,
-              ),
-              label: Text(
-                voice.listening && _ownsSession
-                    ? 'پایان آزمایش'
-                    : 'آزمایش شنیدن',
-              ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextButton.icon(
+          key: const Key('persian-stt-try'),
+          onPressed:
+              (!ready && !(voice.listening && _ownsSession)) ||
+                  (voice.listening && !_ownsSession)
+              ? null
+              : () async {
+                  if (_ownsSession && voice.listening) {
+                    _ownsSession = false;
+                    await _voice.stop();
+                    return;
+                  }
+                  setState(() {
+                    _started = true;
+                    _startFailed = false;
+                    _ownsSession = true;
+                    _lastFinal = '';
+                  });
+                  try {
+                    await _voice.listen(
+                      onText: (_) {},
+                      onFinal: (text) {
+                        if (!mounted) return;
+                        setState(() {
+                          _lastFinal = PersianSttPolicy.finalPrompt(text) ?? '';
+                          _ownsSession = false;
+                        });
+                      },
+                    );
+                    if (mounted && !ref.read(voiceProvider).listening) {
+                      setState(() => _ownsSession = false);
+                    }
+                  } catch (_) {
+                    _ownsSession = false;
+                    if (mounted) setState(() => _startFailed = true);
+                  }
+                },
+          icon: Icon(voice.listening && _ownsSession ? Icons.stop : Icons.mic),
+          label: Text(
+            voice.listening && _ownsSession ? 'پایان آزمایش' : 'آزمایش شنیدن',
+          ),
+        ),
+        TextButton.icon(
+          key: const Key('persian-stt-refresh'),
+          onPressed: voice.listening
+              ? null
+              : () => ref.invalidate(_androidPersianSttStatusProvider),
+          icon: const Icon(Icons.refresh),
+          label: const Text('بررسی دوباره آمادگی موتور'),
+        ),
+        if (!ready)
+          Text(
+            PersianSttPolicy.unavailable(
+              setting: settings.listeningModel,
+              androidReady: androidReady,
+              whisperReady: whisperReady,
+              voskReady: voskReady,
             ),
-            TextButton.icon(
-              key: const Key('persian-stt-refresh'),
-              onPressed: voice.listening
-                  ? null
-                  : () => ref.invalidate(_androidPersianSttStatusProvider),
-              icon: const Icon(Icons.refresh),
-              label: const Text('بررسی دوباره آمادگی موتور'),
-            ),
-            if (!ready)
-              Text(
-                PersianSttPolicy.unavailable(
-                  setting: settings.listeningModel,
-                  androidReady: androidReady,
-                  whisperReady: whisperReady,
-                  voskReady: voskReady,
-                ),
-                key: const Key('persian-stt-fallback'),
-              ),
-            if (_started && voice.partial.isNotEmpty) Text(voice.partial),
-            if (_lastFinal.isNotEmpty)
-              SelectableText(
-                'متن نهایی شناسایی‌شده: $_lastFinal',
-                key: const Key('persian-stt-final'),
-              ),
-            if (_started && voice.error != null) Text(voice.error!),
-            if (_startFailed) const Text('آزمایش شنیدن شروع نشد.'),
-            const Text(
-              'این دکمه فقط تشخیص را می‌آزماید؛ برای ارسال متن نهایی '
-              'به Qwen، گفت‌وگوی صوتی پالا را باز کنید. '
-              'آزمون واقعی با اینترنت خاموش روی تبلت لازم است.',
-            ),
-          ],
-        );
+            key: const Key('persian-stt-fallback'),
+          ),
+        if (_started && voice.partial.isNotEmpty) Text(voice.partial),
+        if (_lastFinal.isNotEmpty)
+          SelectableText(
+            'متن نهایی شناسایی‌شده: $_lastFinal',
+            key: const Key('persian-stt-final'),
+          ),
+        if (_started && voice.error != null) Text(voice.error!),
+        if (_startFailed) const Text('آزمایش شنیدن شروع نشد.'),
+        const Text(
+          'این دکمه فقط تشخیص را می‌آزماید؛ برای ارسال متن نهایی '
+          'به Qwen، گفت‌وگوی صوتی پالا را باز کنید. '
+          'آزمون واقعی با اینترنت خاموش روی تبلت لازم است.',
+        ),
+      ],
+    );
   }
 }
 
