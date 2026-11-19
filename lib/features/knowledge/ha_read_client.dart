@@ -23,13 +23,16 @@ class HaReadClient {
   final String _token;
   final Set<String> entities;
   final HttpClient Function() createClient;
+  final DateTime Function() clock;
   HaReadClient({
     required this.base,
     required String token,
     required this.entities,
     HttpClient Function()? createClient,
+    DateTime Function()? clock,
   }) : _token = token,
-       createClient = createClient ?? HttpClient.new {
+       createClient = createClient ?? HttpClient.new,
+       clock = clock ?? DateTime.now {
     final ip = InternetAddress.tryParse(base.host);
     final b = ip?.rawAddress;
     final lan =
@@ -131,18 +134,26 @@ class HaReadClient {
     }
     final updated = parseHaTimestamp(data['last_updated']);
     if (updated == null)
-      throw const FormatException('زمان تغییر حسگر معتبر نیست.');
-    // last_updated measures a change in state/attributes, not a fresh report.
-    // last_reported may be absent in some HA API versions: never invent it.
+      throw const FormatException('زمان به‌روزرسانی حسگر معتبر نیست.');
+    // last_changed: state value changed; last_updated: state or attributes
+    // changed; last_reported: actual event (may be unavailable in REST).
+    // Received-at is measured by PALA after the GET, not guessed from HA.
+    final changed = parseHaTimestamp(data['last_changed']);
     final reported = parseHaTimestamp(data['last_reported']);
+    final received = clock().toUtc();
     final ageSeconds = reported == null
         ? null
-        : DateTime.now().toUtc().difference(reported.toUtc()).inSeconds;
+        : received.difference(reported.toUtc()).inSeconds;
     return {
       'entity_id': id,
       'state': data['state'],
-      'last_updated': data['last_updated'],
+      'last_changed': changed?.toUtc().toIso8601String(),
+      'last_changed_local': changed == null ? null : localIso(changed),
+      'last_updated': updated.toUtc().toIso8601String(),
       'last_updated_local': localIso(updated),
+      'update_age_seconds': received.difference(updated.toUtc()).inSeconds,
+      'received_at': received.toIso8601String(),
+      'received_at_local': localIso(received),
       'last_reported': reported?.toUtc().toIso8601String(),
       'last_reported_local': reported == null ? null : localIso(reported),
       'report_age_seconds': ageSeconds,
@@ -246,8 +257,9 @@ class HaReadClient {
     rank: 0,
     pageText:
         'منشأ: داده واقعی Home Assistant (نه دانشنامه و نه دانش داخلی مدل).\n'
-        'زمان مشاهده UTC: ${DateTime.now().toUtc().toIso8601String()}\n'
-        'زمان محلی دستگاه در last_updated_local و last_reported_local درج شده است. '
+        'زمان دریافت UTC: ${data['received_at'] ?? DateTime.now().toUtc().toIso8601String()}\n'
+        'زمان محلی دستگاه در last_changed_local، last_updated_local، '
+        'last_reported_local و received_at_local درج شده است. '
         'last_updated فقط زمان تغییر وضعیت/ویژگی است، نه لزوماً زمان آخرین گزارش. '
         'اگر last_reported موجود نیست، تازگی داده تأیید نشده است. '
         'اگر report_age_seconds بیش از ۱۸۰۰ است، سن داده را اعلام کن؛ آن را لحظه‌ای ننام.\n'

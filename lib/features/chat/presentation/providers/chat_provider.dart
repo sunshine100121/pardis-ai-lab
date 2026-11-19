@@ -95,6 +95,7 @@ import '../../domain/research_recipes.dart';
 import '../../domain/context_use.dart';
 import '../../domain/about_user.dart';
 import '../../domain/math_question.dart';
+import '../../domain/live_time_answer.dart';
 import '../../../retrieval/domain/evidence.dart';
 import '../../../retrieval/domain/life_dates.dart';
 import '../../../retrieval/domain/news_intent.dart';
@@ -704,6 +705,19 @@ class ChatNotifier extends _ChatBase
       localOnly: localOnly,
       spoken: spoken,
     );
+    // Only a plain, unmodified owner question is eligible for the direct
+    // device-clock/allow-listed HA timestamp path. Never intercept a Goal,
+    // comparison, attachment or an explicit source-reuse operation.
+    t.directTime =
+        LiveTimeAnswer.intent(input) != null &&
+        resume == null &&
+        attachments.isEmpty &&
+        compareWith == null &&
+        reuseSourcesJson == null &&
+        promptOverride == null &&
+        answerSources == null &&
+        !forceResearch &&
+        !isolated;
     if (resume != null) {
       // The saved partial answer is both the display prefix and the model's
       // prefill; only new text streams in.
@@ -732,6 +746,20 @@ class ChatNotifier extends _ChatBase
     try {
       final asked = await _prepareTurn(t);
       if (asked == null) return t.accepted;
+      if (t.directTime) {
+        final kind = LiveTimeAnswer.intent(t.input)!;
+        final result = kind == LiveTimeKind.sensorUpdate
+            ? await ref.read(offlineKnowledgeProvider).sensorLastUpdate(
+                t.input,
+                permitted: _projectId == null,
+              )
+            : LiveTimeAnswer.device(kind);
+        // Application-only result: no Qwen token, no encyclopedia,
+        // no web judge, no remote service and no invented citation.
+        t.appAnswer = result;
+        t.replaceAnswer(result);
+        return t.accepted;
+      }
       final planned = await _planRetrieval(t, asked.user);
       if (planned == null) return t.accepted;
       final found = await _lookUp(t, asked, planned);
@@ -910,7 +938,12 @@ class ChatNotifier extends _ChatBase
       settings = settings.copyWith(serverSampling: true);
     }
     t.settings = settings;
-    if (settings.usesRemote) {
+    if (t.directTime) {
+      // Do not allocate or load Qwen for a simple clock or read-only sensor
+      // timestamp. A null model also prevents automatic model-based naming
+      // or learning during the direct reply.
+      t.stage('loadMs');
+    } else if (settings.usesRemote) {
       // The user's own server does the inference; no local model needed.
       t.engine = ref.read(remoteEngineProvider);
       final model = ModelInfo(

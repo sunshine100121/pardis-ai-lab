@@ -45,6 +45,7 @@ void main() {
           jsonEncode({
             'entity_id': 'sensor.garden',
             'state': '19.5',
+            'last_changed': '2026-11-13T09:45:00Z',
             'last_updated': '2026-11-13T10:00:00Z',
             'last_reported': '2026-11-13T10:04:00Z',
             'attributes': {
@@ -82,9 +83,24 @@ void main() {
       base: Uri.parse('http://127.0.0.1:${server.port}'),
       token: 'private-token',
       entities: {'sensor.garden'},
+      clock: () => DateTime.utc(2026, 11, 19, 12),
     );
     final state = await client.state('sensor.garden');
     expect(state['state'], '19.5');
+    expect(
+      DateTime.parse(state['received_at'] as String),
+      DateTime.utc(2026, 11, 19, 12),
+    );
+    expect(
+      state['received_at_local'],
+      HaReadClient.localIso(DateTime.utc(2026, 11, 19, 12)),
+    );
+    expect(
+      state['last_changed_local'],
+      HaReadClient.localIso(DateTime.utc(2026, 11, 13, 9, 45)),
+    );
+    expect(state['report_age_seconds'], greaterThan(1800));
+    expect(state['update_age_seconds'], greaterThan(1800));
     expect(
       state['last_updated_local'],
       HaReadClient.localIso(DateTime.utc(2026, 11, 13, 10)),

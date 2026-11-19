@@ -45,6 +45,72 @@ void main() {
     );
   }
 
+
+  test('timestamp question reads one approved sensor, not a wiki article', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    var requests = 0;
+    server.listen((req) async {
+      requests++;
+      expect(req.method, 'GET');
+      expect(req.uri.path, '/api/states/sensor.fixture_pm25');
+      req.response.headers.contentType = ContentType.json;
+      req.response.write(jsonEncode({
+        'entity_id': 'sensor.fixture_pm25',
+        'state': '13',
+        'last_changed': '2026-11-19T11:40:00Z',
+        'last_updated': '2026-11-19T11:50:00Z',
+        'last_reported': '2026-11-19T11:55:00Z',
+      }));
+      await req.response.close();
+    });
+    await config(server.port, {'sensor.fixture_pm25': 'PM2.5 باغ'});
+    final knowledge = OfflineKnowledge(
+      UnrelatedLibrary(),
+      readToken: () async => 'test-only-token',
+      clock: () => DateTime.utc(2026, 11, 19, 12),
+    );
+    final answer = await _withRealHttp(
+      () => knowledge.sensorLastUpdate(
+        'آخرین به‌روزرسانی حسگر PM2.5 باغ چه زمانی بوده؟',
+      ),
+    );
+    expect(answer, contains('منبع: Home Assistant'));
+    expect(answer, contains('PM2.5 باغ'));
+    expect(answer, contains('زمان دریافت اطلاعات توسط پالا'));
+    expect(answer, contains('آخرین تغییر مقدار حسگر'));
+    expect(answer, contains('آخرین گزارش ثبت‌شده'));
+    expect(answer, contains('5 دقیقه'));
+    expect(answer, isNot(contains('Fixture encyclopedia')));
+    expect(requests, 1);
+  });
+
+  test('ambiguous sensor does not read credentials or guess timestamps', () async {
+    await config(9999, {
+      'sensor.one': 'رطوبت باغ',
+      'sensor.two': 'دما باغ',
+    });
+    var tokenReads = 0;
+    final knowledge = OfflineKnowledge(
+      UnrelatedLibrary(),
+      readToken: () async {
+        tokenReads++;
+        return 'not-read';
+      },
+    );
+    final ambiguous = await knowledge.sensorLastUpdate(
+      'آخرین به‌روزرسانی حسگر چه زمانی بوده؟',
+    );
+    expect(ambiguous, contains('نام حسگر مشخص نیست'));
+    expect(tokenReads, 0);
+    final denied = await knowledge.sensorLastUpdate(
+      'آخرین گزارش سنسور دما باغ',
+      permitted: false,
+    );
+    expect(denied, contains('مجاز نشده'));
+    expect(tokenReads, 0);
+  });
+
   test(
     'garden and pollutant conflicts fail before any credential or network use',
     () async {

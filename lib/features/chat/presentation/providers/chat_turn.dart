@@ -160,6 +160,9 @@ class _Turn {
   /// the name the user gave.
   String? appAnswer;
 
+  /// Owner-visible time answers bypass inference and all retrieval.
+  bool directTime = false;
+
   /// What the user said before a question about themself, for the phone
   /// model's answer ([AboutUser.ownFacts]).
   List<String>? aboutUser;
