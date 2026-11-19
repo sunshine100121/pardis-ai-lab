@@ -1,5 +1,6 @@
 /// Local, app-owned Persian mapping for explicitly permitted HA sensor names.
 /// The model NEVER chooses an entity ID; no discovery or HA service calls.
+/// A matching name never grants new read privileges.
 class HaSensorMatch {
   const HaSensorMatch(this.candidates);
   final List<MapEntry<String, dynamic>> candidates;
