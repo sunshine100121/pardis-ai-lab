@@ -372,6 +372,7 @@ void main() {
         isNotNull,
       );
       expect(calls, isNot(contains('listen')));
+      debugDefaultTargetPlatformOverride = null;
     },
   );
 
@@ -409,6 +410,8 @@ void main() {
     await tester.pump();
     expect(calls.where((m) => m == 'downloadAndroidFa'), hasLength(1));
     expect(calls, isNot(contains('listen')));
+    await tester.pump(const Duration(seconds: 3));
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('STT test cannot start an uninstalled selected model', (
