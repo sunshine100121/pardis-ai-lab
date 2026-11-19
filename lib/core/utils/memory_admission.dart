@@ -11,8 +11,9 @@ class MemoryAdmission {
 
   Future<T> run<T>(Future<T> Function() allocate) {
     final tail = _tail;
-    final next =
-        tail == null ? Future.sync(allocate) : tail.then((_) => allocate());
+    final next = tail == null
+        ? Future.sync(allocate)
+        : tail.then((_) => allocate());
     _queued++;
     late final Future<void> done;
     done = next
