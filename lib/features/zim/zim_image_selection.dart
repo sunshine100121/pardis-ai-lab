@@ -33,6 +33,14 @@ class ZimImageSelection {
     caseSensitive: false,
   );
 
+  static String? _localImagePath(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty || raw.length > 2048 || raw.startsWith('//')) return null;
+    final uri = Uri.tryParse(raw);
+    if (uri == null || uri.hasScheme || uri.hasAuthority) return null;
+    return _extension.hasMatch(uri.path) ? uri.path : null;
+  }
+
   /// Metadata-only discovery. Deliberately rejects remote/data/blob links;
   /// never loads an entire multimedia ZIM or fetches images from the web.
   static ZimImageSelection fromArticleHtml(
@@ -52,18 +60,18 @@ class ZimImageSelection {
     final seen = <String>{};
     final found = <ZimImageCandidate>[];
     for (final img in document.querySelectorAll('img')) {
-      final raw = (img.attributes['src'] ?? img.attributes['data-src'] ?? '')
-          .trim();
-      if (raw.isEmpty || raw.length > 2048) continue;
-      final uri = Uri.tryParse(raw);
-      if (uri == null ||
-          uri.hasScheme ||
-          uri.hasAuthority ||
-          raw.startsWith('//')) {
-        continue;
-      }
-      final path = uri.path;
-      if (!_extension.hasMatch(path) || !seen.add(path)) continue;
+      // Some Kiwix pages keep a small placeholder in src and the real
+      // local asset in data-src or srcset. Never fall back to a remote URL.
+      final srcset = img.attributes['srcset']
+          ?.split(',')
+          .first
+          .trim()
+          .split(RegExp(r'\\s+'))
+          .first;
+      final path = _localImagePath(img.attributes['src']) ??
+          _localImagePath(img.attributes['data-src']) ??
+          _localImagePath(srcset);
+      if (path == null || !seen.add(path)) continue;
       final alt = img.attributes['alt'] ?? '';
       final title = img.attributes['title'] ?? '';
       final caption = [
