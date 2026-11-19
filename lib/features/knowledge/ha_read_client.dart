@@ -109,7 +109,10 @@ class HaReadClient {
     return '${local.toIso8601String()}$sign$hours:$rest';
   }
 
-  /// HA timestamps must carry a UTC marker or an explicit offset. Parsing a\n  /// zone-less string as device-local time would silently change its meaning.\n  static DateTime? parseHaTimestamp(Object? value) {\n    if (value is! String ||\n        !RegExp(r'(?:Z|[+-]\\d{2}:\\d{2})
+  /// Accept only timestamps with an explicit zone; never assume local time.
+  static DateTime? parseHaTimestamp(Object? value) {
+    if (value is! String ||
+        !RegExp(r'(?:Z|[+-]\d{2}:\d{2})
     _allowed(id);
     final data = await _get('/api/states/$id');
     if (data is! Map<String, dynamic> ||
@@ -186,9 +189,7 @@ class HaReadClient {
     for (final row in rows) {
       if (row is! Map || row['entity_id'] != id)
         throw const FormatException('شناسه تاریخچه با حسگر مجاز یکسان نیست.');
-      final at = DateTime.tryParse(
-        (row['last_updated'] ?? row['last_changed'])?.toString() ?? '',
-      );
+      final at = parseHaTimestamp(row['last_updated'] ?? row['last_changed']);
       final value = double.tryParse(row['state']?.toString() ?? '');
       if (at == null) throw const FormatException('زمان تاریخچه معتبر نیست.');
       if (at.isBefore(start) || at.isAfter(end)) continue;
@@ -248,7 +249,14 @@ class HaReadClient {
     fetchedAt: DateTime.now().toUtc(),
   );
 }
-, caseSensitive: false)\n            .hasMatch(value)) {\n      return null;\n    }\n    return DateTime.tryParse(value);\n  }\n\n  Future<Map<String, dynamic>> state(String id) async {
+, caseSensitive: false)
+            .hasMatch(value)) {
+      return null;
+    }
+    return DateTime.tryParse(value);
+  }
+
+  Future<Map<String, dynamic>> state(String id) async {
     _allowed(id);
     final data = await _get('/api/states/$id');
     if (data is! Map<String, dynamic> ||
