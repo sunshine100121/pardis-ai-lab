@@ -321,6 +321,19 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
 /// guard, not an LLM judgment and not a substitute for source citations.
 class ProjectMemoryGate {
   static final _words = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true);
+  static final _overview = RegExp(
+    r'(?:چه|چیا|چی|همه).{0,48}(?:اطلاعات|یادداشت|خاطره|چیز).{0,60}(?:ثبت|یاد|ذخیره|داری|دارم)',
+    unicode: true,
+  );
+
+  // Very small Persian normalization for owner-memory questions:
+  // «درخت گردوی من» and «درخت گردو» describe the same plant.
+  static String _normalizeWord(String word) {
+    final normalized = word.toLowerCase().replaceAll('ي', 'ی').replaceAll('ك', 'ک');
+    return normalized.endsWith('وی')
+        ? normalized.substring(0, normalized.length - 1)
+        : normalized;
+  }
   static final _personal = RegExp(
     r'(?<![\p{L}\p{N}])(?:من|ما|خودم|دارم|داریم|قبلاً|یادته|یادت|حافظه|یادداشت|my|our|remember)(?![\p{L}\p{N}])',
     caseSensitive: false,
@@ -353,14 +366,20 @@ class ProjectMemoryGate {
       return false;
     }
     Set<String> tokens(String text) => {
-      for (final match in _words.allMatches(text.toLowerCase()))
-        if (!_common.contains(match.group(0)!)) match.group(0)!,
+      for (final match in _words.allMatches(text))
+        if (!_common.contains(_normalizeWord(match.group(0)!)))
+          _normalizeWord(match.group(0)!),
     };
+    // An explicit request to list the current project's saved facts is
+    // different from asking a factual question about the outside world.
+    if (_overview.hasMatch(question)) return true;
     final questionTerms = tokens(question);
     // Two terms appearing in different notes are not evidence for one
     // personal claim. Each owner-confirmed entry must match on its own.
     for (final entry in ownerNotes.split('\n')) {
-      if (questionTerms.intersection(tokens(entry)).length >= 2) {
+      // Stored origin metadata is provenance, not evidence for a claim.
+      final fact = entry.split(' (تأیید مالک؛ تاریخ: ').first;
+      if (questionTerms.intersection(tokens(fact)).length >= 2) {
         return true;
       }
     }
