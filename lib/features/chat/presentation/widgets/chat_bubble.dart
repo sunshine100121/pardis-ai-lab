@@ -702,10 +702,15 @@ class _AssistantTurn extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDesign.sm),
-        if (!streaming && (modelKnowledge || partialModelKnowledge))
+        if (!streaming && modelKnowledge)
           Text(
-            '[۰] دانش داخلی مدل Qwen؛ این بخش با سند بازیابی‌شده تأیید نشده است.',
+            '[۰] ${context.l10n.noticeModelKnowledge}',
             key: const Key('model-knowledge-source'),
+          )
+        else if (!streaming && partialModelKnowledge)
+          const Text(
+            'منبع [۰]: دانش داخلی Qwen؛ بخش نشان‌دار با سند بازیابی‌شده تأیید نشده است.',
+            key: Key('model-knowledge-source'),
           ),
         if (!streaming && ownerContext)
           const Text(
@@ -1128,6 +1133,7 @@ class _SourcesBubble extends StatelessWidget {
     Widget chip({
       Key? key,
       IconData? icon,
+      String? number,
       required String text,
       required VoidCallback onTap,
     }) => Material(
@@ -1147,6 +1153,16 @@ class _SourcesBubble extends StatelessWidget {
             children: [
               if (icon != null) ...[
                 Icon(icon, size: 15, color: c.textMuted),
+                const SizedBox(width: AppDesign.xs),
+              ],
+              if (number != null) ...[
+                Text(
+                  '[$number]',
+                  style: context.text.small.copyWith(
+                    color: c.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(width: AppDesign.xs),
               ],
               ConstrainedBox(
@@ -1175,7 +1191,8 @@ class _SourcesBubble extends StatelessWidget {
           chip(
             key: Key('source-chip-${s['number']}'),
             icon: icon(s),
-            text: '[${s['number']}] ${label(context, s)}',
+            number: '${s['number']}',
+            text: label(context, s),
             onTap: () => showSourceSheet(context, s),
           ),
         if (rest > 0 || shown.isEmpty)

@@ -145,7 +145,10 @@ class CitationMatch {
     return out
         .toString()
         .replaceAll(RegExp(r' {2,}'), ' ')
-        .replaceAll(RegExp(r'\s+([.!?؟،؛])'), r'$1')
+        .replaceAllMapped(
+          RegExp(r'\s+([.!?؟،؛])'),
+          (match) => match.group(1)!,
+        )
         .trimRight();
   }
 
