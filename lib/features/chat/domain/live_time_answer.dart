@@ -1,5 +1,6 @@
 /// Offline, deterministic answers for device time and sensor timestamps.
 /// No encyclopedia, network search or language-model generation is needed.
+/// Device time and its UTC offset come from the Android operating system.
 enum LiveTimeKind { clock, date, dateTime, zone, sensorUpdate }
 
 class LiveTimeAnswer {
