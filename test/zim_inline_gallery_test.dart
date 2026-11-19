@@ -74,6 +74,21 @@ void main() {
     expect(access.opened.length, before);
   });
 
+  test('illustrated archives beyond 4 GiB are opened with bounded reads',
+      () async {
+    final source = persianZim(large: true, illustrated: true);
+    final wiki = ZimWikipedia('large.zim', openSource: (_) async => source);
+    try {
+      final gallery = await wiki.gallery('بهبهان', question: 'آفت گلابی');
+      expect(gallery?.images, hasLength(2));
+      expect(source.highestOffset, greaterThan(1 << 32));
+      expect(source.bytesRead, lessThan(512 * 1024));
+      expect(source.maxRead, lessThanOrEqualTo(4096));
+    } finally {
+      await wiki.close();
+    }
+  });
+
   test('remote, data and unsupported image references never read media',
       () async {
     final access = _ImageFolder();
