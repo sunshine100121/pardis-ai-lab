@@ -339,7 +339,10 @@ class ProjectMemoryGate {
   // Very small Persian normalization for owner-memory questions:
   // «درخت گردوی من» and «درخت گردو» describe the same plant.
   static String _normalizeWord(String word) {
-    final normalized = word.toLowerCase().replaceAll('ي', 'ی').replaceAll('ك', 'ک');
+    final normalized = word
+        .toLowerCase()
+        .replaceAll('ي', 'ی')
+        .replaceAll('ك', 'ک');
     return normalized.endsWith('وی')
         ? normalized.substring(0, normalized.length - 1)
         : normalized;
@@ -396,7 +399,6 @@ class ProjectMemoryGate {
     return false;
   }
 }
-
 
 /// Find the owner-approved note for a particular user message in a project.
 /// Hand-written and older project notes keep their existing storage format.
