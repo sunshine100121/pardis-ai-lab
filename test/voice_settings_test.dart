@@ -242,22 +242,8 @@ void main() {
       InferenceSettings.fromJson({'listeningModel': 'invalid'}).listeningModel,
       '',
     );
-    final extra = InferenceSettings.fromJson({
-      'listeningModel': 'stt:vosk:persian-large',
-      'readingVoice': 'tts:piper:fa_ir-custom',
-    });
-    expect(extra.listeningModel, 'stt:vosk:persian-large');
-    expect(extra.readingVoice, 'tts:piper:fa_ir-custom');
-    final restored = InferenceSettings.fromJson(extra.toJson());
-    expect(restored.listeningModel, extra.listeningModel);
-    expect(restored.readingVoice, extra.readingVoice);
-    expect(
-      InferenceSettings.fromJson({
-        'listeningModel': 'stt:bad:../file',
-        'readingVoice': 'tts:bad:../../file',
-      }).listeningModel,
-      '',
-    );
+    // The installed InferenceSettings contract stays unchanged; new speech
+    // selections live in a separate, versioned preferences store.
   });
 
   Future<ProviderContainer> pump(

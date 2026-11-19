@@ -1,7 +1,47 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ondevice_llm/features/voice/voice_choice_storage.dart';
 import 'package:ondevice_llm/features/voice/voice_engine_selection.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('separate custom STT/TTS selections survive persistence', () async {
+    SharedPreferences.setMockInitialValues({});
+    await VoiceChoiceStorage.choose(
+      VoiceSelectionKind.stt,
+      'stt:vosk:persian-large',
+    );
+    await VoiceChoiceStorage.choose(
+      VoiceSelectionKind.tts,
+      'tts:piper:fa_ir-custom',
+    );
+    expect(
+      await VoiceChoiceStorage.current(VoiceSelectionKind.stt),
+      'stt:vosk:persian-large',
+    );
+    expect(
+      await VoiceChoiceStorage.current(VoiceSelectionKind.tts),
+      'tts:piper:fa_ir-custom',
+    );
+    await expectLater(
+      VoiceChoiceStorage.choose(
+        VoiceSelectionKind.tts,
+        'stt:vosk:persian-large',
+      ),
+      throwsFormatException,
+    );
+    await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
+    expect(
+      await VoiceChoiceStorage.current(VoiceSelectionKind.stt),
+      isNull,
+    );
+    expect(
+      await VoiceChoiceStorage.current(VoiceSelectionKind.tts),
+      'tts:piper:fa_ir-custom',
+    );
+  });
+
   test('model identities are separate for STT and TTS', () {
     final stt = VoiceEngineSelection.parse('stt:vosk:persian-large');
     final tts = VoiceEngineSelection.parse('tts:piper:fa_ir-custom');

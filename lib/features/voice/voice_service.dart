@@ -16,6 +16,8 @@ import '../settings/presentation/providers/settings_provider.dart';
 import 'desktop_voice_policy.dart';
 import 'offline_dictation.dart';
 import 'persian_stt_policy.dart';
+import 'voice_choice_storage.dart';
+import 'voice_engine_selection.dart';
 import 'sherpa_voice.dart';
 import 'voice_models.dart';
 import 'voice_models_provider.dart';
@@ -243,6 +245,18 @@ class VoiceNotifier extends Notifier<VoiceState> {
   }) async {
     if (state.listening) return stop();
     final epoch = ++_listenEpoch;
+    final futureChoice = await VoiceChoiceStorage.current(
+      VoiceSelectionKind.stt,
+    );
+    if (!_alive || epoch != _listenEpoch) return;
+    if (futureChoice != null) {
+      state = state.copyWith(
+        listening: false,
+        error: 'مدل STT انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
+            'موتور دیگری به‌جای آن خودکار اجرا نشد.',
+      );
+      return;
+    }
     final selectedSettings = ref.read(settingsProvider);
     final persian = voiceLanguage(selectedSettings.localeCode) == 'fa';
     final selectedPersian = PersianSttPolicy.selected(
@@ -675,6 +689,18 @@ class VoiceNotifier extends Notifier<VoiceState> {
 
   /// Reads [markdown] aloud; tapping the same message again stops it.
   Future<void> speak(String markdown, {String? id, double? rate}) async {
+    final futureChoice = await VoiceChoiceStorage.current(
+      VoiceSelectionKind.tts,
+    );
+    if (futureChoice != null) {
+      state = state.copyWith(
+        speaking: false,
+        clearSpeakingId: true,
+        error: 'مدل TTS انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
+            'موتور دیگری به‌جای آن خودکار پخش نشد.',
+      );
+      return;
+    }
     final preferred = ref.read(settingsProvider).readingVoice;
     if (preferred != 'kokoro' && preferred != 'supertonic-2') {
       state = state.copyWith(
