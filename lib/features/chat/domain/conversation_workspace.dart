@@ -397,14 +397,16 @@ class ProjectMemoryGate {
       // Stored origin metadata is provenance, not evidence for a claim.
       final fact = entry.split(' (تأیید مالک؛ تاریخ: ').first;
       final matching = questionTerms.intersection(tokens(fact));
-      if (matching.length >= 2) return true;
-      // A question about an earlier *conversation* may match one specific
-      // topic, but only a confirmed note that records its chat origin.
-      if (_pastConversation.hasMatch(question) &&
-          entry.contains(' (تأیید مالک؛ تاریخ: ') &&
-          matching.any((word) => word.length >= 4)) {
-        return true;
+      // A question about an earlier *conversation* needs an actual chat
+      // origin. Manually entered facts cannot prove a past conversation.
+      if (_pastConversation.hasMatch(question)) {
+        if (entry.contains(' (تأیید مالک؛ تاریخ: ') &&
+            matching.any((word) => word.length >= 4)) {
+          return true;
+        }
+        continue;
       }
+      if (matching.length >= 2) return true;
     }
     return false;
   }
