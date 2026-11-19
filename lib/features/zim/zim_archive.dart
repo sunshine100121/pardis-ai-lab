@@ -494,7 +494,12 @@ class ZimArchive {
     if (path.length < 2) return null;
     final ns = path.first;
     if (ns != 'I' && ns != 'C' && ns != 'A') return null;
-    final entry = await _findPath(ns, path.skip(1).join('/'));
+    // Older ZIMs store pictures in I/. In newer archives the same
+    // resource may be stored under C/I/ after the namespace migration.
+    var entry = await _findPath(ns, path.skip(1).join('/'));
+    if (entry == null && ns == 'I') {
+      entry = await _findPath('C', path.join('/'));
+    }
     if (entry == null) return null;
     final resolved = await _resolve(entry);
     if (resolved == null) return null;
