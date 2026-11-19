@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/core/design/app_dialog.dart';
 import 'package:ondevice_llm/core/motion/motion.dart';
@@ -124,6 +125,35 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(value, isNull);
+  });
+
+  testWidgets('multiline edit sends on Enter, but not Shift+Enter', (
+    tester,
+  ) async {
+    Object? value = 'unset';
+    await _open(
+      tester,
+      (c) => promptText(
+        c,
+        title: 'Edit question',
+        initial: 'old',
+        confirmLabel: 'Ask again',
+        maxLines: 8,
+        selectAll: false,
+        enterSubmits: true,
+      ),
+      (v) => value = v,
+    );
+    await tester.enterText(find.byType(TextField), 'revised question');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(value, 'unset');
+    expect(find.text('Ask again'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(value, 'revised question');
   });
 
   testWidgets('confirmAction is true only when confirmed', (tester) async {

@@ -589,10 +589,13 @@ class _VersionSwitcher extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final at = versions.indexWhere((m) => m.id == current.id);
+    // A restored branch changes storage order; timestamps preserve 1/2, 2/2.
+    final chronological = [...versions]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final at = chronological.indexWhere((m) => m.id == current.id);
     VoidCallback? go(int i) {
-      if (onPick == null || i < 0 || i >= versions.length) return null;
-      final branch = versions[i].branch;
+      if (onPick == null || i < 0 || i >= chronological.length) return null;
+      final branch = chronological[i].branch;
       return branch == null || i == at ? null : () => onPick!(branch);
     }
 
@@ -617,12 +620,12 @@ class _VersionSwitcher extends StatelessWidget {
           enabled: onPick != null,
           onSelected: (i) => go(i)?.call(),
           itemBuilder: (_) => [
-            for (var i = 0; i < versions.length; i++)
+            for (var i = 0; i < chronological.length; i++)
               PopupMenuItem(
                 value: i,
                 enabled: go(i) != null,
                 child: Text(
-                  '${i + 1}. ${versions[i].content.replaceAll('\n', ' ')}',
+                  '${i + 1}. ${chronological[i].content.replaceAll('\n', ' ')}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -633,7 +636,7 @@ class _VersionSwitcher extends StatelessWidget {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: AppDesign.xs),
             child: Text(
-              '${at + 1}/${versions.length}',
+              '${at + 1}/${chronological.length}',
               style: context.text.mono.copyWith(color: c.textMuted),
             ),
           ),

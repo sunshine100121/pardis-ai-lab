@@ -1165,6 +1165,25 @@ void main() {
     expect((await db.getChat(chatId))!.title, 'Mine');
   });
 
+  test('title prompts keep the question language, not a requested translation', () {
+    final title = ChatTitles.titleMessages(
+      'به انگلیسی درباره آفت گلابی توضیح بده',
+      'An English explanation.',
+    );
+    final prompt = title.last['content'] as String;
+    expect(prompt, contains('not a language the message asks about'));
+
+    final combined = ChatTitles.titleAndNotesMessages(
+      'به انگلیسی درباره آفت گلابی توضیح بده',
+      'An English explanation.',
+      const [],
+    );
+    expect(
+      combined.last['content'] as String,
+      contains('not a language the message asks about'),
+    );
+  });
+
   test('a title is the first clean line of the reply', () {
     expect(
       ChatTitles.parseTitle('**Title:** Paris trip ideas.'),

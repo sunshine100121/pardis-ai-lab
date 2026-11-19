@@ -361,21 +361,22 @@ void main() {
       id: 'old',
       role: ChatRole.user,
       content: 'Earlier question',
-      timestamp: DateTime.utc(2026),
+      timestamp: DateTime.utc(2026, 1, 1),
       status: 'superseded:branch-a:complete',
     );
     final current = ChatMessage(
       id: 'current',
       role: ChatRole.user,
       content: 'Current question',
-      timestamp: DateTime.utc(2026),
+      timestamp: DateTime.utc(2026, 1, 2),
     );
     String? restored;
     await tester.pumpWidget(
       _host(
         ChatBubble(
           message: current,
-          versions: [old, current],
+          // Storage order is reversed after restoring a branch.
+          versions: [current, old],
           onRestoreVersion: (branch) => restored = branch,
         ),
       ),
