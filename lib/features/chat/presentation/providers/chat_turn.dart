@@ -127,6 +127,7 @@ class _Turn {
   // What the answer rests on.
   List<SearchResult> sources = [];
   List<SearchResult> sponsored = [];
+  CitationDecision? citationDecision;
   List<SearchResult> displayedSources() => [...sources, ...sponsored];
 
   /// Each source as the answer checks read it: title, snippet, page.

@@ -92,6 +92,8 @@ class TurnRun {
     'evidenceAudit',
     'offlineKnowledge',
     'modelKnowledge',
+    'ownerContext',
+    'citationPolicy',
     'memoryUsed',
     'generationRounds',
     'operationTokens',

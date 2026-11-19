@@ -2728,6 +2728,34 @@ class ChatNotifier extends _ChatBase
       if (_alive) {
         _cleanAnswer(t);
         await _checkAnswer(t);
+        // The last word on citation numbers belongs to the application,
+        // not Qwen. Only genuinely read page bodies are eligible for [1+].
+        if (t.failure == null &&
+            !_cancelled &&
+            !t.spoken &&
+            t.appAnswer == null &&
+            t.offlineRefusal == null &&
+            t.sources.isNotEmpty) {
+          final eligible = [
+            for (final s in t.sources)
+              s.pageText?.trim().isNotEmpty == true
+                  ? '${s.title}\n${s.pageText}'
+                  : '',
+          ];
+          final decided = CitationMatch.appControlled(
+            t.answer.toString(),
+            eligible,
+            labelModelKnowledge:
+                t.aboutUser == null && t.attachments.isEmpty,
+            sensitiveAdvice:
+                CitationMatch.sensitiveRecommendation(t.input),
+          );
+          t.citationDecision = decided;
+          if (decided.text != t.answer.toString()) {
+            t.replaceAnswer(decided.text);
+          }
+          if (decided.unverifiedClaims > 0) t.matchedCitations = false;
+        }
         final grounding = _groundingNotice(t);
         // A check that found something to doubt rides with the answer: the
         // triangle under it opens the whole warning (tester, 2026-10-19).
@@ -2988,6 +3016,10 @@ class ChatNotifier extends _ChatBase
                     ...?t.metrics,
                     'lifecycle': t.lease.trace,
                     if (modelKnowledge) 'modelKnowledge': true,
+                    if (t.aboutUser != null || t.attachments.isNotEmpty)
+                      'ownerContext': true,
+                    if (t.citationDecision != null)
+                      'citationPolicy': t.citationDecision!.toJson(),
                     if (t.offlineRead != null)
                       'offlineKnowledge': t.offlineRead,
                     'contextAudit': t.contextAudit(_fittedOmitted),
@@ -3978,6 +4010,17 @@ class ChatNotifier extends _ChatBase
         if (!source.sponsored) 'number': evidenceNumber,
         'title': source.title,
         'url': source.url,
+        // Distinguish where a document came from, not whether a person's
+        // claims have been independently verified.
+        'provenance': source.url.startsWith('pala-knowledge://')
+            ? 'owner_document'
+            : source.url.startsWith('pala-ha://')
+            ? 'local_device'
+            : source.url.startsWith('zim://')
+            ? 'offline_encyclopedia'
+            : source.remembered
+            ? 'saved_source'
+            : 'external_source',
         'snippet': source.snippet,
         'coverage': source.coverage,
         if (source.archiveDate != null) 'archiveDate': source.archiveDate!,

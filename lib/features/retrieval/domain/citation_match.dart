@@ -1,6 +1,35 @@
 import 'evidence.dart';
 import 'claim_passages.dart';
 
+
+/// The app's provenance decision, never a citation number supplied by Qwen.
+class CitationDecision {
+  const CitationDecision({
+    required this.text,
+    required this.verifiedClaims,
+    required this.internalClaims,
+    required this.unverifiedClaims,
+    required this.caution,
+  });
+
+  final String text;
+  final int verifiedClaims;
+  final int internalClaims;
+  final int unverifiedClaims;
+  final bool caution;
+
+  bool get insufficientEvidence =>
+      unverifiedClaims > 0 || (verifiedClaims == 0 && internalClaims > 0);
+
+  Map<String, dynamic> toJson() => {
+    'verified': verifiedClaims,
+    'internal': internalClaims,
+    'unverified': unverifiedClaims,
+    'insufficient': insufficientEvidence,
+    'caution': caution,
+  };
+}
+
 /// Citations for an answer written from sources that cites none: small
 /// models drop the [n] markers (phone, 2026-10-04: the WHO pandemic date,
 /// right and from five sources, cited none of them). Each sentence gets the
@@ -21,6 +50,129 @@ class CitationMatch {
   static const minWords = 3;
 
   static bool hasCitations(String answer) => _marker.hasMatch(answer);
+
+  /// The final display contract is rebuilt from fetched page bodies, never
+  /// from model-authored [1], [2], [۰] or plausible in-range numbers. Supply
+  /// an empty string for an unread/snippet-only source to preserve numbering.
+  /// This is a conservative lexical check, not a semantic truth certificate.
+  static CitationDecision appControlled(
+    String answer,
+    List<String> fetchedEvidence, {
+    bool labelModelKnowledge = true,
+    bool sensitiveAdvice = false,
+  }) {
+    final prepared = ClaimPassages.prepare(fetchedEvidence);
+    var verified = 0, internal = 0, unverified = 0;
+    final out = <String>[];
+    var inCodeFence = false;
+    final boundary = RegExp(
+      r'(?<=[.!?؟])\s+(?=[\p{L}\p{N}*"(])',
+      unicode: true,
+    );
+    for (final line in answer.split('\n')) {
+      final trimmed = line.trimLeft();
+      if (trimmed.startsWith('```')) {
+        inCodeFence = !inCodeFence;
+        out.add(line);
+        continue;
+      }
+      if (inCodeFence) {
+        out.add(line);
+        continue;
+      }
+      final headingsOrTables = trimmed.startsWith('|') ||
+          trimmed.startsWith('#') ||
+          trimmed.startsWith('---');
+      final items = <String>[];
+      for (final sentence in line.split(boundary)) {
+        final plain = _withoutModelMarkers(sentence);
+        if (plain.trim().isEmpty || headingsOrTables) {
+          items.add(plain);
+          continue;
+        }
+        final tokens = EvidenceRanker.terms(plain).toSet();
+        if (tokens.length < minWords) {
+          items.add(plain);
+          continue;
+        }
+        final match = ClaimPassages.best(plain, prepared);
+        if (match != null &&
+            match.states &&
+            fetchedEvidence[match.source].trim().isNotEmpty) {
+          verified++;
+          items.add(_insertNumber(plain, '[${match.source + 1}]'));
+        } else {
+          unverified++;
+          if (labelModelKnowledge) {
+            internal++;
+            items.add(_insertNumber(plain, '[۰]'));
+          } else {
+            items.add(plain);
+          }
+        }
+      }
+      out.add(items.join(' '));
+    }
+    final caution = sensitiveAdvice && unverified > 0;
+    var text = out.join('\n');
+    if (caution) {
+      text += '\n\n⚠️ برای اقدام حساس، این بخش پاسخ شاهد کافی ندارد؛ '
+          'پیش از تغییر یا اجرای توصیه، آن را با منبع معتبر یا متخصص بررسی کنید.';
+    }
+    return CitationDecision(
+      text: text,
+      verifiedClaims: verified,
+      internalClaims: internal,
+      unverifiedClaims: unverified,
+      caution: caution,
+    );
+  }
+
+  /// [n] in inline code is an example or array index, not a source marker.
+  /// Only standalone model-written numeric markers outside code are removed.
+  static String _withoutModelMarkers(String sentence) {
+    final marker = RegExp(
+      r'\[\s*[0-9۰-۹٠-٩]+(?:\s*[,،]\s*[0-9۰-۹٠-٩]+)*\s*\]',
+    );
+    final inline = RegExp(r'`[^`\n]*`');
+    final out = StringBuffer();
+    var at = 0;
+    for (final code in inline.allMatches(sentence)) {
+      out.write(sentence.substring(at, code.start).replaceAll(marker, ''));
+      out.write(code[0]);
+      at = code.end;
+    }
+    out.write(sentence.substring(at).replaceAll(marker, ''));
+    return out.toString()
+        .replaceAll(RegExp(r' {2,}'), ' ')
+        .replaceAll(RegExp(r'\s+([.!?؟،؛])'), r'$1')
+        .trimRight();
+  }
+
+  static String _insertNumber(String sentence, String number) {
+    final tail = _tail.firstMatch(sentence);
+    if (tail == null) return '$sentence $number';
+    final before = sentence.substring(0, tail.start).trimRight();
+    return '$before $number${tail.group(1) ?? ''}';
+  }
+
+  /// A narrow, conservative warning for actionable medical, electrical,
+  /// toxic-chemical or financial guidance; never call unsupported advice safe.
+  static bool sensitiveRecommendation(String question) {
+    final topic = RegExp(
+      r'(دارو|درمان|دوز|سمپاش|سم\s|آفت.?کش|ولتاژ|برق|اینورتر|باتری|'
+      r'اتصال سیم|سرمایه.?گذاری|ترید|medical|medication|dosage|'
+      r'voltage|wiring|battery|poison|investment)',
+      caseSensitive: false,
+    );
+    final action = RegExp(
+      r'(چطور|چگونه|باید|مقدار|چه\s*قدر|روش|تنظیم|تغییر|قطع|وصل|'
+      r'استفاده|درمان|مصرف|توصیه|انجام|چه\s*کنم|how|should|'
+      r'amount|adjust|change|dose|recommend|use|take)',
+      caseSensitive: false,
+    );
+    return topic.hasMatch(question) && action.hasMatch(question);
+  }
 
   /// A model citation is valid only when actual fetched evidence has its ID.
   /// Keep Markdown code examples unchanged.

@@ -19,6 +19,7 @@ import '../../../../core/platform/desktop_host.dart';
 import '../../../../core/utils/external_links.dart';
 import '../../../attachments/presentation/attachment_chips.dart';
 import '../../../knowledge/knowledge_store.dart';
+import '../../../retrieval/domain/citation_match.dart';
 import '../../../knowledge/knowledge_read_status.dart';
 import '../../../zim/zim_article_page.dart';
 import '../../../zim/zim_inline_gallery.dart';
@@ -665,8 +666,14 @@ class _AssistantTurn extends StatelessWidget {
     final time = message.timestamp.toLocal();
     final offline = TurnRun.decode(message.runJson)
         ?.metrics['offlineKnowledge'];
-    final modelKnowledge =
-        TurnRun.decode(message.runJson)?.metrics['modelKnowledge'] == true;
+    final runMetrics = TurnRun.decode(message.runJson)?.metrics ?? const {};
+    final modelKnowledge = runMetrics['modelKnowledge'] == true;
+    final ownerContext = runMetrics['ownerContext'] == true;
+    final partialModelKnowledge =
+        CitationMatch.hasCitations(message.content) &&
+        (runMetrics['citationPolicy'] is Map &&
+            (runMetrics['citationPolicy'] as Map)['internal'] is num &&
+            ((runMetrics['citationPolicy'] as Map)['internal'] as num) > 0);
     final alternative = message.isAlternative;
     final caption = [
       if (alternative) 'compare',
@@ -695,10 +702,15 @@ class _AssistantTurn extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppDesign.sm),
-        if (!streaming && modelKnowledge)
+        if (!streaming && (modelKnowledge || partialModelKnowledge))
           Text(
-            '[۰] ${context.l10n.noticeModelKnowledge}',
+            '[۰] دانش داخلی مدل Qwen؛ این بخش با سند بازیابی‌شده تأیید نشده است.',
             key: const Key('model-knowledge-source'),
+          ),
+        if (!streaming && ownerContext)
+          const Text(
+            'اطلاعات ثبت‌شده مالک یا فایل پیوست؛ صحت مستقل آن تأیید نشده است.',
+            key: Key('owner-context-source'),
           ),
         if (!streaming &&
             offline is Map<String, dynamic> &&
@@ -1081,10 +1093,15 @@ class _SourcesBubble extends StatelessWidget {
   static String label(BuildContext context, Map<String, dynamic> s) {
     final url = s['url'] as String? ?? '';
     if (KnowledgeStore.isKnowledgeUrl(url)) {
-      return context.l10n.uiChatBubbleKnowledgeLibrary;
+      return s['title'] as String? ??
+          context.l10n.uiChatBubbleKnowledgeLibrary;
     }
-    if (url.startsWith('zim://'))
+    if (url.startsWith('pala-knowledge://')) {
+      return s['title'] as String? ?? 'سند محلی';
+    }
+    if (url.startsWith('zim://')) {
       return s['title'] as String? ?? 'دانشنامهٔ آفلاین';
+    }
     var host = Uri.tryParse(url)?.host ?? '';
     if (host.endsWith('wikipedia.org')) return 'Wikipedia';
     host = host.replaceFirst(RegExp(r'^(www|m|en|fr|es)\.'), '');
@@ -1159,7 +1176,7 @@ class _SourcesBubble extends StatelessWidget {
           chip(
             key: Key('source-chip-${s['number']}'),
             icon: icon(s),
-            text: label(context, s),
+            text: '[${s['number']}] ${label(context, s)}',
             onTap: () => showSourceSheet(context, s),
           ),
         if (rest > 0 || shown.isEmpty)
@@ -1462,6 +1479,24 @@ Future<void> showSourceSheet(
         (Icons.short_text, t.sourceHeadlineOnly, c.warning),
       if (s['coverage'] == 'extracted_section')
         (Icons.notes, t.sourceExtractedSection, c.textMuted),
+      if (!sponsored && s['provenance'] == 'owner_document')
+        (
+          Icons.folder_outlined,
+          'سند ثبت‌شده در کتابخانه مالک · تأیید مستقل نشده',
+          c.textMuted,
+        ),
+      if (!sponsored && s['provenance'] == 'offline_encyclopedia')
+        (
+          Icons.menu_book_outlined,
+          'مقاله دانشنامه آفلاین · منبع خارجی ذخیره‌شده',
+          c.textMuted,
+        ),
+      if (!sponsored && s['provenance'] == 'local_device')
+        (
+          Icons.sensors_outlined,
+          'داده دستگاه محلی · وضعیت در زمان بازیابی',
+          c.textMuted,
+        ),
       if (sponsored)
         (Icons.campaign_outlined, t.sourceSponsoredDetail, c.warning)
       else if (localEvidence)
