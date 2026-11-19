@@ -3399,7 +3399,12 @@ class ChatNotifier extends _ChatBase
     if (project != null && project.instructions.isNotEmpty) {
       baseSystem.write('\nProject instructions:\n${project.instructions}');
     }
-    if (project != null && project.memoryNotes.isNotEmpty) {
+    // Project memories, like personal memories, must never be sent to a
+    // remote model unless this remote profile explicitly permits sharing.
+    if (project != null &&
+        project.memoryNotes.isNotEmpty &&
+        (!settings.usesRemote ||
+            settings.activeRemoteProfile?.shareMemory == true)) {
       baseSystem.write(
         '\nOwner-confirmed facts for this project only; these are not live '
         'sensor readings or current weather. Answer only what the stored '
