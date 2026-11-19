@@ -120,11 +120,11 @@ void main() {
     expect(results.sources.first.pageText, contains('late chapter page marker'));
     expect(results.checks.single['pagesScanned'], 310);
     expect(results.checks.single['pagesWithText'], 310);
-    expect(folder.sources, hasLength(1));
-    expect(folder.sources.single.largestRead,
+    expect(folder.sources, hasLength(2));
+    expect(folder.sources.last.largestRead,
         lessThanOrEqualTo(FolderLibrary.maxPdfReadChunkBytes));
-    expect(folder.sources.single.readCalls, greaterThan(1));
-    expect(folder.sources.single.closed, true);
+    expect(folder.sources.last.readCalls, greaterThan(1));
+    expect(folder.sources.every((source) => source.closed), isTrue);
     expect(folder.bytes['garden-handbook.pdf'], bytes);
     expect(await library.indexBytes(), lessThan(FolderLibrary.maxIndexBytes));
   });
@@ -190,3 +190,5 @@ void main() {
     expect(access.bytes['long.pdf'], bytes);
   });
 }
+
+// Temporary format patch locator.

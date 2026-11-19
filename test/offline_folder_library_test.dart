@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
 import 'package:ondevice_llm/features/zim/zim_source.dart';
 
@@ -60,9 +61,29 @@ class MemorySource implements ZimSource {
   }
 }
 
+class _FolderPdfPaths extends PathProviderPlatform {
+  final String path;
+  _FolderPdfPaths(this.path);
+  @override
+  Future<String?> getTemporaryPath() async => path;
+  @override
+  Future<String?> getApplicationSupportPath() async => path;
+  @override
+  Future<String?> getApplicationCachePath() async => path;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    final dir = await Directory.systemTemp.createTemp('pala-folder-test-');
+    final previous = PathProviderPlatform.instance;
+    PathProviderPlatform.instance = _FolderPdfPaths(dir.path);
+    addTearDown(() async {
+      PathProviderPlatform.instance = previous;
+      await dir.delete(recursive: true);
+    });
+  });
   test(
     'project source filter excludes unrelated PDF passages before ranking',
     () async {
