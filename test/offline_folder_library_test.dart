@@ -88,17 +88,20 @@ void main() {
     'project source filter excludes unrelated PDF passages before ranking',
     () async {
       final gardenDoc = pw.Document()
-      ..addPage(
-        pw.Page(build: (_) => pw.Text('Walnut irrigation garden evidence.')),
-      );
-    final medicalDoc = pw.Document()
-      ..addPage(
-        pw.Page(build: (_) => pw.Text('Walnut irrigation medical unrelated evidence.')),
-      );
-    final folder = TestFolder()
-      ..add('garden.pdf', Uint8List.fromList(await gardenDoc.save()))
-      ..add('medical.pdf', Uint8List.fromList(await medicalDoc.save()));
-    final library = FolderLibrary(access: folder);
+        ..addPage(
+          pw.Page(build: (_) => pw.Text('Walnut irrigation garden evidence.')),
+        );
+      final medicalDoc = pw.Document()
+        ..addPage(
+          pw.Page(
+            build: (_) =>
+                pw.Text('Walnut irrigation medical unrelated evidence.'),
+          ),
+        );
+      final folder = TestFolder()
+        ..add('garden.pdf', Uint8List.fromList(await gardenDoc.save()))
+        ..add('medical.pdf', Uint8List.fromList(await medicalDoc.save()));
+      final library = FolderLibrary(access: folder);
       await library.refresh();
       final before = folder.opens;
       final report = await library.searchDetailed(

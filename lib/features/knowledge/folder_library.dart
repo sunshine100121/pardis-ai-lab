@@ -126,7 +126,8 @@ class FolderLibrary {
       int pagesScanned,
       int pagesWithText,
     })
-  > scanPdfSource(
+  >
+  scanPdfSource(
     ZimSource source,
     int expectedBytes,
     Set<String> questionTerms, {
@@ -478,7 +479,8 @@ class FolderLibrary {
             List<({int page, int score, String text})> matches,
             int pagesScanned,
             int pagesWithText,
-          }) scan;
+          })
+          scan;
           try {
             final length = await source.length();
             if (length != now.size) {

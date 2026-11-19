@@ -23,13 +23,13 @@ class PdfTestPaths extends PathProviderPlatform {
   Future<String?> getApplicationCachePath() async => path;
 }
 
-
 class _MeasuredPdfSource implements ZimSource {
   final Uint8List data;
+  final bool boundReads;
   bool closed = false;
   int largestRead = 0;
   int readCalls = 0;
-  _MeasuredPdfSource(this.data);
+  _MeasuredPdfSource(this.data, {this.boundReads = true});
 
   @override
   Future<int> length() async => data.length;
@@ -37,7 +37,7 @@ class _MeasuredPdfSource implements ZimSource {
   @override
   Future<Uint8List> readAt(int offset, int count) async {
     if (count > largestRead) largestRead = count;
-    if (count > FolderLibrary.maxPdfReadChunkBytes) {
+    if (boundReads && count > FolderLibrary.maxPdfReadChunkBytes) {
       throw StateError('PDF access exceeded bounded read size');
     }
     readCalls++;
@@ -45,7 +45,9 @@ class _MeasuredPdfSource implements ZimSource {
   }
 
   @override
-  Future<void> close() async { closed = true; }
+  Future<void> close() async {
+    closed = true;
+  }
 }
 
 class _MeasuredPdfFolder extends TestFolder {
@@ -53,7 +55,7 @@ class _MeasuredPdfFolder extends TestFolder {
   @override
   Future<ZimSource> open(String uri) async {
     opens++;
-    final source = _MeasuredPdfSource(bytes[uri]!);
+    final source = _MeasuredPdfSource(bytes[uri]!, boundReads: opens > 1);
     sources.add(source);
     return source;
   }
@@ -80,82 +82,93 @@ void main() {
     expect(text, contains('Orchid nutrient concentration is 42.'));
   });
 
-  test('310-page PDF finds page 297 through bounded reads with no duplicate file', () async {
-    SharedPreferences.setMockInitialValues({});
-    final dir = await Directory.systemTemp.createTemp('pala-pdf-310-');
-    final previous = PathProviderPlatform.instance;
-    PathProviderPlatform.instance = PdfTestPaths(dir.path);
-    addTearDown(() async {
-      PathProviderPlatform.instance = previous;
-      await dir.delete(recursive: true);
-    });
-    final document = pw.Document();
-    for (var page = 1; page <= 310; page++) {
-      document.addPage(
-        pw.Page(
-          build: (_) => pw.Text(
-            page == 297
-                ? 'Unique apricot canopy late chapter page marker 297.'
-                : 'Common overview for a chapter of the garden handbook.',
+  test(
+    '310-page PDF finds page 297 through bounded reads with no duplicate file',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final dir = await Directory.systemTemp.createTemp('pala-pdf-310-');
+      final previous = PathProviderPlatform.instance;
+      PathProviderPlatform.instance = PdfTestPaths(dir.path);
+      addTearDown(() async {
+        PathProviderPlatform.instance = previous;
+        await dir.delete(recursive: true);
+      });
+      final document = pw.Document();
+      for (var page = 1; page <= 310; page++) {
+        document.addPage(
+          pw.Page(
+            build: (_) => pw.Text(
+              page == 297
+                  ? 'Unique apricot canopy late chapter page marker 297.'
+                  : 'Common overview for a chapter of the garden handbook.',
+            ),
           ),
-        ),
+        );
+      }
+      final bytes = Uint8List.fromList(await document.save());
+      final folder = _MeasuredPdfFolder()..add('garden-handbook.pdf', bytes);
+      // Only metadata/short preview is persisted. Full pages must be read
+      // afresh from the approved source rather than copied into the index.
+      final library = FolderLibrary(
+        access: folder,
+        pdfText: (_) async => '--- Page 1 ---\nCommon overview only.',
       );
-    }
-    final bytes = Uint8List.fromList(await document.save());
-    final folder = _MeasuredPdfFolder()..add('garden-handbook.pdf', bytes);
-    // Only metadata/short preview is persisted. Full pages must be read
-    // afresh from the approved source rather than copied into the index.
-    final library = FolderLibrary(
-      access: folder,
-      pdfText: (_) async => '--- Page 1 ---\nCommon overview only.',
-    );
-    await library.refresh();
-    final results = await library.searchDetailed(
-      'unique apricot canopy marker',
-      sourceIds: {FolderLibrary.sourceId('garden-handbook.pdf')},
-    );
-    expect(results.sources, isNotEmpty);
-    expect(results.sources.first.title, contains('garden-handbook.pdf'));
-    expect(results.sources.first.title, contains('صفحه 297'));
-    expect(results.sources.first.pageText, contains('late chapter page marker'));
-    expect(results.checks.single['pagesScanned'], 310);
-    expect(results.checks.single['pagesWithText'], 310);
-    expect(folder.sources, hasLength(2));
-    expect(folder.sources.last.largestRead,
-        lessThanOrEqualTo(FolderLibrary.maxPdfReadChunkBytes));
-    expect(folder.sources.last.readCalls, greaterThan(1));
-    expect(folder.sources.every((source) => source.closed), isTrue);
-    expect(folder.bytes['garden-handbook.pdf'], bytes);
-    expect(await library.indexBytes(), lessThan(FolderLibrary.maxIndexBytes));
-  });
+      await library.refresh();
+      final results = await library.searchDetailed(
+        'unique apricot canopy marker',
+        sourceIds: {FolderLibrary.sourceId('garden-handbook.pdf')},
+      );
+      expect(results.sources, isNotEmpty);
+      expect(results.sources.first.title, contains('garden-handbook.pdf'));
+      expect(results.sources.first.title, contains('صفحه 297'));
+      expect(
+        results.sources.first.pageText,
+        contains('late chapter page marker'),
+      );
+      expect(results.checks.single['pagesScanned'], 310);
+      expect(results.checks.single['pagesWithText'], 310);
+      expect(folder.sources, hasLength(2));
+      expect(
+        folder.sources.last.largestRead,
+        lessThanOrEqualTo(FolderLibrary.maxPdfReadChunkBytes),
+      );
+      expect(folder.sources.last.readCalls, greaterThan(1));
+      expect(folder.sources.every((source) => source.closed), isTrue);
+      expect(folder.bytes['garden-handbook.pdf'], bytes);
+      expect(await library.indexBytes(), lessThan(FolderLibrary.maxIndexBytes));
+    },
+  );
 
-  test('image-only PDF reports missing text layer, never fabricated OCR', () async {
-    SharedPreferences.setMockInitialValues({});
-    final dir = await Directory.systemTemp.createTemp('pala-pdf-scan-');
-    final previous = PathProviderPlatform.instance;
-    PathProviderPlatform.instance = PdfTestPaths(dir.path);
-    addTearDown(() async {
-      PathProviderPlatform.instance = previous;
-      await dir.delete(recursive: true);
-    });
-    final document = pw.Document()
-      ..addPage(pw.Page(build: (_) => pw.Container(width: 60, height: 60)));
-    final bytes = Uint8List.fromList(await document.save());
-    final folder = TestFolder()..add('scanned-image.pdf', bytes);
-    final library = FolderLibrary(access: folder);
-    await library.refresh();
-    final result = await library.searchDetailed(
-      'apricot disease',
-      sourceIds: {FolderLibrary.sourceId('scanned-image.pdf')},
-    );
-    expect(result.sources, isEmpty);
-    expect(result.checks.single['code'], 'pdf_no_text');
-    expect(
-      KnowledgeReadReport.checkLabel(result.checks.single),
-      contains('OCR'),
-    );
-    expect(folder.bytes['scanned-image.pdf'], bytes);
-  });
+  test(
+    'image-only PDF reports missing text layer, never fabricated OCR',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final dir = await Directory.systemTemp.createTemp('pala-pdf-scan-');
+      final previous = PathProviderPlatform.instance;
+      PathProviderPlatform.instance = PdfTestPaths(dir.path);
+      addTearDown(() async {
+        PathProviderPlatform.instance = previous;
+        await dir.delete(recursive: true);
+      });
+      final document = pw.Document()
+        ..addPage(pw.Page(build: (_) => pw.Container(width: 60, height: 60)));
+      final bytes = Uint8List.fromList(await document.save());
+      final folder = TestFolder()..add('scanned-image.pdf', bytes);
+      final library = FolderLibrary(access: folder);
+      await library.refresh();
+      final result = await library.searchDetailed(
+        'apricot disease',
+        sourceIds: {FolderLibrary.sourceId('scanned-image.pdf')},
+      );
+      expect(result.sources, isEmpty);
+      expect(result.checks.single['code'], 'pdf_no_text');
+      expect(
+        KnowledgeReadReport.checkLabel(result.checks.single),
+        contains('OCR'),
+      );
+      expect(folder.bytes['scanned-image.pdf'], bytes);
+    },
+  );
 
   test('an approved long PDF retrieves evidence on page 105', () async {
     SharedPreferences.setMockInitialValues({});
@@ -190,5 +203,3 @@ void main() {
     expect(access.bytes['long.pdf'], bytes);
   });
 }
-
-// Temporary format patch locator.
