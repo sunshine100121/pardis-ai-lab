@@ -8,6 +8,7 @@ import '../../data/network/web_search/web_page_reader.dart';
 import '../../data/network/web_search/wikipedia_client.dart';
 import '../retrieval/domain/evidence.dart';
 import 'zim_archive.dart';
+import 'zim_image_selection.dart';
 import 'zim_content_batches.dart';
 import 'zim_source.dart';
 
@@ -93,6 +94,50 @@ class ZimWikipedia {
       language: await zim.metadata('Language'),
       limit: false,
     );
+  }
+
+  /// Source-faithful media only: read the article HTML then select and read
+  /// at most six local images through the existing read-only ZIM source.
+  /// No external address is fetched and no image archive is copied.
+  Future<ZimLocalGallery?> gallery(
+    String title, {
+    int? entryIndex,
+    required String question,
+    int maxImages = 2,
+  }) async {
+    if (maxImages < 1 || maxImages > ZimImageSelection.candidateLimit) {
+      throw ArgumentError.value(maxImages, 'maxImages');
+    }
+    final zim = await _open();
+    final ZimEntry? article;
+    if (entryIndex != null) {
+      if (entryIndex < 0 || entryIndex >= zim.entryCount) return null;
+      final found = await zim.entry(entryIndex);
+      if (found.title != title || !found.isArticle) return null;
+      article = found;
+    } else {
+      article = await zim.findByTitle(title);
+    }
+    if (article == null || !article.isArticle) return null;
+    final html = utf8.decode(await zim.content(article), allowMalformed: true);
+    final selected = ZimImageSelection.fromArticleHtml(html, question);
+    final images = <ZimLocalImage>[];
+    for (final candidate in selected.candidates) {
+      // Try the next candidate if an HTML reference is broken or oversized.
+      if (images.length >= maxImages) break;
+      try {
+        final bytes = await zim.imageBytes(article, candidate.reference);
+        if (bytes == null) continue;
+        images.add(ZimLocalImage(
+          caption: candidate.caption,
+          bytes: bytes,
+          reference: candidate.reference,
+        ));
+      } catch (_) {
+        // An optional picture must not hide the actual article answer.
+      }
+    }
+    return ZimLocalGallery(selected.foundCount, images);
   }
 
   /// Titles the question could name, longest first: "Nikon Z30", "Eiffel
