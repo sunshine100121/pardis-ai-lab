@@ -44,10 +44,10 @@ void main() {
            alt="برگ گلابی">
     ''', 'آفت گلابی');
     expect(result.foundCount, 2);
-    expect(
-      result.initial.map((image) => image.reference).toSet(),
-      {'I/pear-pest.jpg', 'I/pear-leaf.webp'},
-    );
+    expect(result.initial.map((image) => image.reference).toSet(), {
+      'I/pear-pest.jpg',
+      'I/pear-leaf.webp',
+    });
   });
 
   test('missing pictures produce an empty gallery, not an invented image', () {
