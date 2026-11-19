@@ -532,8 +532,7 @@ class FolderLibrary {
     if (entryText != null && (entry == null || entry < 0)) return null;
     final sourceId = uri.queryParameters['source'];
     if (sourceId != null &&
-        (!RegExp(r'^[0-9a-f]{64}
-$').hasMatch(sourceId) || entry == null)) {
+        (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sourceId) || entry == null)) {
       return null;
     }
     final listing = await access.list();
