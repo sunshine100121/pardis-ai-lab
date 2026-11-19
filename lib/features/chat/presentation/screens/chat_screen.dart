@@ -1030,6 +1030,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         scaleAlignment: Alignment.bottomRight,
                                         child: ChatBubble(
                                           message: m,
+                                          sourceImageQuestion: i > 0 &&
+                                                  state.messages[i - 1].role ==
+                                                      ChatRole.user
+                                              ? state.messages[i - 1].content
+                                              : '',
                                           helperChip: HelperUsedChip(
                                             messageId: m.id,
                                           ),
