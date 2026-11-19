@@ -198,3 +198,5 @@ void main() {
     },
   );
 }
+
+// Format review marker: remove after obtaining official Dart formatter patch.
