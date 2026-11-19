@@ -121,14 +121,16 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
     }
 
     return findFirstLocalGallery(widget.sources, (citation) async {
-      return ref.read(folderLibraryProvider).articleGallery(
-        citation['url'] as String,
-        citation['archiveId'] as String,
-        citation['archiveDate'] as String?,
-        question: widget.question,
-        maxImages: _expanded ? 6 : 2,
-        allowSource: allowed,
-      );
+      return ref
+          .read(folderLibraryProvider)
+          .articleGallery(
+            citation['url'] as String,
+            citation['archiveId'] as String,
+            citation['archiveDate'] as String?,
+            question: widget.question,
+            maxImages: _expanded ? 6 : 2,
+            allowSource: allowed,
+          );
     });
   }
 
@@ -174,8 +176,7 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
         if (selected == null) return const SizedBox.shrink();
         final gallery = selected.gallery;
         final sourceName =
-            (selected.citation['title'] as String? ?? 'دانشنامه آفلاین')
-                .trim();
+            (selected.citation['title'] as String? ?? 'دانشنامه آفلاین').trim();
         final hasPictures = gallery.images.isNotEmpty;
         return Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 8),
@@ -237,8 +238,9 @@ class _ZimInlineGalleryState extends ConsumerState<ZimInlineGallery> {
                                       photo.caption,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
                                     ),
                                   ),
                               ],

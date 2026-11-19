@@ -32,65 +32,82 @@ class _ImageFolder implements FolderAccess {
 }
 
 void main() {
-  test('tries the next approved article when first citation has no photos', () async {
-    final seen = <String>[];
-    final sources = <Map<String, dynamic>>[
-      {'url': 'https://example.com/remote', 'archiveId': 'remote'},
-      {'url': 'zim://first/pear', 'archiveId': 'first', 'title': 'درخت گلابی'},
-      {'url': 'zim://second/aphid', 'archiveId': 'second', 'title': 'آفت گلابی'},
-    ];
-    final match = await findFirstLocalGallery(sources, (source) async {
-      seen.add(source['archiveId'] as String);
-      if (source['archiveId'] == 'first') {
+  test(
+    'tries the next approved article when first citation has no photos',
+    () async {
+      final seen = <String>[];
+      final sources = <Map<String, dynamic>>[
+        {'url': 'https://example.com/remote', 'archiveId': 'remote'},
+        {
+          'url': 'zim://first/pear',
+          'archiveId': 'first',
+          'title': 'درخت گلابی',
+        },
+        {
+          'url': 'zim://second/aphid',
+          'archiveId': 'second',
+          'title': 'آفت گلابی',
+        },
+      ];
+      final match = await findFirstLocalGallery(sources, (source) async {
+        seen.add(source['archiveId'] as String);
+        if (source['archiveId'] == 'first') {
+          return const ZimLocalGallery(0, []);
+        }
+        return ZimLocalGallery(1, [
+          ZimLocalImage(
+            caption: 'شته گلابی',
+            bytes: Uint8List.fromList([137, 80, 78, 71]),
+            reference: 'I/pear-aphid.png',
+          ),
+        ]);
+      });
+      expect(seen, ['first', 'second']);
+      expect(match?.citation['archiveId'], 'second');
+      expect(match?.gallery.images.single.caption, 'شته گلابی');
+    },
+  );
+
+  test(
+    'revoked or failing archive does not suppress another cited archive',
+    () async {
+      final sources = <Map<String, dynamic>>[
+        {'url': 'zim://revoked/a', 'archiveId': 'revoked'},
+        {'url': 'zim://allowed/b', 'archiveId': 'allowed'},
+      ];
+      final match = await findFirstLocalGallery(sources, (source) async {
+        if (source['archiveId'] == 'revoked') {
+          throw StateError('SAF permission revoked');
+        }
+        return ZimLocalGallery(1, [
+          ZimLocalImage(
+            caption: 'local',
+            bytes: Uint8List.fromList([137, 80, 78, 71]),
+            reference: 'I/valid.png',
+          ),
+        ]);
+      });
+      expect(match?.citation['archiveId'], 'allowed');
+    },
+  );
+
+  test(
+    'deduplicates citations and bounds large multi-source searches',
+    () async {
+      final sources = <Map<String, dynamic>>[
+        for (var i = 0; i < 10; i++)
+          {'url': 'zim://archive$i/pear', 'archiveId': 'archive$i'},
+      ]..insert(1, {'url': 'zim://archive0/pear', 'archiveId': 'archive0'});
+      final reads = <String>[];
+      final match = await findFirstLocalGallery(sources, (source) async {
+        reads.add(source['archiveId'] as String);
         return const ZimLocalGallery(0, []);
-      }
-      return ZimLocalGallery(1, [
-        ZimLocalImage(
-          caption: 'شته گلابی',
-          bytes: Uint8List.fromList([137, 80, 78, 71]),
-          reference: 'I/pear-aphid.png',
-        ),
-      ]);
-    });
-    expect(seen, ['first', 'second']);
-    expect(match?.citation['archiveId'], 'second');
-    expect(match?.gallery.images.single.caption, 'شته گلابی');
-  });
-
-  test('revoked or failing archive does not suppress another cited archive', () async {
-    final sources = <Map<String, dynamic>>[
-      {'url': 'zim://revoked/a', 'archiveId': 'revoked'},
-      {'url': 'zim://allowed/b', 'archiveId': 'allowed'},
-    ];
-    final match = await findFirstLocalGallery(sources, (source) async {
-      if (source['archiveId'] == 'revoked') {
-        throw StateError('SAF permission revoked');
-      }
-      return ZimLocalGallery(1, [
-        ZimLocalImage(
-          caption: 'local',
-          bytes: Uint8List.fromList([137, 80, 78, 71]),
-          reference: 'I/valid.png',
-        ),
-      ]);
-    });
-    expect(match?.citation['archiveId'], 'allowed');
-  });
-
-  test('deduplicates citations and bounds large multi-source searches', () async {
-    final sources = <Map<String, dynamic>>[
-      for (var i = 0; i < 10; i++)
-        {'url': 'zim://archive$i/pear', 'archiveId': 'archive$i'},
-    ]..insert(1, {'url': 'zim://archive0/pear', 'archiveId': 'archive0'});
-    final reads = <String>[];
-    final match = await findFirstLocalGallery(sources, (source) async {
-      reads.add(source['archiveId'] as String);
-      return const ZimLocalGallery(0, []);
-    });
-    expect(reads, ['archive0', 'archive1', 'archive2', 'archive3']);
-    expect(match?.citation['archiveId'], 'archive0');
-    expect(match?.gallery.images, isEmpty);
-  });
+      });
+      expect(reads, ['archive0', 'archive1', 'archive2', 'archive3']);
+      expect(match?.citation['archiveId'], 'archive0');
+      expect(match?.gallery.images, isEmpty);
+    },
+  );
 
   test(
     'approved local ZIM image bytes are retrieved without copying archive',
@@ -198,5 +215,3 @@ void main() {
     },
   );
 }
-
-// Format review marker: remove after obtaining official Dart formatter patch.
