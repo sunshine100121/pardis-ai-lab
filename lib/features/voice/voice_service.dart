@@ -212,6 +212,27 @@ class VoiceNotifier extends Notifier<VoiceState> {
       return stringsFor(ref.read(settingsProvider).localeCode)
           .desktopVoiceMicPrivacy;
     }
+    if (voiceLanguage(ref.read(settingsProvider).localeCode) == 'fa') {
+      return switch (code) {
+        'offline_unavailable' =>
+          'موتور آفلاین Android موجود نیست؛ Vosk یا Whisper آماده را انتخاب کنید.',
+        'offline_recognition_failed' ||
+        'dictation_failed' =>
+          'تشخیص گفتار آفلاین انجام نشد؛ میکروفون و مدل را بررسی کنید.',
+        'error_no_match' => 'گفتار قابل‌تشخیص نبود؛ دوباره امتحان کنید.',
+        'error_speech_timeout' => 'گفتاری شنیده نشد؛ زمان آزمایش تمام شد.',
+        'error_permission' || 'error_audio' =>
+          'مجوز میکروفون لازم است؛ در تنظیمات Android آن را فعال کنید.',
+        'error_language_unavailable' ||
+        'error_language_not_supported' =>
+          'بسته فارسی آفلاین آماده نیست؛ موتور نصب‌شده دیگری انتخاب کنید.',
+        'error_network' =>
+          'موتور انتخاب‌شده بدون شبکه کار نکرد؛ جایگزین خودکار فعال نشد.',
+        'vosk_model_unavailable' =>
+          'مدل Vosk فارسی در دسترس نیست؛ وضعیت دانلود را بررسی کنید.',
+        _ => 'خطای تشخیص گفتار آفلاین ($code).',
+      };
+    }
     return _explain(code);
   }
 
@@ -326,7 +347,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
             if (!_alive || epoch != _listenEpoch) return;
             state = state.copyWith(
               listening: false,
-              error: code == 'cancelled' ? null : _explain(code),
+              error: code == 'cancelled' ? null : _speechError(code),
               clearError: code == 'cancelled',
             );
           },
@@ -335,7 +356,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
         if (_alive) {
           state = state.copyWith(
             listening: false,
-            error: e.code == 'cancelled' ? null : _explain(e.code),
+            error: e.code == 'cancelled' ? null : _speechError(e.code),
             clearError: e.code == 'cancelled',
           );
         }
@@ -343,7 +364,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
         if (_alive) {
           state = state.copyWith(
             listening: false,
-            error: _explain('offline_unavailable'),
+            error: _speechError('offline_unavailable'),
           );
         }
       }

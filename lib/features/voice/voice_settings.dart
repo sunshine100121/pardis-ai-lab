@@ -384,6 +384,7 @@ class _AndroidPersianSttModelState
       final data = snapshot.data ?? const <String, dynamic>{};
       final installed = data['androidOfflineAvailable'] == true;
       final supported = data['androidOfflineSupported'] == true;
+      final canRequest = data['androidOfflineCanRequest'] == true;
       final pending = data['androidOfflinePending'] == true;
       if (installed) {
         return const SettingsRow(
@@ -393,7 +394,7 @@ class _AndroidPersianSttModelState
           subtitle: Text('زبان فارسی نصب‌شده و آفلاین است.'),
         );
       }
-      if (supported) {
+      if (supported || canRequest) {
         return SettingsRow(
           key: const Key('android-stt-model-status'),
           leading: const Icon(Icons.download_for_offline_outlined),
@@ -404,7 +405,10 @@ class _AndroidPersianSttModelState
               Text(
                 pending
                     ? 'دریافت مدل فارسی در انتظار سیستم است.'
-                    : 'فارسی پشتیبانی می‌شود؛ مدل دستگاه هنوز نصب نیست.',
+                    : supported
+                    ? 'مدل فارسی هنوز نصب نیست؛ درخواست دریافت از Android انتخابی است.'
+                    : 'پشتیبانی فارسی تأیید نشده؛ می‌توانید از Android درخواست کنید '
+                          'و نتیجه را دوباره بررسی کنید.',
               ),
               OutlinedButton.icon(
                 key: const Key('android-stt-download'),

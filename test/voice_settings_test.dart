@@ -375,6 +375,42 @@ void main() {
     },
   );
 
+  testWidgets('Android Persian pack request is explicit and not automatic', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final calls = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(OfflineDictation.channel, (call) async {
+          calls.add(call.method);
+          if (call.method == 'capabilities') {
+            return {
+              'androidOfflineAvailable': false,
+              'androidOfflineSupported': false,
+              'androidOfflineCanRequest': true,
+              'apiLevel': 35,
+            };
+          }
+          return null;
+        });
+    await pump(
+      tester,
+      ready: {},
+      settings: const InferenceSettings(
+        localeCode: 'fa',
+        listeningModel: 'android-local',
+      ),
+    );
+    await tester.pump();
+    expect(calls, isNot(contains('downloadAndroidFa')));
+    await tester.ensureVisible(find.byKey(const Key('android-stt-download')));
+    await tester.tap(find.byKey(const Key('android-stt-download')));
+    await tester.pump();
+    expect(calls.where((m) => m == 'downloadAndroidFa'), hasLength(1));
+    expect(calls, isNot(contains('listen')));
+  });
+
   testWidgets('STT test cannot start an uninstalled selected model', (
     tester,
   ) async {
