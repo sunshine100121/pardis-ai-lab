@@ -98,9 +98,11 @@ void main() {
                 pw.Text('Walnut irrigation medical unrelated evidence.'),
           ),
         );
+      final gardenBytes = Uint8List.fromList(await gardenDoc.save());
+      final medicalBytes = Uint8List.fromList(await medicalDoc.save());
       final folder = TestFolder()
-        ..add('garden.pdf', Uint8List.fromList(await gardenDoc.save()))
-        ..add('medical.pdf', Uint8List.fromList(await medicalDoc.save()));
+        ..add('garden.pdf', gardenBytes)
+        ..add('medical.pdf', medicalBytes);
       final library = FolderLibrary(access: folder);
       await library.refresh();
       final before = folder.opens;
@@ -113,14 +115,8 @@ void main() {
       expect(report.sources.single.pageText, isNot(contains('medical')));
       // Only the project-authorized garden PDF is scanned on demand.
       expect(folder.opens, before + 1);
-      expect(
-        folder.bytes['garden.pdf'],
-        Uint8List.fromList(utf8.encode('garden fixture')),
-      );
-      expect(
-        folder.bytes['medical.pdf'],
-        Uint8List.fromList(utf8.encode('medical fixture')),
-      );
+      expect(folder.bytes['garden.pdf'], gardenBytes);
+      expect(folder.bytes['medical.pdf'], medicalBytes);
     },
   );
   test('one tree grant, refresh discovers new files, no original copies and disabled source isolated', () async {
