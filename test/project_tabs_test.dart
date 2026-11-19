@@ -129,6 +129,28 @@ void main() {
     );
     expect(
       ProjectMemoryGate.relevant(
+        'آیا قبلاً درباره آبیاری باغ صحبت کرده بودیم؟',
+        saved,
+      ),
+      isTrue,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'آیا قبلاً درباره آبیاری باغ صحبت کرده بودیم؟',
+        'آبیاری باغ نیاز به بررسی دارد.',
+      ),
+      isFalse,
+      reason: 'A manual note is not proof of a previous chat',
+    );
+    expect(
+      ProjectMemoryGate.relevant(
+        'چه اطلاعاتی از باغ من ثبت کردی؟',
+        '',
+      ),
+      isFalse,
+    );
+    expect(
+      ProjectMemoryGate.relevant(
         'در مورد فشار خون من چی یادت هست؟',
         saved,
       ),
