@@ -280,6 +280,7 @@ void main() {
       expect(seen, ['auth', 'recorder/statistics_during_period']);
     });
   });
+  // Partial statistics remain usable evidence, never complete-period claims.
   test('sparse six-month PM2.5 remains visible with coverage', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
