@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
 import 'package:ondevice_llm/features/zim/zim_source.dart';
+import 'package:ondevice_llm/features/zim/zim_archive.dart';
 import 'package:ondevice_llm/features/zim/zim_wikipedia.dart';
 
 import 'support/persian_zim_fixture.dart';
@@ -73,14 +74,29 @@ void main() {
     expect(access.opened.length, before);
   });
 
-  test('external or invalid image reference cannot read ZIM content',
+  test('remote, data and unsupported image references never read media',
       () async {
     final access = _ImageFolder();
-    final wiki = ZimWikipedia('photo.zim', openSource: access.open);
-    final source = await ZimSource.open('test/fixtures/zim/mini.zim');
-    await source.close();
-    final archive = await wiki.archiveIdentity();
-    expect(archive, isNotEmpty);
-    await wiki.close();
+    final archive = await ZimArchive.open('photo.zim', openSource: access.open);
+    try {
+      final article = await archive.findByTitle('بهبهان');
+      expect(article, isNotNull);
+      expect(await archive.imageBytes(article!, 'https://example.org/p.png'),
+          isNull);
+      expect(await archive.imageBytes(article, '//example.org/p.png'), isNull);
+      expect(await archive.imageBytes(article, 'data:image/png;base64,AA'),
+          isNull);
+      expect(
+        await archive.imageBytes(article, '../I/pear-pest.png',
+            maxImageBytes: 0),
+        isNull,
+      );
+      expect(
+        await archive.imageBytes(article, '../I/pear-pest.png'),
+        isNotNull,
+      );
+    } finally {
+      await archive.close();
+    }
   });
 }
