@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/features/knowledge/ha_sensor_language.dart';
 
+// Verifies that natural Persian sensor routing never broadens HA permissions.
+
 void main() {
   const labels = <String, dynamic>{
     'sensor.garden_temperature': 'دمای محوطه باغ',
