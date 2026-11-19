@@ -10,6 +10,7 @@ import '../../../../core/design/app_design.dart';
 import '../../../../core/platform/device_info.dart';
 import '../../../../core/providers/shared_providers.dart';
 import '../../../../core/utils/external_links.dart';
+import '../../../../core/utils/memory_admission.dart';
 import '../../../benchmark/benchmark.dart';
 import '../../../benchmark/benchmark_dialog.dart';
 import '../../../../data/network/hugging_face.dart';
@@ -236,7 +237,10 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
         preparing: state.preparing.contains(model.id),
         onDownload: () => _download(context, ref, model),
         onPause: () => manager.pauseDownload(model.id),
-        onLoad: () => _attempt(context, () => manager.loadModel(model)),
+        onLoad: () => _attempt(
+          context,
+          () => MemoryAdmission.shared.run(() => manager.loadModel(model)),
+        ),
         onUnload: () => _attempt(
           context,
           () => state.loadedModelId == model.id

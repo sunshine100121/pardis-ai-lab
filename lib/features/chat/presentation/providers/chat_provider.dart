@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/memory_admission.dart';
 import '../../../../core/platform/build_identity.dart';
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/providers/shared_providers.dart';
@@ -936,7 +937,9 @@ class ChatNotifier extends _ChatBase
       if (!await _shareWithHosting(model)) return null;
       // "Loading" shows only when a load starts: an unchanged model is
       // used as it is (audit P1-18).
-      await manager.loadModel(
+      // Preserve the protected native/runtime baseline: only UI-initiated
+      // model allocations share the existing admission queue.
+      await MemoryAdmission.shared.run(() => manager.loadModel(
         model,
         forChat: true,
         settings: settings,
@@ -947,7 +950,7 @@ class ChatNotifier extends _ChatBase
             state.messages.any(
               (m) => isLive(m) && m.attachments.any((a) => a.isImage),
             ),
-      );
+      ));
       t.stage('loadMs');
       state = state.copyWith(isLoadingModel: false, metrics: t.engine.metrics);
     }
