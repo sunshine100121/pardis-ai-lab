@@ -68,7 +68,8 @@ class ZimImageSelection {
           .trim()
           .split(RegExp(r'\s+'))
           .first;
-      final path = _localImagePath(img.attributes['src']) ??
+      final path =
+          _localImagePath(img.attributes['src']) ??
           _localImagePath(img.attributes['data-src']) ??
           _localImagePath(srcset);
       if (path == null || !seen.add(path)) continue;
