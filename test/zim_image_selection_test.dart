@@ -13,10 +13,7 @@ void main() {
         <img src="I/pear-gallery.jpg" alt="گالری گیاهان">
       </article>
     ''';
-    final result = ZimImageSelection.fromArticleHtml(
-      html,
-      'آفت درخت گلابی',
-    );
+    final result = ZimImageSelection.fromArticleHtml(html, 'آفت درخت گلابی');
     expect(result.foundCount, 6);
     expect(result.initial, hasLength(2));
     expect(result.more, hasLength(4));
