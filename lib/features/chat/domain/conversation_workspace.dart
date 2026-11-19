@@ -125,6 +125,9 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     List<String>? sourceIds,
   }) => _change((s) {
     final previous = s.projects.where((p) => p.id == id).firstOrNull;
+    if (id != null && previous == null) {
+      throw StateError('پروژه دیگر وجود ندارد؛ اطلاعاتی بازنویسی نشد.');
+    }
     final nextInstructions = instructions ?? previous?.instructions ?? '';
     final nextCollection = collection ?? previous?.collection ?? '';
     final notes = memoryNotes ?? previous?.memoryNotes ?? '';
