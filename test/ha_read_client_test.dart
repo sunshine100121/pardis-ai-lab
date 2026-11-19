@@ -133,29 +133,30 @@ void main() {
     expect(methods, hasLength(2));
   });
 
-  test('arbitrarily many owner-approved sensor IDs are valid; no writes', () async {
-    final allowed = {
-      for (var i = 0; i < 256; i++) 'sensor.allowed_$i',
-    };
-    final client = HaReadClient(
-      base: Uri.parse('http://192.168.1.50:8123'),
-      token: 'test-only',
-      entities: allowed,
-    );
-    expect(client.entities, hasLength(256));
-    await expectLater(
-      client.state('sensor.not_permitted'),
-      throwsFormatException,
-    );
-    expect(
-      () => HaReadClient(
+  test(
+    'arbitrarily many owner-approved sensor IDs are valid; no writes',
+    () async {
+      final allowed = {for (var i = 0; i < 256; i++) 'sensor.allowed_$i'};
+      final client = HaReadClient(
         base: Uri.parse('http://192.168.1.50:8123'),
         token: 'test-only',
-        entities: {...allowed, 'switch.unsafe'},
-      ),
-      throwsFormatException,
-    );
-  });
+        entities: allowed,
+      );
+      expect(client.entities, hasLength(256));
+      await expectLater(
+        client.state('sensor.not_permitted'),
+        throwsFormatException,
+      );
+      expect(
+        () => HaReadClient(
+          base: Uri.parse('http://192.168.1.50:8123'),
+          token: 'test-only',
+          entities: {...allowed, 'switch.unsafe'},
+        ),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('no public network, credentials in URL or command entity accepted', () {
     for (final url in [

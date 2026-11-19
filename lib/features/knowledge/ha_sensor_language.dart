@@ -24,9 +24,7 @@ class HaSensorLanguage {
 
   static bool _has(String input, Iterable<String> aliases) {
     final padded = ' $input ';
-    return aliases.any(
-      (s) => padded.contains(' ${normalize(s)} '),
-    );
+    return aliases.any((s) => padded.contains(' ${normalize(s)} '));
   }
 
   static const _groups = <String, List<String>>{
@@ -50,14 +48,29 @@ class HaSensorLanguage {
 
   static String? _kind(String text) {
     final q = normalize(text);
-    if (_has(q, ['رطوبت خاک', 'نم خاک', 'نم زمین', 'soil moisture',
-      'soil humidity', 'soil water', 'soilmoisture']) ||
+    if (_has(q, [
+          'رطوبت خاک',
+          'نم خاک',
+          'نم زمین',
+          'soil moisture',
+          'soil humidity',
+          'soil water',
+          'soilmoisture',
+        ]) ||
         (_has(q, ['خاک', 'خاکش', 'soil']) &&
             _has(q, ['رطوبت', 'نم', 'moisture', 'humidity', 'خیس']))) {
       return 'soil_moisture';
     }
-    if (_has(q, ['دما', 'دمای', 'درجه', 'حرارت', 'گرمی', 'سردی',
-      'temperature', 'temp'])) {
+    if (_has(q, [
+      'دما',
+      'دمای',
+      'درجه',
+      'حرارت',
+      'گرمی',
+      'سردی',
+      'temperature',
+      'temp',
+    ])) {
       return 'temperature';
     }
     if (_has(q, ['رطوبت', 'نم', 'شرجی', 'humidity', 'humid'])) {
@@ -69,8 +82,13 @@ class HaSensorLanguage {
     if (_has(q, ['دی اکسید کربن', 'co2', 'کربن دی اکسید'])) return 'co2';
     if (_has(q, ['ولتاژ', 'ولتهاژ', 'voltage'])) return 'voltage';
     if (_has(q, ['شارژ باتری', 'باتری', 'soc', 'battery'])) return 'battery';
-    if (_has(q, ['سطح آب', 'ارتفاع آب', 'میزان آب', 'water level',
-      'waterlevel'])) {
+    if (_has(q, [
+      'سطح آب',
+      'ارتفاع آب',
+      'میزان آب',
+      'water level',
+      'waterlevel',
+    ])) {
       return 'water_level';
     }
     if (_has(q, ['توان', 'power', 'مصرف برق', 'مصرف انرژی', 'energy'])) {
@@ -91,13 +109,35 @@ class HaSensorLanguage {
   /// An unspecific "How hot should rosemary be?" is NOT a live observation.
   static bool isLiveQuestion(String question) {
     final q = normalize(question);
-    if (q.isEmpty || _has(q, [
-      'دیروز', 'پارسال', 'سال قبل', 'هفته پیش', 'ماه قبل',
-      'تاریخچه', 'میانگین', 'نمودار', 'قبلا', 'قبلاً',
-      'علت', 'چرا', 'چگونه کار', 'روش', 'مناسب', 'ایده آل',
-      'ایده آلش', 'چقدر باید', 'چه زمانی', 'کی', 'چطور تنظیم',
-      'آموزش', 'مقایسه', 'در سال', 'last year', 'yesterday',
-    ])) {
+    if (q.isEmpty ||
+        _has(q, [
+          'دیروز',
+          'پارسال',
+          'سال قبل',
+          'هفته پیش',
+          'ماه قبل',
+          'تاریخچه',
+          'میانگین',
+          'نمودار',
+          'قبلا',
+          'قبلاً',
+          'علت',
+          'چرا',
+          'چگونه کار',
+          'روش',
+          'مناسب',
+          'ایده آل',
+          'ایده آلش',
+          'چقدر باید',
+          'چه زمانی',
+          'کی',
+          'چطور تنظیم',
+          'آموزش',
+          'مقایسه',
+          'در سال',
+          'last year',
+          'yesterday',
+        ])) {
       return false;
     }
     final asksReading = RegExp(
@@ -106,8 +146,7 @@ class HaSensorLanguage {
       r'گزارش|نشان میده|نشون میده|است|هست|'
       r'how much|current|right now|reading|value)( |$)',
     ).hasMatch(q);
-    final asksSensor = _kind(q) != null ||
-        _has(q, ['حسگر', 'سنسور', 'sensor']);
+    final asksSensor = _kind(q) != null || _has(q, ['حسگر', 'سنسور', 'sensor']);
     return asksSensor && asksReading;
   }
 
@@ -142,8 +181,7 @@ class HaSensorLanguage {
         continue;
       }
       if (wantedKind == null &&
-          !(display.length >= 3 &&
-              (' $q ').contains(' $display ')) &&
+          !(display.length >= 3 && (' $q ').contains(' $display ')) &&
           !q.contains(normalize(e.key))) {
         continue;
       }
@@ -156,8 +194,10 @@ class HaSensorLanguage {
       matches.add((score, e));
     }
     if (matches.isEmpty) {
-      if (singleFallback && allowed.length == 1 &&
-          wantedKind == null && wantedPlaces.isEmpty) {
+      if (singleFallback &&
+          allowed.length == 1 &&
+          wantedKind == null &&
+          wantedPlaces.isEmpty) {
         return HaSensorMatch(allowed.entries.toList());
       }
       return const HaSensorMatch([]);
@@ -169,6 +209,7 @@ class HaSensorLanguage {
         if (pair.$1 == top) pair.$2,
     ]);
   }
+
   /// Display one actual allow-listed state. "Current" means fetched now,
   /// not that the sensing hardware took a new measurement just now.
   static String currentValue(String label, Map<String, dynamic> state) {
@@ -176,7 +217,8 @@ class HaSensorLanguage {
     final unit = state['unit'] is String
         ? (state['unit'] as String).trim()
         : '';
-    final unavailable = raw.isEmpty ||
+    final unavailable =
+        raw.isEmpty ||
         {'unknown', 'unavailable', 'none', 'null'}.contains(raw.toLowerCase());
     final age = state['report_age_seconds'];
     final freshness = state['freshness'];
@@ -185,19 +227,25 @@ class HaSensorLanguage {
     final reportedAt = state['last_reported_local'] ?? 'ثبت نشده';
     final value = unavailable
         ? 'در دسترس نیست (unknown/unavailable)'
-        : unit.isEmpty ? raw : '$raw $unit';
+        : unit.isEmpty
+        ? raw
+        : '$raw $unit';
     final freshnessText = switch (freshness) {
-      'clock_mismatch' => 'زمان حسگر از ساعت دستگاه جلوتر است؛ '
-          'این داده قابل تأیید به‌عنوان اندازه‌گیری تازه نیست.',
-      'check_age' => age is int && age >= 0
-          ? 'آخرین گزارش ${age ~/ 60} دقیقه قبل ثبت شده؛ '
-              'ممکن است مقدار قدیمی باشد.'
-          : 'آخرین گزارش قدیمی است؛ تازگی تأیید نشده.',
-      'reported' => age is int && age >= 0
-          ? 'آخرین گزارش ${age ~/ 60} دقیقه قبل ثبت شده است.'
-          : 'زمان دریافت گزارش معتبر است.',
-      _ => 'زمان آخرین گزارش موجود نیست؛ '
-          'تازه‌بودن اندازه‌گیری تأیید نشده است.',
+      'clock_mismatch' =>
+        'زمان حسگر از ساعت دستگاه جلوتر است؛ '
+            'این داده قابل تأیید به‌عنوان اندازه‌گیری تازه نیست.',
+      'check_age' =>
+        age is int && age >= 0
+            ? 'آخرین گزارش ${age ~/ 60} دقیقه قبل ثبت شده؛ '
+                  'ممکن است مقدار قدیمی باشد.'
+            : 'آخرین گزارش قدیمی است؛ تازگی تأیید نشده.',
+      'reported' =>
+        age is int && age >= 0
+            ? 'آخرین گزارش ${age ~/ 60} دقیقه قبل ثبت شده است.'
+            : 'زمان دریافت گزارش معتبر است.',
+      _ =>
+        'زمان آخرین گزارش موجود نیست؛ '
+            'تازه‌بودن اندازه‌گیری تأیید نشده است.',
     };
     return 'Home Assistant · $label\n'
         'مقدار ثبت‌شده: $value\n'
@@ -207,5 +255,4 @@ class HaSensorLanguage {
         '$freshnessText\n'
         'این پاسخ از حسگر مجاز خوانده شده، نه از دانشنامه یا حدس Qwen.';
   }
-
 }

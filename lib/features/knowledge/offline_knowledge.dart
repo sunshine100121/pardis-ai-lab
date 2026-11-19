@@ -42,15 +42,11 @@ class OfflineKnowledge {
 
   /// All ordinary observations use the same owner-approved sensor list.
   /// Neither the model nor the question may broaden that list.
-  Future<String> sensorCurrentValue(
-    String question, {
-    bool permitted = true,
-  }) => _directSensor(question, timestampOnly: false, permitted: permitted);
+  Future<String> sensorCurrentValue(String question, {bool permitted = true}) =>
+      _directSensor(question, timestampOnly: false, permitted: permitted);
 
-  Future<String> sensorLastUpdate(
-    String question, {
-    bool permitted = true,
-  }) => _directSensor(question, timestampOnly: true, permitted: permitted);
+  Future<String> sensorLastUpdate(String question, {bool permitted = true}) =>
+      _directSensor(question, timestampOnly: true, permitted: permitted);
 
   Future<String> _directSensor(
     String question, {
@@ -98,9 +94,9 @@ class OfflineKnowledge {
       if (selected == null) {
         return timestampOnly
             ? 'نام حسگر مشخص نیست؛ نام فارسی یکی از حسگرهای مجاز '
-                'Home Assistant را بگویید. زمانی حدس نمی‌زنم.'
+                  'Home Assistant را بگویید. زمانی حدس نمی‌زنم.'
             : 'حسگر متناظر با پرسش در فهرست مجاز Home Assistant '
-                'پیدا نشد؛ مقدار دانشنامه را جای آن اعلام نمی‌کنم.';
+                  'پیدا نشد؛ مقدار دانشنامه را جای آن اعلام نمی‌کنم.';
       }
       final token = await readToken();
       if (token == null || token.trim().isEmpty) {

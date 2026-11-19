@@ -18,11 +18,7 @@ void main() {
       'هوا تو باغ چند درجه است؟',
       'دمای باغ الان چند است',
     ]) {
-      expect(
-        HaSensorLanguage.isLiveQuestion(q),
-        isTrue,
-        reason: q,
-      );
+      expect(HaSensorLanguage.isLiveQuestion(q), isTrue, reason: q);
       expect(
         HaSensorLanguage.resolve(q, labels).selected?.key,
         'sensor.garden_temperature',
@@ -75,25 +71,31 @@ void main() {
     expect(possible.candidates, hasLength(2));
   });
 
-  test('no matching allowed sensor is not replaced with similar indoor data', () {
-    final possible = HaSensorLanguage.resolve('دمای باغ چقدره؟', {
-      'sensor.indoor_temperature': 'دمای داخل ساختمان',
-      'sensor.basil_humidity': 'رطوبت خاک ریحان',
-    });
-    expect(possible.candidates, isEmpty);
-  });
+  test(
+    'no matching allowed sensor is not replaced with similar indoor data',
+    () {
+      final possible = HaSensorLanguage.resolve('دمای باغ چقدره؟', {
+        'sensor.indoor_temperature': 'دمای داخل ساختمان',
+        'sensor.basil_humidity': 'رطوبت خاک ریحان',
+      });
+      expect(possible.candidates, isEmpty);
+    },
+  );
 
-  test('historical, explanatory and desired temperature remain Qwen questions', () {
-    for (final q in [
-      'آیا دمای مناسب رزماری چنده؟',
-      'چرا دمای باغ بالا می رود؟',
-      'دمای باغ دیروز چقدر بود؟',
-      'چطور تنظیم دمای خانه را تغییر بدهم؟',
-      'آفت‌های درخت گلابی چیست؟',
-    ]) {
-      expect(HaSensorLanguage.isLiveQuestion(q), isFalse, reason: q);
-    }
-  });
+  test(
+    'historical, explanatory and desired temperature remain Qwen questions',
+    () {
+      for (final q in [
+        'آیا دمای مناسب رزماری چنده؟',
+        'چرا دمای باغ بالا می رود؟',
+        'دمای باغ دیروز چقدر بود؟',
+        'چطور تنظیم دمای خانه را تغییر بدهم؟',
+        'آفت‌های درخت گلابی چیست؟',
+      ]) {
+        expect(HaSensorLanguage.isLiveQuestion(q), isFalse, reason: q);
+      }
+    },
+  );
 
   test('large allow-list scales without reading or inventing extra IDs', () {
     final many = <String, dynamic>{
