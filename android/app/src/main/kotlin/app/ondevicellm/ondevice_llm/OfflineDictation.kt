@@ -102,7 +102,7 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
     private fun reportPersianSystemSupport(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT < 33 ||
             !SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)) {
-            result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "apiLevel" to Build.VERSION.SDK_INT))
+            result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "androidOfflineCanRequest" to false, "apiLevel" to Build.VERSION.SDK_INT))
             return
         }
         try {
@@ -121,54 +121,42 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
                         val supported = support.supportedOnDeviceLanguages.any(isFa)
                         val pending = support.pendingOnDeviceLanguages.any(isFa)
                         engine.destroy()
-                        result.success(mapOf("androidOfflineAvailable" to available, "androidOfflineSupported" to supported, "androidOfflinePending" to pending, "apiLevel" to Build.VERSION.SDK_INT))
+                        result.success(mapOf("androidOfflineAvailable" to available, "androidOfflineSupported" to supported, "androidOfflinePending" to pending, "androidOfflineCanRequest" to true, "apiLevel" to Build.VERSION.SDK_INT))
                     }
                     override fun onError(error: Int) {
                         engine.destroy()
-                        result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "apiLevel" to Build.VERSION.SDK_INT))
+                        result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "androidOfflineCanRequest" to true, "apiLevel" to Build.VERSION.SDK_INT))
                     }
                 })
         } catch (_: Exception) {
-            result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "apiLevel" to Build.VERSION.SDK_INT))
+            result.success(mapOf("androidOfflineAvailable" to false, "androidOfflineSupported" to false, "androidOfflinePending" to false, "androidOfflineCanRequest" to true, "apiLevel" to Build.VERSION.SDK_INT))
         }
     }
 
     private fun requestPersianSystemModel(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT < 33 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)) {
-            result.error("offline_model_download_unsupported", "This Android version cannot query/download an on-device language pack.", null)
+        if (Build.VERSION.SDK_INT < 33 ||
+            !SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)) {
+            result.error("offline_model_download_unsupported",
+                "Android cannot request an on-device language pack.", null)
             return
         }
+        // A missing entry in supportedOnDeviceLanguages is not proof that
+        // the dedicated on-device recognizer cannot fetch the language.
+        // Only explicit user action reaches this method.
+        var engine: SpeechRecognizer? = null
         try {
-            val engine = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
+            engine = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             }
-            engine.checkRecognitionSupport(intent, activity.mainExecutor,
-                object : RecognitionSupportCallback {
-                    override fun onSupportResult(support: RecognitionSupport) {
-                        val supported = support.supportedOnDeviceLanguages.any {
-                            it.equals("fa", true) || it.startsWith("fa-", true) || it.startsWith("fa_", true)
-                        }
-                        try {
-                            if (supported) engine.triggerModelDownload(intent)
-                        } catch (e: Exception) {
-                            engine.destroy()
-                            result.error("offline_model_download_failed", e.message, null)
-                            return
-                        }
-                        engine.destroy()
-                        if (supported) result.success(null)
-                        else result.error("offline_language_unsupported", "Persian is not offered by the installed Android recognizer.", null)
-                    }
-                    override fun onError(error: Int) {
-                        engine.destroy()
-                        result.error("offline_language_unsupported", "Android could not verify Persian language support.", null)
-                    }
-                })
+            engine.triggerModelDownload(intent)
+            result.success(null) // Request sent, never installation confirmation.
         } catch (e: Exception) {
             result.error("offline_model_download_failed", e.message, null)
+        } finally {
+            engine?.destroy()
         }
     }
 
