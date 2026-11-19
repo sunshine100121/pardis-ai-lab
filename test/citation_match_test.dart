@@ -2,6 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/features/retrieval/domain/citation_match.dart';
 
 void main() {
+  const sources = [
+    'WHO Director-General declared COVID-19 a pandemic on 11 March 2020 '
+        'at a media briefing in Geneva.',
+    'The Nikon Z30 weighs 405 g with battery and memory card; the body '
+        'alone weighs 350 g.',
+  ];
+
   test('PALA source zero is program-owned with no fetched evidence', () {
     final result = CitationMatch.appControlled(
       'درخت گلابی ممکن است آفت‌های متفاوت داشته باشد [۹۹].',
@@ -87,13 +94,6 @@ void main() {
     expect(result.text, isNot(contains('[1]')));
     expect(result.text, isNot(contains('[2]')));
   });
-
-  const sources = [
-    'WHO Director-General declared COVID-19 a pandemic on 11 March 2020 '
-        'at a media briefing in Geneva.',
-    'The Nikon Z30 weighs 405 g with battery and memory card; the body '
-        'alone weighs 350 g.',
-  ];
 
   test('uncited sentences get the source holding their words and figures', () {
     final cited = CitationMatch.attach(
