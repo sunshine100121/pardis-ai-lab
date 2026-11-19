@@ -93,16 +93,20 @@ class LiveTimeAnswer {
   static String device(LiveTimeKind kind, {DateTime Function()? clock}) {
     final local = (clock ?? DateTime.now)().toLocal();
     final date = '${local.year}/${_two(local.month)}/${_two(local.day)}';
-    final time = '${_two(local.hour)}:${_two(local.minute)}:${_two(local.second)}';
-    final zone = 'منطقه زمانی دستگاه: ${local.timeZoneName} '
+    final time =
+        '${_two(local.hour)}:${_two(local.minute)}:${_two(local.second)}';
+    final zone =
+        'منطقه زمانی دستگاه: ${local.timeZoneName} '
         '(${zoneOffset(local.timeZoneOffset)})';
     return switch (kind) {
       LiveTimeKind.clock => 'ساعت دستگاه: $time\n$zone',
-      LiveTimeKind.date => 'تاریخ دستگاه (میلادی): $date، '
-          '${weekdays[local.weekday - 1]}\n$zone',
-      LiveTimeKind.dateTime => 'ساعت دستگاه: $time\n'
-          'تاریخ دستگاه (میلادی): $date، '
-          '${weekdays[local.weekday - 1]}\n$zone',
+      LiveTimeKind.date =>
+        'تاریخ دستگاه (میلادی): $date، '
+            '${weekdays[local.weekday - 1]}\n$zone',
+      LiveTimeKind.dateTime =>
+        'ساعت دستگاه: $time\n'
+            'تاریخ دستگاه (میلادی): $date، '
+            '${weekdays[local.weekday - 1]}\n$zone',
       LiveTimeKind.zone => zone,
       LiveTimeKind.sensorUpdate => throw ArgumentError(
         'Sensor time needs a verified Home Assistant response',
@@ -111,8 +115,9 @@ class LiveTimeAnswer {
   }
 
   static String sensor(String label, Map<String, dynamic> state) {
-    String display(Object? value) =>
-        value is String && value.isNotEmpty ? value : 'در Home Assistant ثبت نشده';
+    String display(Object? value) => value is String && value.isNotEmpty
+        ? value
+        : 'در Home Assistant ثبت نشده';
     final age = state['report_age_seconds'];
     final freshness = state['freshness'];
     final ageText = age is int && age >= 0
@@ -124,12 +129,15 @@ class LiveTimeAnswer {
         : 'نامشخص';
     final freshnessText = switch (freshness) {
       'reported' => 'آخرین گزارش $ageText پیش ثبت شده است.',
-      'check_age' => 'آخرین گزارش $ageText پیش ثبت شده؛ '
-          'تازه‌بودن لحظه‌ای حسگر تأیید نیست.',
-      'clock_mismatch' => 'زمان گزارش حسگر از زمان دریافت جلوتر است؛ '
-          'اختلاف ساعت را بررسی کنید.',
-      _ => 'زمان آخرین گزارش در دسترس نیست؛ '
-          'دریافت پاسخ جدید به معنی تازگی اندازه‌گیری نیست.',
+      'check_age' =>
+        'آخرین گزارش $ageText پیش ثبت شده؛ '
+            'تازه‌بودن لحظه‌ای حسگر تأیید نیست.',
+      'clock_mismatch' =>
+        'زمان گزارش حسگر از زمان دریافت جلوتر است؛ '
+            'اختلاف ساعت را بررسی کنید.',
+      _ =>
+        'زمان آخرین گزارش در دسترس نیست؛ '
+            'دریافت پاسخ جدید به معنی تازگی اندازه‌گیری نیست.',
     };
     return 'منبع: Home Assistant · حسگر «$label»\n'
         'آخرین تغییر مقدار حسگر: ${display(state['last_changed_local'])}\n'

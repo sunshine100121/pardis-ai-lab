@@ -749,10 +749,9 @@ class ChatNotifier extends _ChatBase
       if (t.directTime) {
         final kind = LiveTimeAnswer.intent(t.input)!;
         final result = kind == LiveTimeKind.sensorUpdate
-            ? await ref.read(offlineKnowledgeProvider).sensorLastUpdate(
-                t.input,
-                permitted: _projectId == null,
-              )
+            ? await ref
+                  .read(offlineKnowledgeProvider)
+                  .sensorLastUpdate(t.input, permitted: _projectId == null)
             : LiveTimeAnswer.device(kind);
         // Application-only result: no Qwen token, no encyclopedia,
         // no web judge, no remote service and no invented citation.

@@ -58,13 +58,16 @@ class OfflineKnowledge {
             'زمان به‌روزرسانی حسگر را نمی‌توانم تأیید کنم.';
       }
       final parsed = jsonDecode(raw);
-      if (parsed is! Map || parsed['enabled'] != true ||
-          parsed['base'] is! String || parsed['entities'] is! Map) {
+      if (parsed is! Map ||
+          parsed['enabled'] != true ||
+          parsed['base'] is! String ||
+          parsed['entities'] is! Map) {
         return 'اتصال خواندنی Home Assistant فعال یا معتبر نیست؛ '
             'زمانی حدس نمی‌زنم.';
       }
       final allowed = Map<String, dynamic>.from(parsed['entities'] as Map);
-      if (allowed.isEmpty || allowed.length > 8 ||
+      if (allowed.isEmpty ||
+          allowed.length > 8 ||
           allowed.values.any((v) => v is! String || v.trim().isEmpty)) {
         return 'فهرست حسگرهای مجاز Home Assistant معتبر نیست.';
       }
@@ -81,9 +84,9 @@ class OfflineKnowledge {
       if (selected == null) {
         return matched.length > 1
             ? 'چند حسگر با این پرسش مطابقت دارند؛ نام دقیق یک حسگر '
-              'را بگویید تا زمان آن را بخوانم.'
+                  'را بگویید تا زمان آن را بخوانم.'
             : 'نام حسگر مشخص نیست؛ نام یکی از حسگرهای مجاز '
-              'Home Assistant را بگویید. زمانی حدس نمی‌زنم.';
+                  'Home Assistant را بگویید. زمانی حدس نمی‌زنم.';
       }
       final token = await readToken();
       if (token == null || token.trim().isEmpty) {
