@@ -1561,29 +1561,18 @@ class InferenceSettings {
       naturalVoice: boolean('naturalVoice', true),
       kokoroSid: integer('kokoroSid', -1, -1, 53),
       supertonicSid: integer('supertonicSid', 0, 0, 9),
-      readingVoice: switch (text('readingVoice', 96)) {
-        'supertonic-2' => 'supertonic-2',
-        final value
-            when RegExp(
-              r'^tts:[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9._-]{0,47}$',
-            ).hasMatch(value) =>
-          value,
-        _ => 'kokoro',
-      },
+      readingVoice: text('readingVoice', 32) == 'supertonic-2'
+          ? 'supertonic-2'
+          : 'kokoro',
       talkOver: boolean('talkOver', false),
       spokenSentences: integer('spokenSentences', 3, 0, 20),
       readingSpeed: number('readingSpeed', 1.0, .6, 1.6),
       conversationModelId: text('conversationModelId', 200),
-      listeningModel: switch (text('listeningModel', 96)) {
+      listeningModel: switch (text('listeningModel', 32)) {
         'parakeet-v3' => 'parakeet-v3',
         'android-local' => 'android-local',
         'whisper-fa' => 'whisper-fa',
         'vosk-fa' => 'vosk-fa',
-        final value
-            when RegExp(
-              r'^stt:[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9._-]{0,47}$',
-            ).hasMatch(value) =>
-          value,
         _ => '',
       },
       localeCode: const {'fa', 'en', 'fr', 'es'}.contains(text('localeCode', 8))
