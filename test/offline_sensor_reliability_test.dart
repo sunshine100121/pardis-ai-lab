@@ -305,12 +305,7 @@ void main() {
               'success': true,
               'result': {
                 'sensor.fixture_pm25': [
-                  {
-                    'start': hourlyStamp,
-                    'mean': 15,
-                    'min': 10,
-                    'max': 21,
-                  },
+                  {'start': hourlyStamp, 'mean': 15, 'min': 10, 'max': 21},
                 ],
               },
             }),
