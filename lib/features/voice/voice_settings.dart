@@ -14,7 +14,18 @@ import 'voice_pipeline.dart';
 import 'voice_service.dart';
 import 'offline_dictation.dart';
 import 'voice_engine_catalog.dart';
+import 'persian_stt_policy.dart';
 import '../../core/platform/form_factor.dart';
+
+final _androidPersianSttStatusProvider = FutureProvider<Map<String, dynamic>>(
+  (ref) async {
+    try {
+      return await OfflineDictation.capabilities();
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  },
+);
 
 /// Settings › Voice: the on-device voice switch, its two downloads
 /// (Whisper listening, Kokoro speaking) and the Kokoro speaker.
@@ -95,6 +106,10 @@ class _PersianEngines extends ConsumerWidget {
         packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
     final voskReady =
         packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
+    final androidReady =
+        ref.watch(_androidPersianSttStatusProvider).asData?.value[
+                'androidOfflineAvailable'] ==
+            true;
     return SettingsRow(
       key: const Key('persian-voice-engines'),
       leading: const Icon(Icons.hearing_outlined),
@@ -106,35 +121,24 @@ class _PersianEngines extends ConsumerWidget {
           Wrap(
             spacing: AppDesign.xs,
             children: [
-              FutureBuilder<Map<String, dynamic>>(
-                future: OfflineDictation.capabilities().catchError(
-                  (_) => <String, dynamic>{},
+              ChoiceChip(
+                key: const Key('persian-stt-android'),
+                label: Text(
+                  androidReady
+                      ? 'Android · آماده'
+                      : 'Android · آفلاین ناموجود',
                 ),
-                builder: (context, snapshot) {
-                  final available =
-                      snapshot.data?['androidOfflineAvailable'] == true;
-                  return ChoiceChip(
-                    key: const Key('persian-stt-android'),
-                    label: Text(
-                      available
-                          ? 'Android · آماده'
-                          : 'Android · آفلاین ناموجود',
-                    ),
-                    selected:
-                        (settings.listeningModel == 'android-local' ||
-                            settings.listeningModel.isEmpty) &&
-                        available,
-                    onSelected: available
-                        ? (_) => ref
-                              .read(settingsProvider.notifier)
-                              .update(
-                                settings.copyWith(
-                                  listeningModel: 'android-local',
-                                ),
-                              )
-                        : null,
-                  );
-                },
+                selected:
+                    PersianSttPolicy.selected(settings.listeningModel) ==
+                        PersianSttPolicy.android &&
+                    androidReady,
+                onSelected: androidReady
+                    ? (_) => ref
+                          .read(settingsProvider.notifier)
+                          .update(
+                            settings.copyWith(listeningModel: 'android-local'),
+                          )
+                    : null,
               ),
               ChoiceChip(
                 key: const Key('persian-stt-whisper'),
@@ -179,9 +183,8 @@ class _PersianSttTest extends ConsumerStatefulWidget {
 
 class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
   late final VoiceNotifier _voice = ref.read(voiceProvider.notifier);
-  late final Future<Map<String, dynamic>> _capabilities =
-      OfflineDictation.capabilities().catchError((_) => <String, dynamic>{});
   bool _started = false;
+  String _lastFinal = '';
   bool _ownsSession = false;
   bool _startFailed = false;
 
@@ -196,19 +199,21 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
     final voice = ref.watch(voiceProvider);
     final settings = ref.watch(settingsProvider);
     final packs = ref.watch(voiceModelsProvider);
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _capabilities,
-      builder: (context, snapshot) {
-        final ready = switch (settings.listeningModel) {
-          'whisper-fa' =>
-            packs.of(VoiceModels.listening).status == VoicePackStatus.ready,
-          'vosk-fa' =>
-            packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready,
-          '' ||
-          'android-local' => snapshot.data?['androidOfflineAvailable'] == true,
-          _ => false,
-        };
-        return Column(
+    final androidReady =
+        ref.watch(_androidPersianSttStatusProvider).asData?.value[
+                'androidOfflineAvailable'] ==
+            true;
+    final whisperReady =
+        packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
+    final voskReady =
+        packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
+    final ready = PersianSttPolicy.ready(
+      setting: settings.listeningModel,
+      androidReady: androidReady,
+      whisperReady: whisperReady,
+      voskReady: voskReady,
+    );
+    return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextButton.icon(
@@ -227,11 +232,19 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
                         _started = true;
                         _startFailed = false;
                         _ownsSession = true;
+                        _lastFinal = '';
                       });
                       try {
                         await _voice.listen(
                           onText: (_) {},
-                          onFinal: (_) => _ownsSession = false,
+                          onFinal: (text) {
+                            if (!mounted) return;
+                            setState(() {
+                              _lastFinal =
+                                  PersianSttPolicy.finalPrompt(text) ?? '';
+                              _ownsSession = false;
+                            });
+                          },
                         );
                         if (mounted && !ref.read(voiceProvider).listening) {
                           setState(() => _ownsSession = false);
@@ -250,13 +263,39 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
                     : 'آزمایش شنیدن',
               ),
             ),
+            TextButton.icon(
+              key: const Key('persian-stt-refresh'),
+              onPressed: voice.listening
+                  ? null
+                  : () => ref.invalidate(_androidPersianSttStatusProvider),
+              icon: const Icon(Icons.refresh),
+              label: const Text('بررسی دوباره آمادگی موتور'),
+            ),
+            if (!ready)
+              Text(
+                PersianSttPolicy.unavailable(
+                  setting: settings.listeningModel,
+                  androidReady: androidReady,
+                  whisperReady: whisperReady,
+                  voskReady: voskReady,
+                ),
+                key: const Key('persian-stt-fallback'),
+              ),
             if (_started && voice.partial.isNotEmpty) Text(voice.partial),
+            if (_lastFinal.isNotEmpty)
+              SelectableText(
+                'متن نهایی شناسایی‌شده: $_lastFinal',
+                key: const Key('persian-stt-final'),
+              ),
             if (_started && voice.error != null) Text(voice.error!),
             if (_startFailed) const Text('آزمایش شنیدن شروع نشد.'),
+            const Text(
+              'این دکمه فقط تشخیص را می‌آزماید؛ برای ارسال متن نهایی '
+              'به Qwen، گفت‌وگوی صوتی پالا را باز کنید. '
+              'آزمون واقعی با اینترنت خاموش روی تبلت لازم است.',
+            ),
           ],
         );
-      },
-    );
   }
 }
 
@@ -324,14 +363,15 @@ class _VoskDownloadRow extends ConsumerWidget {
   }
 }
 
-class _AndroidPersianSttModel extends StatefulWidget {
+class _AndroidPersianSttModel extends ConsumerStatefulWidget {
   const _AndroidPersianSttModel();
   @override
-  State<_AndroidPersianSttModel> createState() =>
+  ConsumerState<_AndroidPersianSttModel> createState() =>
       _AndroidPersianSttModelState();
 }
 
-class _AndroidPersianSttModelState extends State<_AndroidPersianSttModel> {
+class _AndroidPersianSttModelState
+    extends ConsumerState<_AndroidPersianSttModel> {
   late Future<Map<String, dynamic>> _status = _read();
   bool _busy = false;
   Future<Map<String, dynamic>> _read() =>
@@ -377,7 +417,10 @@ class _AndroidPersianSttModelState extends State<_AndroidPersianSttModel> {
                           await Future<void>.delayed(
                             const Duration(seconds: 2),
                           );
-                          if (mounted) setState(() => _status = _read());
+                          if (mounted) {
+                            setState(() => _status = _read());
+                            ref.invalidate(_androidPersianSttStatusProvider);
+                          }
                         } catch (_) {
                           if (mounted)
                             ScaffoldMessenger.of(context).showSnackBar(

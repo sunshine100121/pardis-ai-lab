@@ -15,6 +15,7 @@ import '../settings/domain/entities/inference_settings.dart';
 import '../settings/presentation/providers/settings_provider.dart';
 import 'desktop_voice_policy.dart';
 import 'offline_dictation.dart';
+import 'persian_stt_policy.dart';
 import 'sherpa_voice.dart';
 import 'voice_models.dart';
 import 'voice_models_provider.dart';
@@ -225,12 +226,13 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (state.listening) return stop();
     final epoch = ++_listenEpoch;
     final selectedSettings = ref.read(settingsProvider);
+    final persian = voiceLanguage(selectedSettings.localeCode) == 'fa';
+    final selectedPersian = PersianSttPolicy.selected(
+      selectedSettings.listeningModel,
+    );
     final explicitWhisper =
-        voiceLanguage(selectedSettings.localeCode) == 'fa' &&
-        selectedSettings.listeningModel == 'whisper-fa';
-    final explicitVosk =
-        voiceLanguage(selectedSettings.localeCode) == 'fa' &&
-        selectedSettings.listeningModel == 'vosk-fa';
+        persian && selectedPersian == PersianSttPolicy.whisper;
+    final explicitVosk = persian && selectedPersian == PersianSttPolicy.vosk;
     if (explicitWhisper && !_naturalListening()) {
       state = state.copyWith(
         listening: false,
@@ -272,6 +274,32 @@ class VoiceNotifier extends Notifier<VoiceState> {
         );
         return;
       }
+      if (persian && !explicitVosk) {
+        try {
+          final capabilities = await OfflineDictation.capabilities();
+          if (capabilities['androidOfflineAvailable'] != true) {
+            if (_alive && epoch == _listenEpoch) {
+              state = state.copyWith(
+                listening: false,
+                error: 'بسته تشخیص گفتار فارسی Android آماده نیست؛ '
+                    'از تنظیمات گفتار، Vosk یا Whisper نصب‌شده را '
+                    'به‌صورت دستی انتخاب کنید. تشخیص آنلاین اجرا نشد.',
+              );
+            }
+            return;
+          }
+        } catch (_) {
+          if (_alive && epoch == _listenEpoch) {
+            state = state.copyWith(
+              listening: false,
+              error: 'آمادگی موتور آفلاین Android تأیید نشد. '
+                  'موتور دیگری خودکار فعال نمی‌شود.',
+            );
+          }
+          return;
+        }
+      }
+      if (!_alive || epoch != _listenEpoch) return;
       _usingOffline = true;
       _offline ??= OfflineDictation();
       state = state.copyWith(
@@ -295,7 +323,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
             if (isFinal) onFinal?.call(text);
           },
           onError: (code) {
-            if (!_alive) return;
+            if (!_alive || epoch != _listenEpoch) return;
             state = state.copyWith(
               listening: false,
               error: code == 'cancelled' ? null : _explain(code),
@@ -367,9 +395,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (settings.listeningModel == 'android-local') return false;
     if (settings.listeningModel == 'vosk-fa') return false;
     if (voiceLanguage(settings.localeCode) == 'fa') {
-      if (settings.listeningModel == VoiceModels.parakeetSetting) return false;
-      return (settings.listeningModel == 'whisper-fa' ||
-              settings.naturalVoice) &&
+      // Natural voice is not consent to silently replace Android STT.
+      return settings.listeningModel == PersianSttPolicy.whisper &&
           packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
     }
     return offlineVoiceReady(

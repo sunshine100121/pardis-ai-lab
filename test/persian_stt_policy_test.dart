@@ -1,0 +1,58 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ondevice_llm/features/voice/persian_stt_policy.dart';
+
+void main() {
+  test('legacy default selects Android even when Whisper is installed', () {
+    expect(PersianSttPolicy.selected(''), 'android-local');
+    expect(PersianSttPolicy.selected('whisper-fa'), 'whisper-fa');
+    expect(PersianSttPolicy.selected('vosk-fa'), 'vosk-fa');
+    expect(PersianSttPolicy.selected('parakeet-v3'), 'android-local');
+    expect(
+      PersianSttPolicy.ready(
+        setting: '',
+        androidReady: false,
+        whisperReady: true,
+        voskReady: true,
+      ),
+      false,
+    );
+  });
+
+  test('fallback is manual and does not start or download any engine', () {
+    expect(
+      PersianSttPolicy.unavailable(
+        setting: 'android-local',
+        androidReady: false,
+        whisperReady: true,
+        voskReady: false,
+      ),
+      contains('Whisper'),
+    );
+    expect(
+      PersianSttPolicy.unavailable(
+        setting: 'vosk-fa',
+        androidReady: true,
+        whisperReady: false,
+        voskReady: false,
+      ),
+      contains('Android'),
+    );
+    expect(
+      PersianSttPolicy.unavailable(
+        setting: 'android-local',
+        androidReady: false,
+        whisperReady: false,
+        voskReady: false,
+      ),
+      contains('هیچ موتور فارسی'),
+    );
+  });
+
+  test('only a real nonempty final sentence is a Qwen question', () {
+    expect(PersianSttPolicy.finalPrompt('   '), isNull);
+    expect(
+      PersianSttPolicy.finalPrompt('  دمای باغ الان چقدره؟  '),
+      'دمای باغ الان چقدره؟',
+    );
+  });
+}

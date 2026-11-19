@@ -325,6 +325,56 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets(
+    'Android Persian readiness can be refreshed without starting microphone',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      var installed = false;
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(OfflineDictation.channel, (call) async {
+            calls.add(call.method);
+            if (call.method == 'capabilities') {
+              return {
+                'androidOfflineAvailable': installed,
+                'androidOfflineSupported': true,
+                'apiLevel': 35,
+              };
+            }
+            return null;
+          });
+      await pump(
+        tester,
+        ready: {},
+        settings: const InferenceSettings(
+          localeCode: 'fa',
+          listeningModel: 'android-local',
+        ),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const Key('persian-stt-try')))
+            .onPressed,
+        isNull,
+      );
+      expect(find.byKey(const Key('persian-stt-fallback')), findsOneWidget);
+      installed = true;
+      await tester.ensureVisible(find.byKey(const Key('persian-stt-refresh')));
+      await tester.tap(find.byKey(const Key('persian-stt-refresh')));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const Key('persian-stt-try')))
+            .onPressed,
+        isNotNull,
+      );
+      expect(calls, isNot(contains('listen')));
+    },
+  );
+
   testWidgets('STT test cannot start an uninstalled selected model', (
     tester,
   ) async {
