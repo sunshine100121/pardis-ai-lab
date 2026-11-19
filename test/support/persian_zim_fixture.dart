@@ -48,6 +48,7 @@ SparseZimSource persianZim({
   bool embeddedIndex = false,
   bool englishGarden = false,
   bool duplicateGardenTitle = false,
+  bool illustrated = false,
   String archive = 'دانشنامهٔ فارسی آزمون',
 }) {
   final entries = <Map<String, dynamic>>[
@@ -73,6 +74,35 @@ SparseZimSource persianZim({
       'title': 'listing/titleOrdered/v1',
     },
   ]..sort((a, b) => '${a['ns']}${a['url']}'.compareTo('${b['ns']}${b['url']}'));
+  if (illustrated) {
+    final article = entries.firstWhere((e) => e['url'] == 'Behbahan');
+    article['text'] =
+        '<html><body><h1>گلابی</h1><p>آفت‌های درخت گلابی</p>'
+        '<img src="../I/pear-pest.png" alt="آفت شته درخت گلابی">'
+        '<img src="../I/pear-leaf.png" alt="برگ گلابی"></body></html>';
+    const pixel =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO/9hC8AAAAASUVORK5CYII=';
+    entries.addAll([
+      {
+        'ns': 'I',
+        'url': 'pear-pest.png',
+        'title': 'pear pest',
+        'image': true,
+        'bytes': base64Decode(pixel),
+      },
+      {
+        'ns': 'I',
+        'url': 'pear-leaf.png',
+        'title': 'pear leaf',
+        'image': true,
+        'bytes': base64Decode(pixel),
+      },
+    ]);
+    entries.sort((a, b) =>
+        (a['ns'] as String).compareTo(b['ns'] as String) != 0
+            ? (a['ns'] as String).compareTo(b['ns'] as String)
+            : (a['url'] as String).compareTo(b['url'] as String));
+  }
   if (embeddedIndex) {
     entries.add({
       'ns': 'X',
@@ -126,6 +156,8 @@ SparseZimSource persianZim({
     blobs.add(
       entry['ns'] == 'X'
           ? numbers(order, 4)
+          : entry['image'] == true
+          ? entry['bytes'] as Uint8List
           : Uint8List.fromList(utf8.encode(entry['text'] as String)),
     );
   }
@@ -147,6 +179,8 @@ SparseZimSource persianZim({
       0,
       redirect
           ? 0xffff
+          : entry['image'] == true
+          ? 2
           : entry['ns'] == 'C'
           ? 0
           : 1,
@@ -174,7 +208,7 @@ SparseZimSource persianZim({
     );
   }
   final mime = Uint8List.fromList(
-    utf8.encode('text/html\x00text/plain\x00\x00'),
+    utf8.encode('text/html\x00text/plain\x00image/png\x00\x00'),
   );
   final pieces = <int, Uint8List>{80: mime};
   var pos = 80 + mime.length;
