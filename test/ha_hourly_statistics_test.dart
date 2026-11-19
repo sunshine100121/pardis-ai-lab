@@ -75,7 +75,7 @@ void main() {
             socket.add(jsonEncode({'type': 'auth_ok'}));
           } else if (request['type'] == 'recorder/statistics_during_period') {
             expect(request['period'], 'hour');
-            expect(request['types'], ['mean']);
+            expect(request['types'], ['mean', 'min', 'max']);
             expect(request['statistic_ids'], ['sensor.example']);
             socket.add(
               jsonEncode({
@@ -84,7 +84,12 @@ void main() {
                 'success': true,
                 'result': {
                   'sensor.example': [
-                    {'start': from.millisecondsSinceEpoch, 'mean': 7.5},
+                    {
+                      'start': from.millisecondsSinceEpoch,
+                      'mean': 7.5,
+                      'min': 5,
+                      'max': 9,
+                    },
                   ],
                 },
               }),
@@ -106,6 +111,8 @@ void main() {
       );
       expect(data.length, 1);
       expect(data.single.mean, 7.5);
+      expect(data.single.minimum, 5);
+      expect(data.single.maximum, 9);
       expect(kinds, ['auth', 'recorder/statistics_during_period']);
     },
   );

@@ -4,7 +4,9 @@
 class HourlyValue {
   final DateTime at;
   final double? mean;
-  const HourlyValue(this.at, this.mean);
+  final double? minimum;
+  final double? maximum;
+  const HourlyValue(this.at, this.mean, {this.minimum, this.maximum});
 }
 
 class HourlyProfile {

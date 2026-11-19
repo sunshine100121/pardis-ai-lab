@@ -252,6 +252,7 @@ void main() {
         } else {
           expect(data['type'], 'recorder/statistics_during_period');
           expect(data['statistic_ids'], ['sensor.fixture_pm25']);
+           expect(data['types'], ['mean', 'min', 'max']);
           ws.add(
             jsonEncode({
               'id': data['id'],

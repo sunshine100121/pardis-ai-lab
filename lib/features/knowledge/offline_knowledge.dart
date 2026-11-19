@@ -290,31 +290,39 @@ class OfflineKnowledge {
           toUtc: until,
           samples: rows,
         );
-        if (report['recurring_peak_supported'] != true) {
-          // No model-generated claim about a habitual peak with thin data.
-          sources.clear();
-          final noUniquePeak = report['coverage_adequate'] == true;
-          checks
-            ..clear()
-            ..add({
-              'file': 'Home Assistant',
-              'stage': 'coverage',
-              'code': 'ha_insufficient',
-              'reason': noUniquePeak ? 'non_unique_peak' : 'coverage',
-            });
+        // Partial records are evidence, not a complete six-month history.
+        // An empty recorder response must never produce invented numbers.
+        final available = report['reported_statistic_hours'] as int;
+        sources.clear();
+        checks.clear();
+        if (available == 0) {
+          checks.add({
+            'file': 'Home Assistant',
+            'stage': 'coverage',
+            'code': 'ha_insufficient',
+            'reason': 'no_data',
+            'coverage_percent': 0,
+          });
           sources.add(
             _failure(
               'Home Assistant',
-              noUniquePeak
-                  ? 'پوشش داده کافی است اما ساعت اوج یکتایی مشخص نیست؛ ساعت قطعی اعلام نمی‌کنم.'
-                  : 'آمار ساعتی کافی برای تعیین ساعت اوج معمول وجود ندارد؛ عدد یا ساعت حدسی اعلام نمی‌کنم.',
+              'برای این شش ماه هیچ آمار ساعتی معتبری از حسگر مجاز در دسترس نیست؛ '
+                  'میانگین، حداقل یا حداکثر را حدس نمی‌زنم.',
             ),
           );
         } else {
-          sources
-            ..clear()
-            ..add(HaReadClient.evidence(selected.value as String, report));
-          checks.clear();
+          sources.add(HaReadClient.evidence(selected.value as String, report));
+          if ((report['coverage'] as double) < 1) {
+            checks.add({
+              'file': 'Home Assistant',
+              'stage': 'coverage',
+              'code': 'ha_partial_coverage',
+              'coverage_percent': report['coverage_percent'],
+              'valid_hours': report['valid_hours'],
+              'expected_hours': report['expected_hours'],
+              'missing_hours': report['missing_hours'],
+            });
+          }
         }
       } else {
         final data = history

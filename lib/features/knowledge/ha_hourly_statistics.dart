@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'ha_read_client.dart';
+import 'ha_historical_coverage.dart';
 import 'hourly_pattern.dart';
 
 /// Only one allow-listed sensor, hourly mean statistics and a bounded period.
@@ -75,15 +76,27 @@ class HaHourlyStatistics {
           !seen.add(at.millisecondsSinceEpoch)) {
         throw const FormatException('بازه ساعتی نامنظم یا رکورد تکراری است.');
       }
-      final raw = row['mean'];
-      if (raw != null && raw is! num) {
-        throw const FormatException('مقدار میانگین ساعتی نامعتبر است.');
+      double? finiteStatistic(String key) {
+        final raw = row[key];
+        if (raw != null && raw is! num) {
+          throw const FormatException('مقدار آماری ساعتی نامعتبر است.');
+        }
+        final value = (raw as num?)?.toDouble();
+        if (value != null && !value.isFinite) {
+          throw const FormatException('مقدار نامتناهی در آمار یافت شد.');
+        }
+        return value;
       }
-      final value = (raw as num?)?.toDouble();
-      if (value != null && !value.isFinite) {
-        throw const FormatException('مقدار نامتناهی در آمار یافت شد.');
+
+      final mean = finiteStatistic('mean');
+      final minimum = finiteStatistic('min');
+      final maximum = finiteStatistic('max');
+      if (minimum != null && maximum != null && minimum > maximum) {
+        throw const FormatException('حداقل و حداکثر آماری ناسازگارند.');
       }
-      parsed.add(HourlyValue(at, value));
+      parsed.add(
+        HourlyValue(at, mean, minimum: minimum, maximum: maximum),
+      );
     }
     return parsed;
   }
@@ -189,7 +202,7 @@ class HaHourlyStatistics {
           'end_time': end.toIso8601String(),
           'statistic_ids': [entityId],
           'period': 'hour',
-          'types': ['mean'],
+          'types': ['mean', 'min', 'max'],
         }),
       );
       final response = await next();
@@ -221,10 +234,16 @@ class HaHourlyStatistics {
     required List<HourlyValue> samples,
     Duration Function(DateTime utc)? utcOffsetAt,
   }) {
+    final observed = samples.toList(growable: false);
+    final period = HaHistoricalCoverage.summarize(
+      fromUtc: fromUtc,
+      toUtc: toUtc,
+      samples: observed,
+    );
     final profile = HourlyPattern.summarize(
       fromUtc: fromUtc,
       toUtc: toUtc,
-      samples: samples,
+      samples: observed,
       utcOffsetAt: utcOffsetAt,
     );
     final total = profile.fold<int>(0, (a, h) => a + h.expectedHours);
@@ -243,6 +262,7 @@ class HaHourlyStatistics {
     final uniquePeak =
         adequate && sorted.length >= 2 && sorted.first.mean! > sorted[1].mean!;
     return {
+      ...period,
       'kind': 'ha_hourly_statistics',
       'origin': 'Home Assistant recorder, hourly long-term mean',
       'entity_id': entityId,
