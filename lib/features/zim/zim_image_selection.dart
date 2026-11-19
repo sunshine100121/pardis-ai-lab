@@ -1,4 +1,25 @@
+import 'dart:typed_data';
+
 import 'package:html/parser.dart' as html_parser;
+/// A verified, bounded image read from a previously approved ZIM archive.
+class ZimLocalImage {
+  const ZimLocalImage({
+    required this.caption,
+    required this.bytes,
+    required this.reference,
+  });
+  final String caption;
+  final Uint8List bytes;
+  final String reference;
+}
+
+class ZimLocalGallery {
+  const ZimLocalGallery(this.referencedCount, this.images);
+  final int referencedCount;
+  final List<ZimLocalImage> images;
+}
+
+
 
 /// Offline article image metadata. No network requests or binary image copies.
 /// Actual image bytes must be read from the same approved ZIM archive only.
