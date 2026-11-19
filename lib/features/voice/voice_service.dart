@@ -251,6 +251,17 @@ class VoiceNotifier extends Notifier<VoiceState> {
     final explicitWhisper =
         persian && selectedPersian == PersianSttPolicy.whisper;
     final explicitVosk = persian && selectedPersian == PersianSttPolicy.vosk;
+    if (persian &&
+        selectedPersian != PersianSttPolicy.android &&
+        !explicitWhisper &&
+        !explicitVosk) {
+      state = state.copyWith(
+        listening: false,
+        error: 'مدل STT انتخابی در تنظیمات حفظ شده، اما آداپتور آن '
+            'آماده نیست. موتور دیگری خودکار اجرا نمی‌شود.',
+      );
+      return;
+    }
     if (explicitWhisper && !_naturalListening()) {
       state = state.copyWith(
         listening: false,
@@ -664,6 +675,16 @@ class VoiceNotifier extends Notifier<VoiceState> {
 
   /// Reads [markdown] aloud; tapping the same message again stops it.
   Future<void> speak(String markdown, {String? id, double? rate}) async {
+    final preferred = ref.read(settingsProvider).readingVoice;
+    if (preferred != 'kokoro' && preferred != 'supertonic-2') {
+      state = state.copyWith(
+        speaking: false,
+        clearSpeakingId: true,
+        error: 'مدل TTS انتخابی در تنظیمات حفظ شده، اما آداپتور آن '
+            'آماده نیست. صدای دیگری خودکار پخش نمی‌شود.',
+      );
+      return;
+    }
     await _initTts();
     if (state.speaking && (id == null || id == state.speakingId)) {
       return pauseSpeaking();

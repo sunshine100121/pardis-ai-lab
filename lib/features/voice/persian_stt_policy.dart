@@ -1,5 +1,7 @@
-/// Safe, predictable Persian speech choices; none may silently enable a
-/// network recognizer or download an optional model.
+import 'voice_engine_selection.dart';
+
+/// Safe Persian speech choices. Future adapter/model IDs are preserved and
+/// cannot silently become the Android/cloud recognizer.
 abstract final class PersianSttPolicy {
   static const android = 'android-local';
   static const whisper = 'whisper-fa';
@@ -7,8 +9,12 @@ abstract final class PersianSttPolicy {
 
   /// Old installs stored an empty listening preference. Keep their default
   /// Android route deterministic even if a Whisper pack is installed.
-  static String selected(String setting) =>
-      setting == whisper || setting == vosk ? setting : android;
+  static String selected(String setting) {
+    if (setting == whisper || setting == vosk) return setting;
+    final chosen = VoiceEngineSelection.parse(setting);
+    if (chosen?.kind == VoiceSelectionKind.stt) return setting;
+    return android; // Legacy empty and invalid values only.
+  }
 
   static bool ready({
     required String setting,
@@ -18,7 +24,8 @@ abstract final class PersianSttPolicy {
   }) => switch (selected(setting)) {
     whisper => whisperReady,
     vosk => voskReady,
-    _ => androidReady,
+    android => androidReady,
+    _ => false, // Unknown adapter is never reported as ready.
   };
 
   /// This is a visible manual fallback, never an automatic engine switch.
@@ -29,6 +36,12 @@ abstract final class PersianSttPolicy {
     required bool voskReady,
   }) {
     final selectedEngine = selected(setting);
+    if (selectedEngine != android &&
+        selectedEngine != whisper &&
+        selectedEngine != vosk) {
+      return 'مدل STT انتخابی حفظ شده، اما آداپتور اجرایی آن هنوز '
+          'آماده نیست؛ موتور دیگری خودکار انتخاب نمی‌شود.';
+    }
     final options = <String>[
       if (androidReady && selectedEngine != android) 'Android',
       if (voskReady && selectedEngine != vosk) 'Vosk فارسی',

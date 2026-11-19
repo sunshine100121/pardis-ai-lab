@@ -8,6 +8,19 @@ void main() {
     expect(PersianSttPolicy.selected('vosk-fa'), 'vosk-fa');
     expect(PersianSttPolicy.selected('parakeet-v3'), 'android-local');
     expect(
+      PersianSttPolicy.selected('stt:vosk:persian-large'),
+      'stt:vosk:persian-large',
+    );
+    expect(
+      PersianSttPolicy.ready(
+        setting: 'stt:vosk:persian-large',
+        androidReady: true,
+        whisperReady: true,
+        voskReady: true,
+      ),
+      false,
+    );
+    expect(
       PersianSttPolicy.ready(
         setting: '',
         androidReady: false,
@@ -45,6 +58,15 @@ void main() {
         voskReady: false,
       ),
       contains('هیچ موتور فارسی'),
+    );
+    expect(
+      PersianSttPolicy.unavailable(
+        setting: 'stt:vosk:persian-large',
+        androidReady: true,
+        whisperReady: true,
+        voskReady: true,
+      ),
+      contains('آداپتور اجرایی'),
     );
   });
 
