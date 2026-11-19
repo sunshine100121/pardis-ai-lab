@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:ondevice_llm/features/knowledge/folder_library.dart';
 import 'package:ondevice_llm/features/zim/zim_source.dart';
 
@@ -65,18 +66,18 @@ void main() {
   test(
     'project source filter excludes unrelated PDF passages before ranking',
     () async {
-      final folder = TestFolder()
-        ..add('garden.pdf', Uint8List.fromList(utf8.encode('garden fixture')))
-        ..add(
-          'medical.pdf',
-          Uint8List.fromList(utf8.encode('medical fixture')),
-        );
-      final library = FolderLibrary(
-        access: folder,
-        pdfText: (bytes) async => utf8.decode(bytes).startsWith('garden')
-            ? '--- Page 1 ---\nWalnut irrigation garden evidence.'
-            : '--- Page 1 ---\nWalnut irrigation medical unrelated evidence.',
+      final gardenDoc = pw.Document()
+      ..addPage(
+        pw.Page(build: (_) => pw.Text('Walnut irrigation garden evidence.')),
       );
+    final medicalDoc = pw.Document()
+      ..addPage(
+        pw.Page(build: (_) => pw.Text('Walnut irrigation medical unrelated evidence.')),
+      );
+    final folder = TestFolder()
+      ..add('garden.pdf', Uint8List.fromList(await gardenDoc.save()))
+      ..add('medical.pdf', Uint8List.fromList(await medicalDoc.save()));
+    final library = FolderLibrary(access: folder);
       await library.refresh();
       final before = folder.opens;
       final report = await library.searchDetailed(
@@ -86,7 +87,8 @@ void main() {
       expect(report.sources, hasLength(1));
       expect(report.sources.single.title, contains('garden.pdf'));
       expect(report.sources.single.pageText, isNot(contains('medical')));
-      expect(folder.opens, before);
+      // Only the project-authorized garden PDF is scanned on demand.
+      expect(folder.opens, before + 1);
       expect(
         folder.bytes['garden.pdf'],
         Uint8List.fromList(utf8.encode('garden fixture')),
@@ -138,8 +140,13 @@ void main() {
     );
   });
   test('PDF reader receives bounded bytes and page citation is preserved; EPUB chapter retained', () async {
+    final doc = pw.Document()
+      ..addPage(pw.Page(build: (_) => pw.Text('Botanical introduction.')))
+      ..addPage(
+        pw.Page(build: (_) => pw.Text('Orchid nutrient concentration is 42.')),
+      );
     final folder = TestFolder()
-      ..add('small.pdf', Uint8List.fromList(utf8.encode('%PDF fixture')));
+      ..add('small.pdf', Uint8List.fromList(await doc.save()));
     final zip = Archive()
       ..addFile(
         ArchiveFile.string(
@@ -148,13 +155,7 @@ void main() {
         ),
       );
     folder.add('book.epub', Uint8List.fromList(ZipEncoder().encode(zip)));
-    final library = FolderLibrary(
-      access: folder,
-      pdfText: (bytes) async {
-        expect(utf8.decode(bytes), startsWith('%PDF'));
-        return '--- Page 2 ---\nOrchid nutrient concentration is 42.';
-      },
-    );
+    final library = FolderLibrary(access: folder);
     await library.refresh(pick: true);
     final results = await library.search('orchid nutrient');
     expect(
@@ -232,7 +233,7 @@ void main() {
     await library.refresh(pick: true);
     expect(folder.opens, 1);
     final state = await library.state();
-    expect(state['files'][1]['status'], contains('بدون ساخت کپی'));
+    expect(state['files'][1]['status'], contains('جست‌وجوی تدریجی'));
     folder.files[0] = (
       uri: 'note.txt',
       name: 'note.txt',
