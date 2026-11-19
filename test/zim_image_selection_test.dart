@@ -36,6 +36,20 @@ void main() {
     expect(result.more, isEmpty);
   });
 
+  test('lazy image attributes and srcset stay in the offline archive', () {
+    final result = ZimImageSelection.fromArticleHtml('''
+      <img src="data:image/png;base64,AAA" data-src="I/pear-pest.jpg"
+           alt="آفت گلابی">
+      <img srcset="I/pear-leaf.webp 1x, I/pear-leaf-2x.webp 2x"
+           alt="برگ گلابی">
+    ''', 'آفت گلابی');
+    expect(result.foundCount, 2);
+    expect(
+      result.initial.map((image) => image.reference).toSet(),
+      {'I/pear-pest.jpg', 'I/pear-leaf.webp'},
+    );
+  });
+
   test('missing pictures produce an empty gallery, not an invented image', () {
     final result = ZimImageSelection.fromArticleHtml(
       '<p>متن مربوط به بیماری درخت گلابی</p>',
