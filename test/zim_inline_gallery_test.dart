@@ -229,3 +229,5 @@ void main() {
     },
   );
 }
+
+// Temporary Dart format inspection marker.
