@@ -3,6 +3,7 @@ import '../../data/storage/gguf_split.dart';
 import 'package:path/path.dart' as p;
 import 'dart:async';
 import '../../core/utils/inference_admission.dart';
+import '../../core/utils/memory_admission.dart';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -314,7 +315,12 @@ class LlamaEngine implements TextEngine {
     _fileLeases.clear();
   }
 
-  Future<void> _load(String path, String config) async {
+  // Upstream v1.7.0: one native allocation at a time avoids memory spikes
+  // when chat, embeddings and other workers request a heavy load together.
+  Future<void> _load(String path, String config) =>
+      MemoryAdmission.shared.run(() => _loadAdmitted(path, config));
+
+  Future<void> _loadAdmitted(String path, String config) async {
     await closeSide();
     final data = jsonDecode(config) as Map;
     final files = <String>[
