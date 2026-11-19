@@ -109,7 +109,146 @@ class HaReadClient {
     return '${local.toIso8601String()}$sign$hours:$rest';
   }
 
-  Future<Map<String, dynamic>> state(String id) async {
+  /// HA timestamps must carry a UTC marker or an explicit offset. Parsing a\n  /// zone-less string as device-local time would silently change its meaning.\n  static DateTime? parseHaTimestamp(Object? value) {\n    if (value is! String ||\n        !RegExp(r'(?:Z|[+-]\\d{2}:\\d{2})
+    _allowed(id);
+    final data = await _get('/api/states/$id');
+    if (data is! Map<String, dynamic> ||
+        data['entity_id'] != id ||
+        data['state'] is! String) {
+      throw const FormatException('پاسخ حسگر معتبر نیست.');
+    }
+    final updated = parseHaTimestamp(data['last_updated']);
+    if (updated == null)
+      throw const FormatException('زمان تغییر حسگر معتبر نیست.');
+    // last_updated measures a change in state/attributes, not a fresh report.
+    // last_reported may be absent in some HA API versions: never invent it.
+    final reported = parseHaTimestamp(data['last_reported']);
+    final ageSeconds = reported == null
+        ? null
+        : DateTime.now().toUtc().difference(reported.toUtc()).inSeconds;
+    return {
+      'entity_id': id,
+      'state': data['state'],
+      'last_updated': data['last_updated'],
+      'last_updated_local': localIso(updated),
+      'last_reported': reported?.toUtc().toIso8601String(),
+      'last_reported_local': reported == null ? null : localIso(reported),
+      'report_age_seconds': ageSeconds,
+      'freshness': reported == null
+          ? 'unverified'
+          : ageSeconds! < 0
+          ? 'clock_mismatch'
+          : ageSeconds > 1800
+          ? 'check_age'
+          : 'reported',
+      'unit': (data['attributes'] is Map
+          ? data['attributes']['unit_of_measurement']
+          : null),
+    };
+  }
+
+  Future<Map<String, dynamic>> history(
+    String id,
+    DateTime start,
+    DateTime end,
+  ) async {
+    _allowed(id);
+    if (!start.isBefore(end) ||
+        end.difference(start) > const Duration(hours: 6))
+      throw const FormatException('بازه تاریخچه باید حداکثر شش ساعت باشد.');
+    final data = await _get(
+      '/api/history/period/${start.toUtc().toIso8601String()}',
+      {
+        'filter_entity_id': id,
+        'end_time': end.toUtc().toIso8601String(),
+        'no_attributes': '',
+        'significant_changes_only': '0',
+      },
+    );
+    if (data is! List ||
+        data.length > 1 ||
+        (data.isNotEmpty && data.first is! List))
+      throw const FormatException('ساختار تاریخچه معتبر نیست.');
+    final rows = data.isEmpty ? <dynamic>[] : data.first as List;
+    if (rows.length > 10000)
+      throw const FormatException('تاریخچه بیش از سقف مجاز است.');
+    return summarize(rows, id, start, end);
+  }
+
+  static Map<String, dynamic> summarize(
+    List<dynamic> rows,
+    String id,
+    DateTime start,
+    DateTime end,
+  ) {
+    final samples = <(DateTime, double)>[];
+    var missing = 0;
+    for (final row in rows) {
+      if (row is! Map || row['entity_id'] != id)
+        throw const FormatException('شناسه تاریخچه با حسگر مجاز یکسان نیست.');
+      final at = DateTime.tryParse(
+        (row['last_updated'] ?? row['last_changed'])?.toString() ?? '',
+      );
+      final value = double.tryParse(row['state']?.toString() ?? '');
+      if (at == null) throw const FormatException('زمان تاریخچه معتبر نیست.');
+      if (at.isBefore(start) || at.isAfter(end)) continue;
+      if (value == null || !value.isFinite) {
+        missing++;
+        continue;
+      }
+      samples.add((at, value));
+    }
+    samples.sort((a, b) => a.$1.compareTo(b.$1));
+    var gapSeconds = 0;
+    var cursor = start;
+    for (final s in samples) {
+      final delta = s.$1.difference(cursor).inSeconds;
+      if (delta > 300) gapSeconds += delta;
+      cursor = s.$1;
+    }
+    if (end.difference(cursor).inSeconds > 300)
+      gapSeconds += end.difference(cursor).inSeconds;
+    final values = samples.map((e) => e.$2).toList();
+    return {
+      'entity_id': id,
+      'start': start.toUtc().toIso8601String(),
+      'end': end.toUtc().toIso8601String(),
+      'samples': values.length,
+      'unavailable_samples': missing,
+      'gaps_over_5min_seconds': gapSeconds,
+      'min': values.isEmpty ? null : values.reduce((a, b) => a < b ? a : b),
+      'max': values.isEmpty ? null : values.reduce((a, b) => a > b ? a : b),
+      'sample_mean': values.isEmpty
+          ? null
+          : values.reduce((a, b) => a + b) / values.length,
+      'limitation': 'میانگین نمونه‌هاست، نه میانگین زمانی؛ Recorder ثبت با فاصله ثابت پنج دقیقه را تضمین نمی‌کند. شکاف ثبت به‌تنهایی اثبات قطعی قطع حسگر نیست.',
+    };
+  }
+
+  static SearchResult evidence(
+    String label,
+    Map<String, dynamic> data,
+  ) => SearchResult(
+    title: 'Home Assistant · $label',
+    url: 'pala-ha://sensor',
+    snippet: '',
+    source: 'Home Assistant · خواندن هنگام پرسش',
+    rank: 0,
+    pageText:
+        'منشأ: داده واقعی Home Assistant (نه دانشنامه و نه دانش داخلی مدل).\n'
+        'زمان مشاهده UTC: ${DateTime.now().toUtc().toIso8601String()}\n'
+        'زمان محلی دستگاه در last_updated_local و last_reported_local درج شده است. '
+        'last_updated فقط زمان تغییر وضعیت/ویژگی است، نه لزوماً زمان آخرین گزارش. '
+        'اگر last_reported موجود نیست، تازگی داده تأیید نشده است. '
+        'اگر report_age_seconds بیش از ۱۸۰۰ است، سن داده را اعلام کن؛ آن را لحظه‌ای ننام.\n'
+        'سن منفی یعنی ساعت گزارش و دستگاه سازگار نیست؛ تازگی را تأییدشده معرفی نکن.\n'
+        '${jsonEncode(data)}\n'
+        'HA Doctor فقط تشخیص و پیشنهاد است؛ اجرای تعمیر مجاز نیست. '
+        'وضعیت unknown/unavailable مقدار واقعی عددی نیست.',
+    fetchedAt: DateTime.now().toUtc(),
+  );
+}
+, caseSensitive: false)\n            .hasMatch(value)) {\n      return null;\n    }\n    return DateTime.tryParse(value);\n  }\n\n  Future<Map<String, dynamic>> state(String id) async {
     _allowed(id);
     final data = await _get('/api/states/$id');
     if (data is! Map<String, dynamic> ||
