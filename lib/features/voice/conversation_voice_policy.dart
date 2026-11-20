@@ -19,4 +19,27 @@ abstract final class ConversationVoicePolicy {
       !isSpeaking &&
       !isThinking &&
       !chatGenerating;
+
+  /// Called after TTS has actually finished, not when Qwen first saves
+  /// its text. A stale/cancelled utterance must never reopen the microphone.
+  static bool canResumeAfterSpeech({
+    required bool closed,
+    required bool away,
+    required bool muted,
+    required bool naturalMode,
+    required bool turnActive,
+    required bool chatGenerating,
+    required bool speaking,
+    required bool playbackFailed,
+    required bool cancelled,
+  }) =>
+      !closed &&
+      !away &&
+      !muted &&
+      !naturalMode &&
+      !turnActive &&
+      !chatGenerating &&
+      !speaking &&
+      !playbackFailed &&
+      !cancelled;
 }

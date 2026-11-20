@@ -35,4 +35,38 @@ void main() {
     expect(ready(isThinking: true), isFalse);
     expect(ready(chatGenerating: true), isFalse);
   });
+
+  bool resume({
+    bool closed = false,
+    bool away = false,
+    bool muted = false,
+    bool naturalMode = false,
+    bool turnActive = false,
+    bool chatGenerating = false,
+    bool speaking = false,
+    bool playbackFailed = false,
+    bool cancelled = false,
+  }) => ConversationVoicePolicy.canResumeAfterSpeech(
+    closed: closed,
+    away: away,
+    muted: muted,
+    naturalMode: naturalMode,
+    turnActive: turnActive,
+    chatGenerating: chatGenerating,
+    speaking: speaking,
+    playbackFailed: playbackFailed,
+    cancelled: cancelled,
+  );
+
+  test('conversation resumes only after completed, successful speech', () {
+    expect(resume(), isTrue);
+    expect(resume(turnActive: true), isFalse);
+    expect(resume(chatGenerating: true), isFalse);
+    expect(resume(speaking: true), isFalse);
+    expect(resume(away: true), isFalse);
+    expect(resume(muted: true), isFalse);
+    expect(resume(playbackFailed: true), isFalse);
+    expect(resume(cancelled: true), isFalse);
+    expect(resume(closed: true), isFalse);
+  });
 }

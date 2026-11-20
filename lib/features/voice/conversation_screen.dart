@@ -324,6 +324,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   /// Our turn is being answered (the chat may also be busy with another).
   var _turn = false;
 
+  /// Every answer's TTS has a distinct generation. Previous completion,
+  /// cancellation and late provider events may not start a new recording.
+  int _systemAudioEpoch = 0;
+  bool _systemAudioEnded = false;
+  String? _systemAudioError;
+
   /// Sentences set aside when speech was heard over the answer; spoken
   /// again if it was only noise or the answer's own echo.
   List<String>? _held;
@@ -423,6 +429,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   }
 
   void _stopAll() {
+    _systemAudioEpoch++;
+    _systemAudioEnded = false;
     unawaited(_ears?.stop());
     if (_natural) unawaited(VoiceAudioChannel.conversation(false));
     _held = null;
@@ -958,8 +966,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     if (rest.trim().isNotEmpty) _say(rest);
     _showAnswer(last.content);
     if (!_natural) {
+      final audioEpoch = ++_systemAudioEpoch;
+      _systemAudioEnded = false;
+      _systemAudioError = null;
       _set(() => _phase = ConversationPhase.speaking);
-      unawaited(_speakSystemAnswer(last.content, last.id));
+      unawaited(_speakSystemAnswer(last.content, last.id, audioEpoch));
     }
     final chatId = now.chatId;
     if (chatId != null &&
@@ -971,28 +982,63 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     }
   }
 
-  /// Persian TTS runs asynchronously. Preserve the conversation screen
-  /// until the speech worker has finished or reported an error.
-  Future<void> _speakSystemAnswer(String answer, String messageId) async {
+  /// Persian TTS runs asynchronously. A completed voice, not a saved chat
+  /// message, decides when the next microphone turn is allowed.
+  Future<void> _speakSystemAnswer(
+    String answer,
+    String messageId,
+    int audioEpoch,
+  ) async {
     try {
       await _voice.speak(answer, id: messageId);
-      if (_closed || _natural || _turn) return;
+      if (_closed || _natural || audioEpoch != _systemAudioEpoch) return;
       final voice = ref.read(voiceProvider);
-      if (!voice.speaking && _phase == ConversationPhase.speaking) {
-        _set(() {
-          _phase = ConversationPhase.idle;
-          if (voice.error != null) _notice = voice.error;
-        });
-      }
+      // VoiceNotifier may reject unavailable/online-only engines without
+      // throwing. A rejected voice must leave a visible retry, not a loop.
+      _systemAudioError = voice.error;
+      _systemAudioEnded = !voice.speaking;
+      if (_systemAudioEnded) _completeSystemAudio(audioEpoch);
     } catch (error, stack) {
       Logger('voice').warning('Persian TTS failed', error, stack);
-      if (_closed) return;
-      _set(() {
-        _phase = ConversationPhase.idle;
-        _notice =
-            'پخش صدای فارسی انجام نشد. موتور آفلاین انتخابی را بررسی کنید.';
-      });
+      if (_closed || audioEpoch != _systemAudioEpoch) return;
+      _systemAudioError =
+          'پخش صدای فارسی انجام نشد. موتور آفلاین انتخابی را بررسی کنید.';
+      _systemAudioEnded = true;
+      _completeSystemAudio(audioEpoch);
     }
+  }
+
+  void _completeSystemAudio(int audioEpoch) {
+    if (_closed || _natural || audioEpoch != _systemAudioEpoch ||
+        !_systemAudioEnded || _turn) {
+      return;
+    }
+    final speech = ref.read(voiceProvider);
+    if (speech.speaking) return;
+    final error = _systemAudioError ?? speech.error;
+    _set(() {
+      _phase = ConversationPhase.idle;
+      if (error != null) _notice = error;
+    });
+    if (!ConversationVoicePolicy.canResumeAfterSpeech(
+      closed: _closed,
+      away: _away,
+      muted: _muted,
+      naturalMode: _natural,
+      turnActive: _turn,
+      chatGenerating: ref.read(chatProvider).isGenerating,
+      speaking: speech.speaking,
+      playbackFailed: error != null,
+      cancelled: audioEpoch != _systemAudioEpoch,
+    )) {
+      return;
+    }
+    // Defer one frame: the state transition is now visible to the listener,
+    // and there is only one owner of the next microphone request.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_closed || audioEpoch != _systemAudioEpoch) return;
+      _listenSystem();
+    });
   }
 
   /// The answer so far, as it is spoken, in the transcript.
@@ -1007,8 +1053,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     _turn = false;
     if (_natural) {
       if (!(_mouth?.busy ?? false)) _afterSpeaking();
-    } else if (!ref.read(voiceProvider).speaking &&
-        _phase != ConversationPhase.speaking) {
+    } else if (_systemAudioEnded) {
+      _completeSystemAudio(_systemAudioEpoch);
+    } else if (_phase != ConversationPhase.speaking) {
       _set(() => _phase = ConversationPhase.idle);
     }
   }
@@ -1073,6 +1120,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   /// and listen for the next question.
   void _stopAnswer() {
     {
+      _systemAudioEpoch++;
+      _systemAudioEnded = false;
+      _systemAudioError = null;
       _held = null;
       _settle?.cancel();
       unawaited(_mouth?.stop());
@@ -1295,15 +1345,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
         });
       }
     });
-    // System voice: when the answer has been read, listen again.
-    ref.listen(voiceProvider.select((v) => v.speaking), (was, now) {
-      if (!_natural && was == true && !now && !_turn) {
-        if (_phase == ConversationPhase.speaking) {
-          _set(() => _phase = ConversationPhase.idle);
-        }
-        _listenSystem();
-      }
-    });
+    // System TTS completion is owned by _completeSystemAudio; a state
+    // notification from an older voice must not reopen the microphone.
     final packs = ref.watch(voiceModelsProvider);
     final modelName = _remote
         ? _remoteName
