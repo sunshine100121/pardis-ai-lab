@@ -24,7 +24,8 @@ jobs:
             lib/features/health/answer_feedback_bar.dart \
             lib/features/health/pala_health_page.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
-            test/m19_controlled_learning_test.dart
+            test/m19_controlled_learning_test.dart \
+            test/m19_learning_widgets_test.dart
       - name: Analyze code without hiding blocking errors
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings \
@@ -33,11 +34,13 @@ jobs:
             lib/features/health/answer_feedback_bar.dart \
             lib/features/health/pala_health_page.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
-            test/m19_controlled_learning_test.dart
+            test/m19_controlled_learning_test.dart \
+            test/m19_learning_widgets_test.dart
       - name: Verify approval, restart, similar answer and reversible rollback
         run: |
           flutter test --concurrency=1 \
             test/m19_controlled_learning_test.dart \
+            test/m19_learning_widgets_test.dart \
             test/m18_feedback_health_test.dart \
             test/m18_feedback_widget_test.dart \
             test/m17_vision_safety_test.dart \
