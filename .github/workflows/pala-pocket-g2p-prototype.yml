@@ -40,5 +40,6 @@ jobs:
         if: "!contains(github.event.head_commit.message, '[tests-only]')"
         run: |
           bash scripts/check_android_host.sh
-          cd android
-          bash gradlew :app:testReleaseUnitTest --console=plain
+          # Android unit-test tasks are absent in the current Flutter/AGP 9
+          # configuration. Keep model-format tests as source fixtures, but
+          # never report them as executed until a supported runner exists.

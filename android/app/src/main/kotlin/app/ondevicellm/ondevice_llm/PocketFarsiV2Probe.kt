@@ -114,17 +114,10 @@ internal class PocketFarsiV2Probe(
     internal fun phonemiseLocal(text: String): String = phonemise(text)
 
     private fun phonemise(text: String): String {
-        val normalized = PocketFarsiNumberWords.normalize(text)
-            .replace('ي', 'ی').replace('ك', 'ک')
-            .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
-            .replace(Regex("\\s+"), " ").trim()
+        val normalized = PocketFarsiNormalizer.normalize(text)
+            .replace("؟", "").replace("?", "").replace(":", "")
         if (normalized.length > 300 || !normalized.any { it in '\u0600'..'\u06FF' }) {
             throw IllegalArgumentException("Unsupported or overlong input")
-        }
-        // Until the full Persian normalizer is ported, reject mixed Latin,
-        // digits, or other formats instead of silently dropping words.
-        if (normalized.any { it in 'A'..'Z' || it in 'a'..'z' || it.isDigit() }) {
-            throw IllegalArgumentException("Text normalization is not complete")
         }
         val sourceBytes = normalized.toByteArray(Charsets.UTF_8)
         if (sourceBytes.size > 512) throw IllegalArgumentException("Input too long")

@@ -29,6 +29,12 @@ class PocketFarsiNativeTest {
         )
     }
 
+    @Test fun latinBrandsAndArabicFormsNeverSilentlyDisappear() {
+        assertEquals("مدل کوئن آماده است", PocketFarsiNormalizer.normalize("مدل Qwen آماده است"))
+        assertEquals("می‌رود", PocketFarsiNormalizer.normalize("می‌رود"))
+        assertEquals("آب و هوا", PocketFarsiNormalizer.normalize("آب و هوا"))
+    }
+
     @Test fun sentencePieceBpeMergesByModelScore() {
         val f = File.createTempFile("pocket-bpe", ".model")
         try {
