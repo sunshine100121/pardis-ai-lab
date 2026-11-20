@@ -10,6 +10,9 @@ import '../../../../core/design/app_design.dart';
 import '../../../../data/local/database/app_database.dart';
 import '../../../memory/domain/user_memory.dart';
 import '../../../memory/presentation/providers/memory_provider.dart';
+import '../../../memory/domain/memory_policy.dart';
+import '../../../memory/presentation/providers/memory_preferences.dart';
+import '../../../memory/presentation/memory_policy_controls.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/settings_widgets.dart';
 import '../../../../core/l10n/l10n.dart';
@@ -41,7 +44,10 @@ class MemoryPage extends ConsumerWidget {
     if (text == null || text.trim().length < UserMemory.minFactLength) return;
     final store = ref.read(memoryStoreProvider);
     if (existing == null) {
-      await store.add(text);
+      await store.add(
+        text,
+        expiresAt: ref.read(memoryPreferencesProvider).retention.expiresFrom(DateTime.now()),
+      );
     } else {
       await store.edit(existing, text);
     }
@@ -153,6 +159,7 @@ class MemoryPage extends ConsumerWidget {
                         context.l10n.memoryStorageHint,
                         icon: Icons.lock_outline,
                       ),
+                      const MemoryPolicyControls(),
                       if (remote != null) ...[
                         SettingsSection(label: remote.name),
                         SettingsNote(context.l10n.memoryRemoteLocalHint),
@@ -204,6 +211,7 @@ class MemoryPage extends ConsumerWidget {
                           ],
                         ),
                       ],
+                      const MemoryPendingSuggestions(),
                       SettingsSection(
                         label: context.l10n.whatAssistantRemembers,
                       ),
@@ -240,7 +248,7 @@ class MemoryPage extends ConsumerWidget {
                           child: SettingsRow(
                             title: Text(m.content),
                             subtitle: Text(
-                              '${m.sourceChatId == null ? 'added by you' : 'learned'} · ${m.updatedAt.toLocal().toString().substring(0, 10)}'
+                              '${m.sourceChatId == null ? 'تأیید مستقیم مالک' : 'برگرفته از گفت‌وگو'} · ${m.updatedAt.toLocal().toString().substring(0, 10)}'
                               // A note about a moment (where the user was that
                               // day) is kept but never shown to the model; say so
                               // rather than let it look like it is in use.
@@ -280,15 +288,23 @@ class MemoryPage extends ConsumerWidget {
                                     await store.pin(m, !m.pinned);
                                   case 'confirm':
                                     await store.edit(m, m.content);
-                                  case 'expire':
-                                    await store.expire(
-                                      m,
-                                      m.expiresAt == null
-                                          ? DateTime.now().add(
-                                              const Duration(days: 30),
-                                            )
-                                          : null,
+                                  case 'expiry7':
+                                    await store.expire(m, MemoryRetention.sevenDays.expiresFrom(DateTime.now()));
+                                  case 'expiry30':
+                                    await store.expire(m, MemoryRetention.thirtyDays.expiresFrom(DateTime.now()));
+                                  case 'expiry90':
+                                    await store.expire(m, MemoryRetention.ninetyDays.expiresFrom(DateTime.now()));
+                                  case 'expiryNone':
+                                    await store.expire(m, null);
+                                  case 'delete':
+                                    final ok = await confirmAction(
+                                      context,
+                                      title: 'حذف خاطره',
+                                      message: 'این خاطره از حافظه محلی حذف شود؟',
+                                      confirmLabel: 'حذف',
+                                      destructive: true,
                                     );
+                                    if (ok == true) await store.remove(m.id);
                                 }
                               },
                               itemBuilder: (_) => [
@@ -310,14 +326,11 @@ class MemoryPage extends ConsumerWidget {
                                   value: 'confirm',
                                   child: Text(context.l10n.memoryReconfirm),
                                 ),
-                                PopupMenuItem(
-                                  value: 'expire',
-                                  child: Text(
-                                    m.expiresAt == null
-                                        ? context.l10n.memoryExpire
-                                        : context.l10n.memoryNoExpiry,
-                                  ),
-                                ),
+                                const PopupMenuItem(value: 'expiry7', child: Text('نگهداری ۷ روز')),
+                                const PopupMenuItem(value: 'expiry30', child: Text('نگهداری ۳۰ روز')),
+                                const PopupMenuItem(value: 'expiry90', child: Text('نگهداری ۹۰ روز')),
+                                const PopupMenuItem(value: 'expiryNone', child: Text('تا حذف دستی')),
+                                const PopupMenuItem(value: 'delete', child: Text('حذف این خاطره')),
                               ],
                             ),
                           ),

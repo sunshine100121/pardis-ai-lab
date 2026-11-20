@@ -8,7 +8,12 @@ import '../../domain/memory_statements.dart';
 
 /// Stored facts, newest first.
 final memoriesProvider = StreamProvider<List<Memory>>(
-  (ref) => ref.watch(appDatabaseProvider).watchMemories(),
+  (ref) => ref.watch(appDatabaseProvider).watchMemories().map(
+    (rows) => [
+      for (final m in rows)
+        if (m.expiresAt == null || m.expiresAt!.isAfter(DateTime.now())) m,
+    ],
+  ),
 );
 
 /// Writes: add (by hand or from extraction), edit, delete, clear.
@@ -93,6 +98,7 @@ class MemoryStore {
     String? sourceChatId,
     String? sourceMessageId,
     DateTime? notedAt,
+    DateTime? expiresAt,
   }) async {
     final now = notedAt ?? DateTime.now();
     final id = const Uuid().v4();
@@ -104,6 +110,7 @@ class MemoryStore {
         sourceMessageId: drift.Value(sourceMessageId),
         createdAt: now,
         updatedAt: now,
+        expiresAt: drift.Value(expiresAt),
       ),
     );
     await _trim();
@@ -113,20 +120,21 @@ class MemoryStore {
       sourceChatId: sourceChatId,
       sourceMessageId: sourceMessageId,
       pinned: false,
+      expiresAt: expiresAt,
       createdAt: now,
       updatedAt: now,
     );
   }
 
-  Future<void> edit(Memory m, String content) => _db.upsertMemory(
-    MemoriesCompanion(
-      id: drift.Value(m.id),
-      content: drift.Value(content.trim()),
-      sourceChatId: drift.Value(m.sourceChatId),
-      createdAt: drift.Value(m.createdAt),
-      updatedAt: drift.Value(DateTime.now()),
-    ),
-  );
+  /// Update only content/timestamp; preserve confirmation provenance,
+  /// expiry, pinned status and IDs. Never replace the existing row.
+  Future<void> edit(Memory m, String content) =>
+      (_db.update(_db.memories)..where((t) => t.id.equals(m.id))).write(
+        MemoriesCompanion(
+          content: drift.Value(content.trim()),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
 
   Future<void> remove(String id) => _db.deleteMemory(id);
   Future<void> pin(Memory m, bool value) =>

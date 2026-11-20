@@ -53,6 +53,8 @@ import '../../domain/temporary_files.dart';
 import '../../domain/context_summary.dart';
 import '../../domain/turn_coordinator.dart';
 import '../../../memory/presentation/providers/memory_provider.dart';
+import '../../../memory/domain/memory_policy.dart';
+import '../../../memory/presentation/providers/memory_preferences.dart';
 import '../../../../inference/engine/text_engine.dart';
 import '../../../../inference/engine/diffusiongemma_engine.dart';
 import '../../../../inference/engine/turn_budget.dart';
@@ -1028,7 +1030,9 @@ class ChatNotifier extends _ChatBase
         t.resume == null &&
         t.learn &&
         !state.temporary &&
-        ref.read(settingsProvider).memoryEnabled) {
+        ref.read(settingsProvider).memoryEnabled &&
+        ref.read(memoryPreferencesProvider).learning !=
+            MemoryLearningMode.off) {
       final captured = await _learnExplicit(
         input,
         chatId: saved.chatId,
@@ -3177,7 +3181,9 @@ class ChatNotifier extends _ChatBase
     if (_projectId == null &&
         fresh &&
         UserMemory.worthExtracting(input) &&
-        ref.read(settingsProvider).memoryEnabled) {
+        ref.read(settingsProvider).memoryEnabled &&
+        ref.read(memoryPreferencesProvider).learning !=
+            MemoryLearningMode.off) {
       final remainingFacts = UserMemory.maxFactsPerTurn - learned.length;
       final needsExtraction =
           remainingFacts > 0 && UserMemory.needsModelExtraction(input);
@@ -3504,6 +3510,12 @@ class ChatNotifier extends _ChatBase
       );
     }
     baseSystem.write('\n${settings.systemPrompt}');
+    // Personal tone is a saved UI preference, never a factual claim.
+    // It applies across chats but cannot override safety or project rules.
+    baseSystem.write(
+      '\nResponse tone preference: '
+      '${ref.read(memoryPreferencesProvider).responseStyle.promptNote}',
+    );
     if (extraSystem != null && extraSystem.trim().isNotEmpty) {
       baseSystem.write('\n${extraSystem.trim()}');
     }

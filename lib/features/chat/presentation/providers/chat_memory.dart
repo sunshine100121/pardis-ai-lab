@@ -69,14 +69,31 @@ mixin _ChatMemory on _ChatBase {
       final existing = await _activeMemoryFacts();
       final facts = UserMemory.explicitFacts(userMessage, existing: existing);
       if (!_alive || !ref.read(settingsProvider).memoryEnabled) return null;
-      return [
-        for (final fact in facts)
-          await store.add(
+      final policy = ref.read(memoryPreferencesProvider);
+      if (policy.learning == MemoryLearningMode.off) return null;
+      final saved = <Memory>[];
+      for (final fact in facts) {
+        if (MemoryAdmissionPolicy.mayPersist(
+          mode: policy.learning,
+          evidence: MemoryEvidence.explicitUserStatement,
+          content: fact,
+        )) {
+          saved.add(await store.add(
             fact,
             sourceChatId: chatId,
             sourceMessageId: sourceMessageId,
-          ),
-      ];
+            expiresAt: policy.retention.expiresFrom(DateTime.now()),
+          ));
+        } else {
+          // Proposals are NOT facts and are never given to the model.
+          ref.read(memorySuggestionsProvider.notifier).propose(
+            fact,
+            sourceChatId: chatId,
+            sourceMessageId: sourceMessageId,
+          );
+        }
+      }
+      return saved;
     } catch (_) {
       return null;
     }
@@ -278,6 +295,8 @@ mixin _ChatMemory on _ChatBase {
     if (facts.isEmpty || !_alive) return null;
     final current = ref.read(settingsProvider);
     if (!current.memoryEnabled) return null;
+    final policy = ref.read(memoryPreferencesProvider);
+    if (policy.learning == MemoryLearningMode.off) return null;
     if (settings.usesRemote) {
       final profile = current.remoteProfiles
           .where((p) => p.id == settings.activeRemoteProfile?.id)
@@ -287,14 +306,34 @@ mixin _ChatMemory on _ChatBase {
       }
     }
     final store = ref.read(memoryStoreProvider);
-    return [
-      for (final f in facts.take(remainingFacts))
-        await store.add(
+    final saved = <Memory>[];
+    for (final f in facts.take(remainingFacts)) {
+      // The model's extracted wording is merely a proposal. Only a
+      // low-risk fact that the user EXPLICITLY stated may be auto-saved.
+      final directlyStated = UserMemory.explicitFacts(
+        userMessage,
+        existing: const [],
+      ).isNotEmpty;
+      if (directlyStated && MemoryAdmissionPolicy.mayPersist(
+        mode: policy.learning,
+        evidence: MemoryEvidence.explicitUserStatement,
+        content: f,
+      )) {
+        saved.add(await store.add(
           f,
           sourceChatId: chatId,
           sourceMessageId: sourceMessageId,
-        ),
-    ];
+          expiresAt: policy.retention.expiresFrom(DateTime.now()),
+        ));
+      } else {
+        ref.read(memorySuggestionsProvider.notifier).propose(
+          f,
+          sourceChatId: chatId,
+          sourceMessageId: sourceMessageId,
+        );
+      }
+    }
+    return saved;
   }
 
   /// A remote turn's background work: the chat title ([title]) and the
