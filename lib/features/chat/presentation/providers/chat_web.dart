@@ -39,6 +39,7 @@ mixin _ChatWeb on _ChatBase {
     String? earlier,
     String? originalInput,
     bool approvedByUserButton = false,
+    bool allowApprovalPrompt = true,
   }) async {
     sources = List.of(sources);
     final message = originalInput ?? plan.query;
@@ -49,7 +50,8 @@ mixin _ChatWeb on _ChatBase {
       final deniedByScope = _projectId != null;
       final sensitive =
           OnlinePermissionPolicy.privateContent(message) ||
-          OnlinePermissionPolicy.privateContent(plan.query);
+          OnlinePermissionPolicy.privateContent(plan.query) ||
+          _containsSensitiveHistory;
       if (settings.webMode == WebMode.off || deniedByScope || sensitive) {
         state = state.copyWith(
           notice: deniedByScope
@@ -80,15 +82,23 @@ mixin _ChatWeb on _ChatBase {
                 .searchDetailed(message);
             if (_cancelled || !_alive) return null;
             final terms = ProjectKnowledgePolicy.terms(message);
-            final hasUsefulLocal = local.sources.any((source) {
+            bool useful(SearchResult source) {
               final body = source.pageText ?? '';
               if (body.trim().length < 60 ||
                   source.url.startsWith('pala-status:')) return false;
               final matching = terms.where(
-                (w) => body.toLowerCase().contains(w),
+                (w) => body.toLowerCase().contains(w.toLowerCase()),
               ).length;
               return matching >= 2;
-            });
+            }
+            var hasUsefulLocal = local.sources.any(useful);
+            if (!hasUsefulLocal &&
+                settings.knowledgeCollection.isNotEmpty) {
+              final savedKnowledge = await ref.read(knowledgeStoreProvider)
+                  .search(settings.knowledgeCollection, message, maxPassages: 4);
+              if (_cancelled || !_alive) return null;
+              hasUsefulLocal = savedKnowledge.any(useful);
+            }
             if (hasUsefulLocal) {
               state = state.copyWith(
                 notice: 'مدرک محلی پیدا شد؛ جست‌وجوی اینترنتی لازم نیست.',
@@ -105,10 +115,12 @@ mixin _ChatWeb on _ChatBase {
             // A local read failure NEVER auto-approves an online request.
           }
         }
-        approved = await ref.read(onlineTurnPermissionProvider.notifier).ask(
-          query: plan.query,
-        );
-        if (_cancelled || !_alive) return null;
+        if (allowApprovalPrompt) {
+          approved = await ref.read(onlineTurnPermissionProvider.notifier).ask(
+            query: plan.query,
+          );
+          if (_cancelled || !_alive) return null;
+        }
       }
       if (!OnlinePermissionPolicy.mayContact(
         mode: settings.webMode,

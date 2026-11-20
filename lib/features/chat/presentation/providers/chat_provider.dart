@@ -203,6 +203,14 @@ abstract class _ChatBase extends Notifier<ChatState> {
   AppDatabase? _temporaryDb;
   Future<void> _temporaryReady = Future.value();
   String? _projectId;
+  /// Detects credentials in the current in-scope chat, not only the latest
+  /// message. A follow-up or web-query planner must not leak older secrets.
+  bool get _containsSensitiveHistory {
+    final workspace = ref.read(conversationWorkspaceProvider);
+    return state.messages.any((m) =>
+        workspace.mayUseInContext(state.chatId, m.timestamp) &&
+        OnlinePermissionPolicy.privateContent(m.content));
+  }
   AppDatabase get _database => _temporaryDb ?? ref.read(appDatabaseProvider);
   final _turns = TurnCoordinator();
 
@@ -918,6 +926,16 @@ class ChatNotifier extends _ChatBase
       base.batterySaver && !base.usesRemote ? await DevicePower.read() : null,
     );
     var settings = saverReason == null ? base : BatterySaver.apply(base);
+    // The owner's global internet choice is a security ceiling. Model
+    // recommendations, presets and chat-level overrides may reduce access
+    // but must never silently upgrade off -> auto/always or auto -> always.
+    final ownerWebMode = ref.read(settingsProvider).webMode;
+    if (ownerWebMode == WebMode.off) {
+      settings = settings.copyWith(webMode: WebMode.off);
+    } else if (ownerWebMode == WebMode.auto &&
+        settings.webMode == WebMode.always) {
+      settings = settings.copyWith(webMode: WebMode.auto);
+    }
     if (_projectId != null) {
       // Global memory and external retrieval are disabled: the owner-approved
       // project notes below are separate. Existing data stays untouched.
@@ -950,10 +968,24 @@ class ChatNotifier extends _ChatBase
     // Defense in depth for the permitted remote-model mode. Never send
     // credential-bearing prompts to an external inference provider.
     if (settings.usesRemote &&
-        OnlinePermissionPolicy.privateContent(input)) {
+        (OnlinePermissionPolicy.privateContent(input) ||
+            _containsSensitiveHistory)) {
       t.failure = 'این درخواست شامل اطلاعات محرمانه است؛ '
           'به سرویس خارجی ارسال نشد. لطفاً از Qwen محلی استفاده کنید.';
       return null;
+    }
+    // Native tools can call their own web transport. Do not offer those
+    // tools in consent-required mode; all eligible requests must pass the
+    // web pipeline's per-turn gate. Secret-bearing chats stay local.
+    if (settings.webMode != WebMode.always ||
+        OnlinePermissionPolicy.privateContent(input) ||
+        _containsSensitiveHistory ||
+        _projectId != null) {
+      settings = settings.copyWith(
+        toolWeb: false,
+        researchLoop: false,
+        remoteWebResearch: false,
+      );
     }
     if (saverReason != null) {
       state = state.copyWith(notice: BatterySaver.notice(saverReason, _t));
@@ -1103,6 +1135,8 @@ class ChatNotifier extends _ChatBase
     // Under Auto, early follow-up recall must not access the network
     // without a one-turn grant. Explicit user searches are that grant.
     final earlyWebAllowed = webAllowed &&
+        !_containsSensitiveHistory &&
+        !OnlinePermissionPolicy.privateContent(input) &&
         (settings.webMode == WebMode.always ||
             OnlinePermissionPolicy.explicitlyAsked(input) ||
             t.forceResearch);
@@ -1386,7 +1420,24 @@ class ChatNotifier extends _ChatBase
       earlier: planned.contextual == input ? null : planned.previousQuestion,
       originalInput: input,
       approvedByUserButton: t.forceResearch && !t.isolated,
-    );
+      // Background/voice tasks have no visible confirmation card. In Auto
+      // mode they fail closed instead of hanging or obtaining a silent grant.
+      allowApprovalPrompt: !t.spoken && !t.isolated,
+    ).onError((Object error, StackTrace trace) {
+      if (_cancelled) return null;
+      // A failed Wi-Fi route/search provider must not kill Qwen or discard
+      // local sources, drafts or project knowledge. Do not fabricate links.
+      state = state.copyWith(
+        notice: 'ارتباط اینترنتی برقرار نشد؛ پاسخ آفلاین ادامه دارد.',
+      );
+      return (
+        sources: t.sources,
+        sponsored: const <SearchResult>[],
+        queries: const <String>[],
+        newsIntent: null,
+        newsTurn: false,
+      );
+    });
     if (web == null) return null;
     t.sources = web.sources;
     // Web search off: an imported offline Wikipedia still answers a factual
