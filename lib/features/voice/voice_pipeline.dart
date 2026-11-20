@@ -41,6 +41,7 @@ String? dictationLocale(String localeCode, String? explicit) =>
     explicit ?? (voiceLanguage(localeCode) == 'fa' ? 'fa-IR' : null);
 
 /// No default-language fallback when the selected local voice is unavailable.
+/// Only the locally reported voices can enter the user's offline list.
 /// Enumerate genuinely offline installed Persian TTS voices. An unknown
 /// network requirement must never be interpreted as offline.
 List<Map<String, String>> offlinePersianVoiceOptions(dynamic voices) {
