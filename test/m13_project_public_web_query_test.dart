@@ -39,6 +39,10 @@ void main() {
       ProjectPublicWebQuery.fromMessage('در اینترنت درباره باغ من بگرد'),
       isNull,
     );
+    expect(
+      ProjectPublicWebQuery.fromMessage('به روش من در اینترنت بگرد'),
+      isNull,
+    );
   });
 
   test('credential-like and direct links fail closed even when mixed', () {

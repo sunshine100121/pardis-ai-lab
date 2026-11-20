@@ -26,6 +26,8 @@ jobs:
             lib/features/memory/domain/memory_policy.dart \
             lib/features/chat/domain/conversation_workspace.dart \
             lib/features/chat/domain/project_knowledge_policy.dart \
+            lib/features/chat/domain/project_public_web_query.dart \
+            test/m13_project_public_web_query_test.dart \
             lib/features/chat/presentation/screens/conversation_workspace_page.dart \
             lib/features/chat/presentation/widgets/project_memory_expiry.dart \
             lib/features/memory/domain/memory_statements.dart \
@@ -61,6 +63,7 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings \
             lib/features/memory lib/features/chat/domain/conversation_workspace.dart \
             lib/features/chat/domain/project_knowledge_policy.dart \
+            lib/features/chat/domain/project_public_web_query.dart \
             lib/features/chat/presentation/screens/conversation_workspace_page.dart \
             lib/features/chat/presentation/widgets/project_memory_expiry.dart \
             lib/features/chat/presentation/providers/chat_memory.dart \
@@ -83,6 +86,7 @@ jobs:
             test/remote_memory_learning_test.dart \
             test/project_tabs_test.dart \
             test/m13_internet_policy_test.dart \
+            test/m13_project_public_web_query_test.dart \
             test/search_test.dart \
             test/frozen_web_test.dart \
             test/web_transport_test.dart \
