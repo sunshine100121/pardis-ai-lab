@@ -25,7 +25,8 @@ class UserMemory {
     for (var i = 0; i < facts.length; i++) {
       if (transient(facts[i])) continue;
       final score = byWords && (!personalOnly || personal)
-          ? words(facts[i]).intersection(terms).length
+          ? words(facts[i]).intersection(terms).length +
+                (personal ? _persianIntentScore(query, facts[i]) : 0)
           : 0;
       final preference = RegExp(
         r'\b(language|speak|speaks|concise|français|english|french|español)\b|\b(prefer|prefers)\b.{0,30}\b(answer|answers|response|responses|reply|replies|brief|detailed|short|long)\b',
@@ -49,10 +50,31 @@ class UserMemory {
     ];
   }
 
-  static bool personalQuery(String query) => RegExp(
-    r"\b(i|me|my|mine|myself|je|moi|mon|ma|mes|j'ai|yo|mi|mis|mío|mia)\b",
-    caseSensitive: false,
-  ).hasMatch(query);
+  static bool personalQuery(String query) =>
+      RegExp(
+        r"\b(i|me|my|mine|myself|je|moi|mon|ma|mes|j'ai|yo|mi|mis|mío|mia)\b",
+        caseSensitive: false,
+      ).hasMatch(query) ||
+      RegExp(
+        r'(?:^|[\s؟،.])(?:من|مال من|مرا)(?:$|[\s؟،.])|'
+        r'(?:اسمم|نامم|شغلم|علاقه‌مندی|علاقه من|ترجیحم)',
+        unicode: true,
+      ).hasMatch(query);
+
+  static int _persianIntentScore(String query, String fact) {
+    if (!RegExp(r'[\u0600-\u06FF]').hasMatch(query)) return 0;
+    bool ask(String pattern) => RegExp(pattern).hasMatch(query);
+    if (ask(r'(?:اسم|نام|چه صدا)') && fact.contains('نام کاربر')) return 10;
+    if (ask(r'(?:علاقه|دوست دارم|ترجیح)') &&
+        (fact.contains('علاقه دارد') || fact.contains('ترجیح می‌دهد'))) {
+      return 10;
+    }
+    if (ask(r'زبان') && fact.contains('زبان کاربر')) return 10;
+    if (ask(r'(?:شغل|چه کاره)') && fact.contains('شغل کاربر')) return 10;
+    if (ask(r'(?:کجا زندگی|محل زندگی|ساکن)') &&
+        fact.contains('زندگی می‌کند')) return 10;
+    return 0;
+  }
 
   /// Facts kept; the oldest go when the list is full.
   static const maxFacts = 200;

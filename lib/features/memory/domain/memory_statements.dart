@@ -584,9 +584,68 @@ class MemoryStatements {
     return null;
   }
 
+
+  /// Explicit Persian first-person declarations without model inference.
+  /// Hypothetical, quoted, temporary and negated sentences never qualify.
+  static List<String> _persianExplicitFacts(String message) {
+    if (message.length > 600 ||
+        !RegExp(r'[\u0600-\u06FF]').hasMatch(message) ||
+        RegExp(r'[«»"“”]').hasMatch(message) ||
+        RegExp(
+          r'(?:شاید|احتمالاً|احتمالا|اگر|فرض کن|فرض کنید|مثال|'
+          r'داستان|نقش بازی|تخیلی|شوخی|گمان می‌کنم|قبلاً|قبلا|'
+          r'دیروز|فردا|امروز|الان|فعلاً|فعلا|نمی‌|نمی |نیستم|'
+          r'نیست|کاش|می‌خواهم بشوم)',
+        ).hasMatch(message)) {
+      return const [];
+    }
+    final facts = <String>[];
+    final clauses = message.split(RegExp(r'[.؟!?؛\n]+'));
+    for (final raw in clauses) {
+      final text = raw.trim();
+      if (text.isEmpty || text.length > 210) continue;
+      String? fact;
+      var m = RegExp(r'^(?:اسم|نام) من\s+(.+?)\s+(?:است|هست)$')
+          .firstMatch(text);
+      if (m != null) fact = 'نام کاربر ' + m[1]!;
+      if (fact == null) {
+        m = RegExp(r'^من\s+به\s+(.+?)\s+علاقه\s+دارم$')
+            .firstMatch(text);
+        if (m != null) fact = 'کاربر به ' + m[1]! + ' علاقه دارد';
+      }
+      if (fact == null) {
+        m = RegExp(r'^من\s+ترجیح\s+می[‌ ]?دهم\s+(.+)$')
+            .firstMatch(text);
+        if (m != null) fact = 'کاربر ترجیح می‌دهد ' + m[1]!;
+      }
+      if (fact == null) {
+        m = RegExp(r'^زبان من\s+(.+?)\s+(?:است|هست)$')
+            .firstMatch(text);
+        if (m != null) fact = 'زبان کاربر ' + m[1]!;
+      }
+      if (fact == null) {
+        m = RegExp(r'^شغل من\s+(.+?)\s+(?:است|هست)$')
+            .firstMatch(text);
+        if (m != null) fact = 'شغل کاربر ' + m[1]!;
+      }
+      if (fact == null) {
+        m = RegExp(r'^من\s+در\s+(.+?)\s+زندگی\s+می[‌ ]?کنم$')
+            .firstMatch(text);
+        if (m != null) fact = 'کاربر در ' + m[1]! + ' زندگی می‌کند';
+      }
+      if (fact != null &&
+          fact.length >= 8 &&
+          fact.length <= 220 &&
+          !facts.contains(fact)) {
+        facts.add(fact);
+      }
+    }
+    return facts.take(8).toList();
+  }
+
   static List<String> extract(String message) {
     if (_fictionRequest.hasMatch(_clean(message))) return const [];
-    final result = <String>[];
+    final result = <String>[..._persianExplicitFacts(message)];
     final statements = clauses(message);
     for (final clause in statements) {
       if (!_safe(clause)) continue;

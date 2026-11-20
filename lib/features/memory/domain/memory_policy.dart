@@ -91,8 +91,8 @@ abstract final class MemoryScopePolicy {
     r'\b(?:prefer|prefers|speak|speaks|language|languages|'
     r'work|works|job|profession|favourite|favorite|'
     r'likes|use|uses|hobby|hobbies|chef|cook|teacher|engineer|' +
-    r'developer|farmer|gardener|nurse)\b|'
-    r'(?:ترجیح می‌دهم|دوست دارم|علاقه دارم|زبان|'
+    r'developer|farmer|gardener|nurse|technician|building|builds)\b|'
+    r'(?:ترجیح می‌دهم|ترجیح می‌دهد|دوست دارم|علاقه دارم|علاقه دارد|زبان کاربر|شغل کاربر|زبان|'
     r'کار می‌کنم|شغل|سرگرمی|کتاب مورد علاقه|سبک پاسخ)',
     caseSensitive: false,
     unicode: true,

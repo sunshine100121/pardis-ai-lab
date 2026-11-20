@@ -63,6 +63,10 @@ void main() {
         container.read(settingsProvider).activeRemoteProfile!.learnMemory,
         isTrue,
       );
+      // The new memory controls extend the scroll view. After visiting
+      // the lower remote learning row, return the sharing switch to screen.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 260));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('memory-remote-share')));
       await tester.tap(find.byKey(const Key('memory-remote-share')));
       await tester.pumpAndSettle();
