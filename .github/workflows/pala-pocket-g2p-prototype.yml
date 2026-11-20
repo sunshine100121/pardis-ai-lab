@@ -12,6 +12,8 @@ on:
       - 'test/pocket_farsi_v2_settings_test.dart'
       - 'test/pocket_farsi_v2_voice_route_test.dart'
       - '.github/workflows/pala-pocket-g2p-prototype.yml'
+      - 'scripts/prepare_pocket_farsi_v2_bundle.py'
+      - 'scripts/tests/test_pocket_farsi_v2_bundle.py'
   workflow_dispatch:
 
 permissions:
@@ -32,6 +34,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: flutter pub get
+      - name: Verify offline Pocket pack builder (no downloads)
+        run: python3 -m unittest discover -s scripts/tests -p 'test_pocket_farsi_v2_bundle.py'
       - name: Format experimental bridges and test and print reviewed delta
         run: |
           dart format lib/features/voice/pocket_farsi_v2_probe.dart lib/features/voice/pocket_farsi_v2_audio.dart lib/features/voice/pocket_farsi_v2_reader.dart lib/features/voice/pocket_farsi_v2_pack.dart lib/features/voice/pocket_farsi_v2_settings.dart test/pocket_farsi_v2_audio_test.dart test/pocket_farsi_v2_reader_test.dart test/pocket_farsi_v2_voice_route_test.dart test/pocket_farsi_v2_pack_test.dart test/pocket_farsi_v2_settings_test.dart
