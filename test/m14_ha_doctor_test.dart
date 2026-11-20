@@ -119,6 +119,21 @@ void main() {
           'sqlite3.DatabaseError: database disk image is malformed\n'
           'Bearer DO_NOT_LEAK_LOG_LINE',
         );
+      } else if (req.uri.path == '/api/config/config_entries/entry') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode([
+          {'domain': 'mqtt', 'state': 'loaded',
+           'title': 'DO_NOT_LEAK_ENTRY_TITLE'},
+        ]));
+      } else if (req.uri.path == '/api/states') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode([
+          {'entity_id': 'sensor.backup_last_successful_automatic_backup',
+           'state': '2026-01-01T00:00:00Z'},
+          {'entity_id': 'sensor.private_home_address',
+           'state': 'DO_NOT_LEAK_PRIVATE_STATE',
+           'attributes': {'token': 'DO_NOT_LEAK_STATE_TOKEN'}},
+        ]));
       } else if (req.uri.path == '/api/states/sensor.fixture') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode({
@@ -147,6 +162,8 @@ void main() {
       '/api/config',
       '/api/error_log',
       '/api/states/sensor.fixture',
+      '/api/config/config_entries/entry',
+      '/api/states',
     ]);
     expect(report, contains('نسخه Core: 2026.8.3'));
     expect(report, contains('خطای Recorder'));
@@ -156,6 +173,9 @@ void main() {
       '51.12345',
       '-0.12345',
       'not-a-real-token',
+      'DO_NOT_LEAK_ENTRY_TITLE',
+      'DO_NOT_LEAK_PRIVATE_STATE',
+      'DO_NOT_LEAK_STATE_TOKEN',
     ]) {
       expect(report, isNot(contains(secret)));
     }

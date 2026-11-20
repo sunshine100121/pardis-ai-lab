@@ -2,7 +2,7 @@ name: PALA M14 HA Doctor read-only (no APK)
 
 on:
   push:
-    branches: [pala/m14-ha-doctor-2026-11-20]
+    branches: [pala/m14-ha-doctor-2026-11-20, pala/m14-health-readouts-2026-11-20]
   workflow_dispatch:
 
 permissions:
@@ -24,25 +24,30 @@ jobs:
         run: |
           dart format \
             lib/features/knowledge/ha_doctor.dart \
+            lib/features/knowledge/ha_doctor_readouts.dart \
             lib/features/knowledge/ha_read_client.dart \
             lib/features/knowledge/offline_knowledge.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/settings/presentation/screens/folder_knowledge_page.dart \
-            test/m14_ha_doctor_test.dart
+            test/m14_ha_doctor_test.dart \
+            test/m14_ha_doctor_readouts_test.dart
           git diff --stat
       - name: Analyze code, diagnostics and settings
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings \
             lib/features/knowledge/ha_doctor.dart \
+            lib/features/knowledge/ha_doctor_readouts.dart \
             lib/features/knowledge/ha_read_client.dart \
             lib/features/knowledge/offline_knowledge.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/settings/presentation/screens/folder_knowledge_page.dart \
-            test/m14_ha_doctor_test.dart
+            test/m14_ha_doctor_test.dart \
+            test/m14_ha_doctor_readouts_test.dart
       - name: Diagnose synthetic incident and regressions
         run: |
           flutter test \
             test/m14_ha_doctor_test.dart \
+            test/m14_ha_doctor_readouts_test.dart \
             test/ha_read_client_test.dart \
             test/offline_sensor_reliability_test.dart \
             test/m12_project_scope_test.dart \

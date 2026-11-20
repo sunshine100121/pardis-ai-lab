@@ -449,7 +449,7 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
         SwitchListTile(
           title: const Text('بررسی فقط‌خواندنی سلامت سیستم'),
           subtitle: const Text(
-            'HA Doctor فقط هنگام درخواست، نسخه Core، لاگ و حداکثر ۳ حسگر مجاز را می‌خواند؛ تعمیر خودکار ندارد.',
+            'HA Doctor فقط هنگام درخواست، نسخه‌ها، سلامت پیکربندی Integrationها، منابع و بکاپ‌ها را بررسی می‌کند. فهرست وضعیت موجودیت‌ها موقتاً در تبلت پردازش می‌شود؛ اطلاعات خام خصوصی گزارش یا اینترنتی نمی‌شوند. تعمیر خودکار ندارد.',
           ),
           value: _doctorEnabled,
           onChanged: _saving ? null : (v) => setState(() => _doctorEnabled = v),

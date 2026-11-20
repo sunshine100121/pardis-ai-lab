@@ -1,3 +1,5 @@
+import 'ha_doctor_readouts.dart';
+
 /// M14: deterministic, local HA diagnostics. Raw logs must never enter a report.
 class HaDoctorSnapshot {
   final DateTime checkedAtUtc;
@@ -5,6 +7,8 @@ class HaDoctorSnapshot {
   final String? coreVersion, transientLog;
   final int? componentCount;
   final List<HaDoctorSensor> sensors;
+  final HaDoctorIntegrationReadout? integrations;
+  final HaDoctorSystemReadout? system;
   const HaDoctorSnapshot({
     required this.checkedAtUtc,
     required this.configRead,
@@ -13,6 +17,8 @@ class HaDoctorSnapshot {
     required this.transientLog,
     required this.componentCount,
     required this.sensors,
+    this.integrations,
+    this.system,
   });
 }
 
@@ -75,10 +81,15 @@ abstract final class HaDoctorDiagnosis {
         const {'unavailable', 'unknown', 'read_error'}
             .contains(e.state.toLowerCase())).toList();
     final recorder = db + io > 0;
-    final other = mqtt + zigbee > 0 || unavailable.isNotEmpty;
+    final integrationProblems = s.integrations?.problems ?? 0;
+    final integrationRetries = s.integrations?.retrying ?? 0;
+    final other = mqtt + zigbee > 0 || unavailable.isNotEmpty ||
+        integrationProblems > 0 || integrationRetries > 0;
     final headline = recorder
         ? 'در لاگ خوانده‌شده نشانه خطای Recorder یا ذخیره‌سازی دیده شد.'
-        : other ? 'چند نشانه نیازمند بررسی در نمونه محدود دیده شد.'
+        : integrationProblems > 0
+            ? 'در وضعیت Config Entry یک یا چند Integration خطای راه‌اندازی دارند.'
+            : other ? 'چند نشانه نیازمند بررسی در نمونه محدود دیده شد.'
         : !s.configRead && !s.logRead
             ? 'داده تشخیصی کافی دریافت نشد؛ سلامت سیستم نامعلوم است.'
             : 'در نمونه محدود خطای مشخصی پیدا نشد؛ سلامت کامل تأیید نیست.';
@@ -94,7 +105,31 @@ abstract final class HaDoctorDiagnosis {
     out.writeln(s.configRead
         ? '• نسخه Core: ' + (s.coreVersion ?? 'نامشخص') + '.'
         : '• نسخه Core: دریافت نشد.');
-    out.writeln('• نسخه OS و Supervisor: با این مسیر تأیید نشده‌اند.');
+    if (s.system == null) {
+      out.writeln('• نسخه OS و Supervisor: داده معتبر دریافت نشد؛ نامعلوم.');
+    } else {
+      final system = s.system!;
+      out.writeln('• نسخه OS و Supervisor از حسگرهای رسمی: ' +
+          (system.osVersion ?? 'OS نامعلوم') + ' / ' +
+          (system.supervisorVersion ?? 'Supervisor نامعلوم') + '.');
+      String metric(String title, double? value, String unit) =>
+          '• $title: ' + (value == null ? 'نامعلوم یا حسگر غیرفعال'
+            : value.toStringAsFixed(1) + ' ' + unit) +
+            ' (تازگی مستقل نمونه تأیید نشده).';
+      out.writeln(metric('CPU', system.processorPercent, '%'));
+      out.writeln(metric('RAM', system.memoryPercent, '%'));
+      out.writeln(metric('فضای آزاد دیسک', system.diskFreeGb, 'GB/GiB'));
+      out.writeln('• وضعیت مدیر بکاپ: ' +
+          (system.backupManagerState ?? 'نامعلوم یا حسگر غیرفعال') + '.');
+      out.writeln('• آخرین بکاپ خودکار موفق (UTC): ' +
+          (system.lastAutomaticBackupUtc?.toIso8601String() ??
+              'نامعلوم یا حسگر غیرفعال') + '.');
+      out.writeln('• آخرین تلاش بکاپ خودکار (UTC): ' +
+          (system.lastAttemptedBackupUtc?.toIso8601String() ??
+              'نامعلوم یا حسگر غیرفعال') + '.');
+      out.writeln('• حسگرهای بکاپ، نسخه‌های دستی و صحت فایل یا Restore را تأیید نمی‌کنند.');
+      out.writeln('• نسخه Supervisor به‌تنهایی به معنی سالم‌بودن سرویس نیست.');
+    }
     out.writeln(s.componentCount == null
         ? '• فهرست اجزا: نامشخص.'
         : '• تعداد اجزای پیکربندی: ' + s.componentCount.toString() +
@@ -105,6 +140,18 @@ abstract final class HaDoctorDiagnosis {
     if (recorder) {
       out.writeln('• الگوهای خرابی پایگاه داده: $db؛ خطای دیسک I/O: $io.');
       out.writeln('• این خطاها به‌تنهایی خرابی فیزیکی SSD یا ادامه خطا در لحظه حاضر را اثبات نمی‌کنند.');
+    }
+    if (s.integrations == null) {
+      out.writeln('• وضعیت Integrationها: فهرست قابل‌خواندن نبود؛ نامعلوم.');
+    } else {
+      final items = s.integrations!;
+      out.writeln('• Integrationها: ' +
+          items.configured.toString() + ' پیکربندی فعال، ' +
+          items.loaded.toString() + ' بارگذاری‌شده، ' +
+          items.problems.toString() + ' خطای راه‌اندازی/مهاجرت، ' +
+          items.retrying.toString() + ' در انتظار تلاش مجدد، ' +
+          items.disabled.toString() + ' عمداً غیرفعال/نادیده‌گرفته‌شده.');
+      out.writeln('• این شمارش وضعیت پیکربندی است، نه گواه سلامت همه دستگاه‌ها.');
     }
     if (mqtt > 0) out.writeln('• خطاهای مرتبط با MQTT: $mqtt.');
     if (zigbee > 0) out.writeln('• خطاهای مرتبط با Zigbee: $zigbee.');
@@ -120,7 +167,7 @@ abstract final class HaDoctorDiagnosis {
       out.writeln('۱. تاریخ و تکرار خطاهای Recorder را در بخش Logs بررسی کنید.');
       out.writeln('۲. فقط فضای آزاد دیسک و موجودبودن بکاپ معتبر را بررسی کنید؛ چیزی حذف نشود.');
       out.writeln('۳. پیش از هر تعمیر، وضعیت بکاپ و امکان بازگشت را بسنجید.');
-    } else if (mqtt + zigbee > 0) {
+    } else if (mqtt + zigbee > 0 || integrationProblems > 0 || integrationRetries > 0) {
       out.writeln('۱. وضعیت ارتباط سرویس و حسگرهای فعال مرتبط را در رابط HA بررسی کنید.');
       out.writeln('۲. زمان خطا و قطعی شبکه را مقایسه کنید؛ Restart خودکار نکنید.');
     } else {
