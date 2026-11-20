@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 class ChatProject {
   final String id, name, instructions, collection, memoryNotes;
   final List<String> sourceIds;
+  final List<String> sharedCollections;
   const ChatProject(
     this.id,
     this.name, {
@@ -14,6 +15,7 @@ class ChatProject {
     this.collection = '',
     this.memoryNotes = '',
     this.sourceIds = const [],
+    this.sharedCollections = const [],
   });
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -22,17 +24,22 @@ class ChatProject {
     'collection': collection,
     'memoryNotes': memoryNotes,
     'sourceIds': sourceIds,
+    'sharedCollections': sharedCollections,
   };
 }
 
 class ConversationWorkspace {
   final List<ChatProject> projects;
   final Map<String, String> memberships, states;
+  /// A persisted privacy boundary on reassignment. Earlier history stays
+  /// visible but never becomes model context in the destination scope.
+  final Map<String, String> scopeStarts;
   final bool loaded, readable;
   const ConversationWorkspace({
     this.projects = const [],
     this.memberships = const {},
     this.states = const {},
+    this.scopeStarts = const {},
     this.loaded = true,
     this.readable = true,
   });
@@ -80,10 +87,17 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
                     (p['sourceIds'] is List ? p['sourceIds'] as List : const [])
                         .whereType<String>()
                         .toList(),
+                sharedCollections:
+                    (p['sharedCollections'] is List
+                            ? p['sharedCollections'] as List
+                            : const [])
+                        .whereType<String>()
+                        .toList(),
               ),
         ],
         memberships: Map<String, String>.from(j['memberships'] as Map? ?? {}),
         states: Map<String, String>.from(j['states'] as Map? ?? {}),
+        scopeStarts: Map<String, String>.from(j['scopeStarts'] as Map? ?? {}),
       );
       if (_alive) state = next;
     } catch (_) {
@@ -107,6 +121,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
           'projects': updated.projects.map((p) => p.toJson()).toList(),
           'memberships': updated.memberships,
           'states': updated.states,
+          'scopeStarts': updated.scopeStarts,
         }),
       );
       if (!saved) throw StateError('Could not save conversation organization.');
@@ -123,6 +138,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     String? collection,
     String? memoryNotes,
     List<String>? sourceIds,
+    List<String>? sharedCollections,
   }) => _change((s) {
     final previous = s.projects.where((p) => p.id == id).firstOrNull;
     if (id != null && previous == null) {
@@ -131,6 +147,13 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     final nextInstructions = instructions ?? previous?.instructions ?? '';
     final nextCollection = collection ?? previous?.collection ?? '';
     final notes = memoryNotes ?? previous?.memoryNotes ?? '';
+    final approvedShared =
+        sharedCollections ?? previous?.sharedCollections ?? const <String>[];
+    if (approvedShared.length > 4 ||
+        approvedShared.any((c) => c.trim().isEmpty || c.length > 200) ||
+        approvedShared.toSet().length != approvedShared.length) {
+      throw const FormatException('Invalid shared knowledge selection');
+    }
     if (name.trim().isEmpty ||
         name.length > 100 ||
         nextInstructions.length > 4000 ||
@@ -150,11 +173,13 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       sourceIds: List.unmodifiable(
         sourceIds ?? previous?.sourceIds ?? const [],
       ),
+      sharedCollections: List.unmodifiable(approvedShared),
     );
     return ConversationWorkspace(
       projects: [...s.projects.where((p) => p.id != id), project],
       memberships: s.memberships,
       states: s.states,
+      scopeStarts: s.scopeStarts,
     );
   });
 
@@ -223,6 +248,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       collection: project.collection,
       memoryNotes: updatedNotes,
       sourceIds: project.sourceIds,
+      sharedCollections: project.sharedCollections,
     );
     return ConversationWorkspace(
       projects: [
@@ -231,6 +257,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       ],
       memberships: s.memberships,
       states: s.states,
+      scopeStarts: s.scopeStarts,
     );
   });
 
@@ -261,6 +288,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       collection: project.collection,
       memoryNotes: lines.join('\n').trim(),
       sourceIds: project.sourceIds,
+      sharedCollections: project.sharedCollections,
     );
     return ConversationWorkspace(
       projects: [
@@ -269,6 +297,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       ],
       memberships: s.memberships,
       states: s.states,
+      scopeStarts: s.scopeStarts,
     );
   });
 
@@ -277,7 +306,15 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       throw StateError('Project no longer exists.');
     }
     final memberships = {...s.memberships};
+    final boundaries = {...s.scopeStarts};
+    final now = DateTime.now().toUtc().toIso8601String();
     for (final id in ids) {
+      if (id.trim().isEmpty) continue;
+      if (memberships[id] != projectId) {
+        // Moving a conversation never copies private facts into its new
+        // project. Only messages written AFTER this point enter its prompt.
+        boundaries[id] = now;
+      }
       if (projectId == null) {
         memberships.remove(id);
       } else {
@@ -288,6 +325,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       projects: s.projects,
       memberships: memberships,
       states: s.states,
+      scopeStarts: boundaries,
     );
   });
   Future<void> setState(Iterable<String> ids, String destination) =>
@@ -307,6 +345,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
           projects: s.projects,
           memberships: s.memberships,
           states: states,
+          scopeStarts: s.scopeStarts,
         );
       });
   Future<void> removeProject(String id) => _change(
@@ -314,6 +353,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       projects: s.projects.where((p) => p.id != id).toList(),
       memberships: {...s.memberships}..removeWhere((_, v) => v == id),
       states: s.states,
+      scopeStarts: s.scopeStarts,
     ),
   );
   Future<void> forget(String id) => _change(
@@ -321,6 +361,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       projects: s.projects,
       memberships: {...s.memberships}..remove(id),
       states: {...s.states}..remove(id),
+      scopeStarts: {...s.scopeStarts}..remove(id),
     ),
   );
 }
