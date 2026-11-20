@@ -132,4 +132,19 @@ void main() {
     c.read(memorySuggestionsProvider.notifier).clear();
     expect(await db.allMemories(), isEmpty);
   });
+  test('expired memories are physically deleted on memory-store read', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final store = MemoryStore(db);
+    await store.add(
+      'The user prefers short explanations',
+      expiresAt: DateTime.now().subtract(const Duration(days: 1)),
+    );
+    await store.add('The user prefers Persian');
+    final rows = await store.all();
+    expect(rows, hasLength(1));
+    expect(rows.single.content, 'The user prefers Persian');
+    expect(await db.allMemories(), hasLength(1));
+  });
+
 }
