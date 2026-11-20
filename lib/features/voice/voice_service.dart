@@ -67,6 +67,7 @@ class VoiceState {
 
 class VoiceNotifier extends Notifier<VoiceState> {
   static const _androidTtsEngineKey = 'pala_voice_android_tts_engine_v1';
+  static const _androidTtsVoiceKey = 'pala_voice_android_tts_voice_v1';
   SpeechToText? _stt;
   FlutterTts? _tts;
   Future<void>? _ttsInitialization;
@@ -662,6 +663,43 @@ class VoiceNotifier extends Notifier<VoiceState> {
     return (engines, engines.contains(selected) ? selected : null);
   }
 
+  /// Installed offline Persian voices of the currently selected Android
+  /// engine. Individual voice choice is independent from the STT model.
+  Future<(List<Map<String, String>>, String?)> androidPersianTtsVoices() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return (const <Map<String, String>>[], null);
+    }
+    await _initTts();
+    final prefs = await SharedPreferences.getInstance();
+    final chosenEngine = prefs.getString(_androidTtsEngineKey);
+    if (chosenEngine != null && chosenEngine.isNotEmpty) {
+      await _tts!.setEngine(chosenEngine);
+    }
+    final available = offlinePersianVoiceOptions(await _tts!.getVoices);
+    final selected = prefs.getString(_androidTtsVoiceKey);
+    return (
+      available,
+      available.any((item) => item['name'] == selected) ? selected : null,
+    );
+  }
+
+  Future<bool> setAndroidPersianTtsVoice(String name) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      await stopSpeaking();
+      final (voices, _) = await androidPersianTtsVoices();
+      final candidates = voices.where((v) => v['name'] == name).toList();
+      if (candidates.isEmpty) return false;
+      final voice = candidates.first;
+      final result = await _tts!.setVoice(voice);
+      if (result != 1) return false;
+      return (await SharedPreferences.getInstance())
+          .setString(_androidTtsVoiceKey, name);
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Selects an installed Android engine only when it exposes an offline
   /// Persian voice. An incompatible choice leaves the current engine intact.
   Future<bool> setAndroidTtsEngine(String engine) async {
@@ -697,6 +735,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
         return false;
       }
       final saved = await prefs.setString(_androidTtsEngineKey, engine);
+      if (saved) await prefs.remove(_androidTtsVoiceKey);
       if (!saved && previous is String && previous.isNotEmpty) {
         await _tts!.setEngine(previous);
       }
@@ -778,9 +817,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
   /// reports as local ("0"). Windows voices (SAPI/OneCore) are all local.
   Future<bool> _selectOfflineVoice() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
-    final savedEngine = (await SharedPreferences.getInstance()).getString(
-      _androidTtsEngineKey,
-    );
+    final prefs = await SharedPreferences.getInstance();
+    final savedEngine = prefs.getString(_androidTtsEngineKey);
+    final explicitlyChosenVoice = prefs.getString(_androidTtsVoiceKey);
     if (savedEngine != null && savedEngine.isNotEmpty) {
       try {
         await _tts!.setEngine(savedEngine);
@@ -788,10 +827,11 @@ class VoiceNotifier extends Notifier<VoiceState> {
         return false;
       }
     }
-    String? preferredVoice;
+    String? preferredVoice = explicitlyChosenVoice;
     try {
       final current = await _tts!.getDefaultVoice;
-      if (current is Map &&
+      if (preferredVoice == null &&
+          current is Map &&
           current['name'] is String &&
           current['locale'] is String &&
           (current['locale'] as String)
@@ -805,14 +845,23 @@ class VoiceNotifier extends Notifier<VoiceState> {
         preferredVoice = current['name'] as String;
       }
     } catch (_) {}
-    return selectOfflineVoice(
-      language: voiceLanguageForText(
-        ref.read(settingsProvider).localeCode,
-        _spokenText,
-      ),
+    final language = voiceLanguageForText(
+      ref.read(settingsProvider).localeCode,
+      _spokenText,
+    );
+    final selected = await selectOfflineVoice(
+      language: language,
       voices: () => _tts!.getVoices,
       select: (voice) => _tts!.setVoice(voice),
       preferredName: preferredVoice,
+    );
+    if (selected || explicitlyChosenVoice != null) return selected;
+    // Without an explicit user choice, prefer any verified local voice
+    // over a default that is missing or requires the network.
+    return selectOfflineVoice(
+      language: language,
+      voices: () => _tts!.getVoices,
+      select: (voice) => _tts!.setVoice(voice),
     );
   }
 

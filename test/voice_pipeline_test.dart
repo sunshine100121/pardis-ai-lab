@@ -40,6 +40,39 @@ void main() {
     expect(env[4], closeTo(0.5, 0.001));
   });
 
+  test('only verified local Persian voices are selectable', () {
+    final selected = offlinePersianVoiceOptions([
+      {
+        'name': 'fa-local-1',
+        'locale': 'fa-IR',
+        'network_required': '0',
+      },
+      {
+        'name': 'fa-cloud',
+        'locale': 'fa-IR',
+        'network_required': '1',
+      },
+      {
+        'name': 'en-local',
+        'locale': 'en-US',
+        'network_required': false,
+      },
+      {
+        'name': 'fa-not-installed',
+        'locale': 'fa-IR',
+        'network_required': false,
+        'features': 'notInstalled',
+      },
+      {
+        'name': 'fa-unknown',
+        'locale': 'fa-IR',
+      },
+    ]);
+    expect(selected, [
+      {'name': 'fa-local-1', 'locale': 'fa-IR'},
+    ]);
+  });
+
   group('WhisperListener.heardAudio', () {
     Float32List frames(int n) => Float32List(512 * n);
     test('a finished sentence is read from what the microphone heard', () {

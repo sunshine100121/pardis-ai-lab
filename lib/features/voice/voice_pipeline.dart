@@ -41,6 +41,30 @@ String? dictationLocale(String localeCode, String? explicit) =>
     explicit ?? (voiceLanguage(localeCode) == 'fa' ? 'fa-IR' : null);
 
 /// No default-language fallback when the selected local voice is unavailable.
+/// Enumerate genuinely offline installed Persian TTS voices. An unknown
+/// network requirement must never be interpreted as offline.
+List<Map<String, String>> offlinePersianVoiceOptions(dynamic voices) {
+  if (voices is! List) return const [];
+  final result = <Map<String, String>>[];
+  for (final voice in voices) {
+    if (voice is! Map ||
+        voice['name'] is! String ||
+        voice['locale'] is! String ||
+        !(voice['network_required'] == '0' ||
+            voice['network_required'] == false) ||
+        '${voice['features'] ?? ''}'.contains('notInstalled')) {
+      continue;
+    }
+    final locale = voice['locale'] as String;
+    if (locale.split(RegExp(r'[-_]')).first.toLowerCase() != 'fa') continue;
+    result.add({
+      'name': voice['name'] as String,
+      'locale': locale,
+    });
+  }
+  return result;
+}
+
 Future<bool> selectOfflineVoice({
   required String language,
   required Future<dynamic> Function() voices,

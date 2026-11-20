@@ -650,7 +650,9 @@ class _PersianTtsEngines extends ConsumerStatefulWidget {
 
 class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
   late Future<(List<String>, String?)> _engines = _load();
+  late Future<(List<Map<String, String>>, String?)> _voices = _loadVoices();
   String? _selected;
+  String? _selectedVoice;
   bool _busy = false;
 
   Future<(List<String>, String?)> _load() async {
@@ -660,6 +662,18 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
       return result;
     } catch (_) {
       return (<String>[], null);
+    }
+  }
+
+  Future<(List<Map<String, String>>, String?)> _loadVoices() async {
+    try {
+      final result = await ref
+          .read(voiceProvider.notifier)
+          .androidPersianTtsVoices();
+      _selectedVoice = result.$2;
+      return result;
+    } catch (_) {
+      return (<Map<String, String>>[], null);
     }
   }
 
@@ -713,7 +727,11 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
                       if (!mounted) return;
                       setState(() {
                         _busy = false;
-                        if (ok) _selected = engine;
+                        if (ok) {
+                          _selected = engine;
+                          _selectedVoice = null;
+                          _voices = _loadVoices();
+                        }
                       });
                       if (!ok)
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -730,6 +748,59 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
                   ? 'موتور پیش‌فرض فعلی سیستم حفظ شده است.'
                   : 'موتور فعال: $_selected',
             ),
+            FutureBuilder<(List<Map<String, String>>, String?)>(
+              future: _voices,
+              builder: (context, voiceSnapshot) {
+                final voices = voiceSnapshot.data?.$1 ??
+                    const <Map<String, String>>[];
+                if (voices.isEmpty) {
+                  return const Text(
+                    'هیچ صدای فارسی آفلاینِ تأییدشده‌ای از موتور فعال گزارش نشده است.',
+                  );
+                }
+                return DropdownButton<String>(
+                  key: const Key('persian-tts-voice'),
+                  isExpanded: true,
+                  value: voices.any((v) => v['name'] == _selectedVoice)
+                      ? _selectedVoice
+                      : null,
+                  hint: const Text('صدای فارسی آفلاین را انتخاب کنید'),
+                  items: [
+                    for (final voice in voices)
+                      DropdownMenuItem<String>(
+                        value: voice['name'],
+                        child: Text(
+                          '${voice['name']} · ${voice['locale']}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (name) async {
+                          if (name == null) return;
+                          setState(() => _busy = true);
+                          final ok = await ref
+                              .read(voiceProvider.notifier)
+                              .setAndroidPersianTtsVoice(name);
+                          if (!mounted) return;
+                          setState(() {
+                            _busy = false;
+                            if (ok) _selectedVoice = name;
+                          });
+                          if (!ok) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'این صدای فارسی به‌صورت آفلاین آماده نیست.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                );
+              },
+            ),
             TextButton.icon(
               key: const Key('open-tts-settings'),
               onPressed: () => OfflineDictation.openSystemTtsSettings(),
@@ -740,7 +811,10 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
               key: const Key('persian-tts-refresh'),
               onPressed: _busy
                   ? null
-                  : () => setState(() => _engines = _load()),
+                  : () => setState(() {
+                      _engines = _load();
+                      _voices = _loadVoices();
+                    }),
               icon: const Icon(Icons.refresh),
               label: const Text('بازخوانی موتورهای نصب‌شده'),
             ),
