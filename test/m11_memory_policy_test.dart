@@ -112,7 +112,7 @@ void main() {
     expect(found.sourceChatId, 'c1');
     expect(found.sourceMessageId, 'm1');
     // Drift stores DateTime values at whole-second resolution.
-    expect(found.expiresAt?.millisecondsSinceEpoch ~/ 1000,
+    expect((found.expiresAt?.millisecondsSinceEpoch ?? 0) ~/ 1000,
         end.millisecondsSinceEpoch ~/ 1000);
   });
 
