@@ -1277,7 +1277,8 @@ class ChatNotifier extends _ChatBase
         // Rendered exactly as the answering turn will render them, so the
         // two prompts share their prefix.
         history: [
-          for (final m in state.messages.where(isLive))
+          for (final m in state.messages.where(
+              (m) => isLive(m) && _messageInScope(m)))
             if (m.id != user.id)
               TurnPrompts.renderTurn(
                 m,
@@ -1303,7 +1304,8 @@ class ChatNotifier extends _ChatBase
     if (plan.mode == RetrievalMode.search) {
       final placed = RetrievalPlan.withUserPlace(plan.query, [
         for (final m in state.messages)
-          if (m.role == ChatRole.user && isLive(m) && m.id != user.id)
+          if (m.role == ChatRole.user && isLive(m) &&
+              _messageInScope(m) && m.id != user.id)
             m.content,
       ]);
       if (placed != plan.query) {
