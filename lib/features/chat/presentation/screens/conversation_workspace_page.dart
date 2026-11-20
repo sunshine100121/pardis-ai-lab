@@ -5,6 +5,7 @@ import '../../../../core/l10n/l10n.dart';
 import '../../../../core/design/app_design.dart';
 import '../../domain/conversation_workspace.dart';
 import '../providers/chat_provider.dart';
+import '../widgets/project_memory_expiry.dart';
 import '../../../../core/island/status_island.dart';
 import '../../../../core/design/app_dialog.dart';
 import '../../../knowledge/folder_library.dart';
@@ -94,9 +95,11 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                       helperText: 'فقط اطلاعات ثابت و تأییدشده؛ نه داده زنده',
                     ),
                   ),
+                  if (project != null)
+                    ProjectMemoryExpiryEditor(notes: notes),
                   const Text('منابع پوشه دانش این پروژه'),
                   const Text(
-                    'یادداشت‌های بالا فقط در همین پروژه استفاده می‌شوند؛ حافظه خودکار هنوز آماده نیست.',
+                    'یادداشت‌های این پروژه در پروژه‌های دیگر استفاده نمی‌شوند.',
                   ),
                   if (sources.isEmpty)
                     const Text('منبعی برای انتخاب در پوشه دانش پیدا نشد.'),

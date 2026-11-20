@@ -25,6 +25,8 @@ jobs:
           dart format \
             lib/features/memory/domain/memory_policy.dart \
             lib/features/chat/domain/conversation_workspace.dart \
+            lib/features/chat/presentation/screens/conversation_workspace_page.dart \
+            lib/features/chat/presentation/widgets/project_memory_expiry.dart \
             lib/features/memory/domain/memory_statements.dart \
             lib/features/memory/domain/user_memory.dart \
             lib/features/memory/presentation/providers/memory_preferences.dart \
@@ -36,12 +38,16 @@ jobs:
             test/m11_memory_policy_test.dart \
             test/m11_memory_persian_test.dart \
             test/m11_memory_approval_test.dart \
-            test/m11_project_expiry_test.dart
+            test/m11_project_expiry_test.dart \
+            test/m11_project_memory_expiry_ui_test.dart
           git diff --stat
       - name: Analyze memory, chat and settings integration
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings \
-            lib/features/memory lib/features/chat/domain/conversation_workspace.dart lib/features/chat/presentation/providers/chat_memory.dart \
+            lib/features/memory lib/features/chat/domain/conversation_workspace.dart \
+            lib/features/chat/presentation/screens/conversation_workspace_page.dart \
+            lib/features/chat/presentation/widgets/project_memory_expiry.dart \
+            lib/features/chat/presentation/providers/chat_memory.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/settings/presentation/screens/memory_page.dart \
             test/m11_memory_policy_test.dart
@@ -52,6 +58,7 @@ jobs:
             test/m11_memory_persian_test.dart \
             test/m11_memory_approval_test.dart \
             test/m11_project_expiry_test.dart \
+            test/m11_project_memory_expiry_ui_test.dart \
             test/memory_page_test.dart \
             test/user_memory_test.dart \
             test/memory_statements_test.dart \

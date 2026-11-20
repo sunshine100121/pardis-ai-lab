@@ -425,6 +425,85 @@ class ProjectMemoryGate {
 class ProjectMemoryEntry {
   static final _expiry = RegExp(r'؛ انقضا: ([^؛)]+)');
 
+  /// Only owner-approved notes with a chat/message origin are editable here.
+  /// Free-form project notes keep their legacy behavior and original text.
+  static bool _approved(String line) =>
+      line.startsWith('• ') &&
+      line.contains(' (تأیید مالک؛ تاریخ: ') &&
+      RegExp(r'؛ گفتگو: [^؛)]+؛ پیام: [^)]+\)
+
+  /// Legacy owner-confirmed notes have no expiry and remain untouched.
+  /// Expired entries are excluded from BOTH Qwen prompts and relevance
+  /// checks; the original saved text remains available for owner editing.
+  static String activeNotes(String notes, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    return notes.split('\n').where((line) {
+      final match = _expiry.firstMatch(line);
+      if (match == null) return true;
+      final date = DateTime.tryParse(match[1]!.trim());
+      return date != null && date.isAfter(today);
+    }).join('\n');
+  }
+
+  static bool belongsTo(String line, String chatId, String messageId) =>
+      line.startsWith('• ') &&
+      line.contains(' (تأیید مالک؛ تاریخ: ') &&
+      line.endsWith('؛ گفتگو: $chatId؛ پیام: $messageId)');
+
+  static String? noteFor(
+    String notes, {
+    required String chatId,
+    required String messageId,
+  }) {
+    for (final line in notes.split('\n')) {
+      if (!belongsTo(line, chatId, messageId)) continue;
+      final marker = line.lastIndexOf(' (تأیید مالک؛ تاریخ: ');
+      if (marker > 2) return line.substring(2, marker);
+    }
+    return null;
+  }
+}
+).hasMatch(line);
+
+  static List<String> approvedLines(String notes) => [
+    for (final line in notes.split('\n'))
+      if (_approved(line)) line,
+  ];
+
+  static String contentOf(String line) {
+    final at = line.indexOf(' (تأیید مالک؛ تاریخ: ');
+    if (!_approved(line) || at <= 2) return '';
+    return line.substring(2, at);
+  }
+
+  static DateTime? expiresAtOf(String line) {
+    final match = _expiry.firstMatch(line);
+    return match == null ? null : DateTime.tryParse(match[1]!.trim());
+  }
+
+  /// Changes ONLY one exact approved source line. No mutation of chat
+  /// history, other projects, manually written notes, or origin metadata.
+  /// Returns a draft; caller must explicitly save the project.
+  static String changeExpiry(
+    String notes, {
+    required String line,
+    required DateTime? expiresAt,
+  }) {
+    if (!_approved(line)) throw const FormatException('Invalid owner note');
+    final lines = notes.split('\n');
+    final index = lines.indexOf(line);
+    if (index < 0) throw StateError('Owner note is no longer in the draft');
+    final stem = line.replaceFirst(_expiry, '');
+    final tail = stem.lastIndexOf('؛ گفتگو: ');
+    if (tail < 0) throw const FormatException('Missing note origin');
+    final expiry = expiresAt == null
+        ? ''
+        : '؛ انقضا: ' + expiresAt.toUtc().toIso8601String();
+    lines[index] =
+        stem.substring(0, tail) + expiry + stem.substring(tail);
+    return lines.join('\n');
+  }
+
   /// Legacy owner-confirmed notes have no expiry and remain untouched.
   /// Expired entries are excluded from BOTH Qwen prompts and relevance
   /// checks; the original saved text remains available for owner editing.
