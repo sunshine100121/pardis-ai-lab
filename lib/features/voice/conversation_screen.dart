@@ -1009,8 +1009,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   }
 
   void _completeSystemAudio(int audioEpoch) {
-    if (_closed || _natural || audioEpoch != _systemAudioEpoch ||
-        !_systemAudioEnded || _turn) {
+    if (_closed ||
+        _natural ||
+        audioEpoch != _systemAudioEpoch ||
+        !_systemAudioEnded ||
+        _turn) {
       return;
     }
     final speech = ref.read(voiceProvider);

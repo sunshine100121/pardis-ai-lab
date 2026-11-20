@@ -14,7 +14,8 @@ abstract final class PersianSttQuality {
   static String normalize(String input) {
     final digits = '۰۱۲۳۴۵۶۷۸۹';
     final arabicDigits = '٠١٢٣٤٥٦٧٨٩';
-    final fixed = input.toLowerCase()
+    final fixed = input
+        .toLowerCase()
         .replaceAll('ي', 'ی')
         .replaceAll('ك', 'ک')
         .replaceAll('ة', 'ه')
@@ -46,13 +47,12 @@ abstract final class PersianSttQuality {
       final next = List<int>.filled(recognized.length + 1, 0);
       next[0] = row;
       for (var col = 1; col <= recognized.length; col++) {
-        final replace = previous[col - 1] +
+        final replace =
+            previous[col - 1] +
             (reference[row - 1] == recognized[col - 1] ? 0 : 1);
         final insert = next[col - 1] + 1;
         final delete = previous[col] + 1;
-        next[col] = [replace, insert, delete].reduce(
-          (a, b) => a < b ? a : b,
-        );
+        next[col] = [replace, insert, delete].reduce((a, b) => a < b ? a : b);
       }
       previous = next;
     }
@@ -62,9 +62,7 @@ abstract final class PersianSttQuality {
   static double? wordErrorRate(String reference, String recognized) {
     final expected = words(reference);
     if (expected.isEmpty) return null;
-    return substitutionsInsertionsDeletions(
-      expected,
-      words(recognized),
-    ) / expected.length;
+    return substitutionsInsertionsDeletions(expected, words(recognized)) /
+        expected.length;
   }
 }

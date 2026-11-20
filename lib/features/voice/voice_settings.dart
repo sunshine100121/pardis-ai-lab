@@ -284,7 +284,9 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('آزمون دقت فارسی — جمله مرجع را بگویید؛ متن ارسالی به Qwen ساخته نمی‌شود.'),
+        const Text(
+          'آزمون دقت فارسی — جمله مرجع را بگویید؛ متن ارسالی به Qwen ساخته نمی‌شود.',
+        ),
         TextField(
           key: const Key('persian-stt-reference'),
           controller: _reference,
