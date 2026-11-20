@@ -22,6 +22,7 @@ import 'voice_choice_storage.dart';
 import 'voice_engine_selection.dart';
 import 'vosk_local_models.dart';
 import 'persian_sherpa_models.dart';
+import 'pocket_farsi_v2_settings.dart';
 import '../../core/platform/form_factor.dart';
 
 final _userVoskModelsProvider = FutureProvider<List<VoskLocalModel>>(
@@ -87,6 +88,7 @@ class NaturalVoiceSettings extends ConsumerWidget {
           const _ImportedSherpaModels(PersianSherpaKind.stt),
           const _PersianTtsEngines(),
           const _ImportedSherpaModels(PersianSherpaKind.tts),
+          const PocketFarsiExperimentalSettings(),
           const _VoiceDownloadRow(),
         ],
         if (s.naturalVoice) ...[
