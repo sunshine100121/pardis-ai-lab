@@ -1850,7 +1850,7 @@ void main() {
     expect(container.read(sessionBusyProvider), false);
   });
 
-  test('attached documents travel in the prompt; photos need vision', () async {
+  test('attached documents persist; without vision PALA explicitly refuses image analysis', () async {
     final notifier = container.read(chatProvider.notifier);
     const doc = Attachment(
       id: 'a1',
@@ -1871,13 +1871,11 @@ void main() {
     );
     await notifier.send('What does this say?', attachments: [doc, photo]);
     expect(container.read(chatProvider).error, isNull);
-    final last = engine.receivedMessages!.last;
-    expect(last['content'], contains('[File: notes.txt]\nMeeting at noon.'));
-    expect(last['content'], contains('What does this say?'));
-    // No vision projector on the test engine: the photo is named, not sent.
-    expect(last['content'], contains('not visible to this model'));
-    expect(last.containsKey('images'), false);
-    expect(container.read(chatProvider).notice, contains('cannot see photos'));
+    // M17: a text-only runtime cannot claim to have seen a photo or
+    // launder its content from OCR. The owner's attachments still persist.
+    expect(engine.receivedMessages, isNull);
+    expect(container.read(chatProvider).messages.last.content,
+        contains('تصویر را نمی‌بیند'));
     // The attachment is persisted with the turn and comes back on reopen.
     final rows = await db.getMessages(container.read(chatProvider).chatId!);
     final stored = Attachment.listFromJson(

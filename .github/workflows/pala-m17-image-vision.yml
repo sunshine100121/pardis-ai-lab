@@ -38,6 +38,10 @@ jobs:
             lib/features/models/presentation/providers/model_manager_provider.dart \
             lib/features/models/presentation/screens/model_details_page.dart \
             test/m17_vision_safety_test.dart
+      - name: Verify image attachment direct reply without vision
+        run: >-
+          flutter test test/chat_test.dart
+          --plain-name 'attached documents persist; without vision PALA explicitly refuses image analysis'
       - name: Verify M17 new vision policy and essential regressions
         run: |
           flutter test --concurrency=1 \
