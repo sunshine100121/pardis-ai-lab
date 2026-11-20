@@ -423,18 +423,18 @@ class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
       _problem = null;
     });
     try {
-      final picked = await FilePicker.platform.pickFiles(
+      final picked = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['zip'],
       );
       if (picked == null) return;
-      final path = picked.files.single.path;
+      final path = picked.path;
       if (path == null) {
         throw const FormatException('فایل انتخابی از حافظه در دسترس نیست.');
       }
       final model = await VoskLocalModels.importZip(
         File(path),
-        displayName: picked.files.single.name,
+        displayName: picked.name,
       );
       await VoiceChoiceStorage.choose(
         VoiceSelectionKind.stt,
