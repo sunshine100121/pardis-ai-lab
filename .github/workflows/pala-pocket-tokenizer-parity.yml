@@ -3,7 +3,9 @@ name: PALA Pocket official SentencePiece parity
 on:
   push:
     branches: [pala/pocket-farsi-v2-android-proto-2026-11-20]
-    paths: ['.github/workflows/pala-pocket-tokenizer-parity.yml']
+    paths:
+      - '.github/workflows/pala-pocket-tokenizer-parity.yml'
+      - 'scripts/check_pocket_tokenizer_parity.py'
 
 permissions:
   contents: read

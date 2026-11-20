@@ -47,7 +47,7 @@ def kotlin_equivalent(sp, raw, kind):
     src = "▁" + "▁".join(raw.strip().split())
     if kind == 2:
         parts = list(src)
-        if any(x not in tokens for x in parts): raise ValueError("Unsupported character")
+        parts = [x if x in tokens else "\x00" for x in parts]
         while len(parts)>1:
             ix, best = -1, float("-inf")
             for k in range(len(parts)-1):
@@ -55,7 +55,7 @@ def kotlin_equivalent(sp, raw, kind):
                 if pair is not None and pair[1] > best: ix,best = k,pair[1]
             if ix<0: break
             parts[ix:ix+2] = [parts[ix]+parts[ix+1]]
-        return [tokens[x][0] for x in parts]
+        return [tokens[x][0] if x in tokens else sp.unk_id() for x in parts]
     if kind != 1: raise ValueError("Unsupported SentencePiece type")
     first=defaultdict(list)
     for piece,(ident,score) in tokens.items(): first[piece[0]].append((piece,ident,score))

@@ -220,10 +220,13 @@ internal class PocketPhonemeTokenizer private constructor(
         while (i < src.length) {
             val cp = Character.codePointAt(src, i)
             val value = String(Character.toChars(cp))
-            if (!activeByName.containsKey(value)) {
-                error("Unsupported BPE phoneme")
+            if (!activeByName.containsKey(value) && unknownId < 0) {
+                error("No SentencePiece unknown token")
             }
-            segments.add(value)
+            // The original SentencePiece BPE emits <unk> (ID 0 in this
+            // model) for a codepoint not in the base vocabulary. Keep a
+            // non-mergeable sentinel, so surrounding phonemes survive.
+            segments.add(if (activeByName.containsKey(value)) value else "\u0000")
             i += Character.charCount(cp)
         }
         while (segments.size > 1) {
@@ -241,7 +244,8 @@ internal class PocketPhonemeTokenizer private constructor(
             segments.removeAt(bestAt + 1)
         }
         return segments.map {
-            activeByName[it]?.id ?: error("BPE phoneme token not in vocabulary")
+            activeByName[it]?.id ?: unknownId.takeIf { id -> id >= 0 }
+                ?: error("BPE phoneme token not in vocabulary")
         }.toIntArray()
     }
 
