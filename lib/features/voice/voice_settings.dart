@@ -20,6 +20,7 @@ import 'persian_stt_policy.dart';
 import 'voice_choice_storage.dart';
 import 'voice_engine_selection.dart';
 import 'vosk_local_models.dart';
+import 'persian_sherpa_models.dart';
 import '../../core/platform/form_factor.dart';
 
 final _userVoskModelsProvider = FutureProvider<List<VoskLocalModel>>(
@@ -27,6 +28,15 @@ final _userVoskModelsProvider = FutureProvider<List<VoskLocalModel>>(
 );
 final _userSttChoiceProvider = FutureProvider<String?>(
   (ref) => VoiceChoiceStorage.current(VoiceSelectionKind.stt),
+);
+final _userTtsChoiceProvider = FutureProvider<String?>(
+  (ref) => VoiceChoiceStorage.current(VoiceSelectionKind.tts),
+);
+final _shenavaProvider = FutureProvider<List<PersianSherpaModel>>(
+  (ref) => PersianSherpaModels.installed(PersianSherpaKind.stt),
+);
+final _piperProvider = FutureProvider<List<PersianSherpaModel>>(
+  (ref) => PersianSherpaModels.installed(PersianSherpaKind.tts),
 );
 
 final _androidPersianSttStatusProvider = FutureProvider<Map<String, dynamic>>((
@@ -73,7 +83,9 @@ class NaturalVoiceSettings extends ConsumerWidget {
           const _AndroidPersianSttModel(),
           const _VoskDownloadRow(),
           const _UserVoskModelsTile(),
+          const _ImportedSherpaModels(PersianSherpaKind.stt),
           const _PersianTtsEngines(),
+          const _ImportedSherpaModels(PersianSherpaKind.tts),
           const _VoiceDownloadRow(),
         ],
         if (s.naturalVoice) ...[
@@ -250,6 +262,9 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
     final imported =
         ref.watch(_userVoskModelsProvider).asData?.value ??
         const <VoskLocalModel>[];
+    final shenava =
+        ref.watch(_shenavaProvider).asData?.value ??
+        const <PersianSherpaModel>[];
     final ready = selectedImport == null
         ? PersianSttPolicy.ready(
             setting: settings.listeningModel,
@@ -257,7 +272,8 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
             whisperReady: whisperReady,
             voskReady: voskReady,
           )
-        : imported.any((model) => model.selectionId == selectedImport);
+        : imported.any((model) => model.selectionId == selectedImport) ||
+              shenava.any((model) => model.selectionId == selectedImport);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -320,7 +336,7 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
                     whisperReady: whisperReady,
                     voskReady: voskReady,
                   )
-                : 'مدل Vosk انتخابی فعلاً آماده نیست؛ فایل واردشده را بررسی کنید.',
+                : 'مدل STT انتخابی آماده نیست؛ فایل و آداپتور را بررسی کنید.',
             key: const Key('persian-stt-fallback'),
           ),
         if (_started && voice.partial.isNotEmpty) Text(voice.partial),
@@ -538,6 +554,164 @@ class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
           ),
           if (_problem != null)
             Text(_problem!, style: TextStyle(color: context.colors.warning)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportedSherpaModels extends ConsumerStatefulWidget {
+  final PersianSherpaKind kind;
+  const _ImportedSherpaModels(this.kind);
+
+  @override
+  ConsumerState<_ImportedSherpaModels> createState() =>
+      _ImportedSherpaModelsState();
+}
+
+class _ImportedSherpaModelsState extends ConsumerState<_ImportedSherpaModels> {
+  bool _busy = false;
+  String? _error;
+  bool get _stt => widget.kind == PersianSherpaKind.stt;
+  VoiceSelectionKind get _choice => _stt
+      ? VoiceSelectionKind.stt
+      : VoiceSelectionKind.tts;
+
+  void _refresh() {
+    ref.invalidate(_stt ? _shenavaProvider : _piperProvider);
+    ref.invalidate(_stt ? _userSttChoiceProvider : _userTtsChoiceProvider);
+  }
+
+  Future<void> _import() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final picked = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['zip', 'bz2'],
+      );
+      if (picked == null) return;
+      if (picked.path == null) {
+        throw const FormatException('فایل انتخاب‌شده در دسترس نیست.');
+      }
+      final model = await PersianSherpaModels.importArchive(
+        File(picked.path!),
+        widget.kind,
+        label: picked.name,
+      );
+      await VoiceChoiceStorage.choose(_choice, model.selectionId);
+      _refresh();
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _select(PersianSherpaModel model) async {
+    try {
+      await VoiceChoiceStorage.choose(_choice, model.selectionId);
+      _refresh();
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  Future<void> _delete(PersianSherpaModel model) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف مدل صوتی؟'),
+        content: Text('مدل «${model.label}» از پالا حذف شود؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('انصراف'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      if (_stt) {
+        await ref.read(voiceProvider.notifier).stop();
+      } else {
+        await ref.read(voiceProvider.notifier).stopSpeaking();
+      }
+      if (await VoiceChoiceStorage.current(_choice) == model.selectionId) {
+        await VoiceChoiceStorage.clear(_choice);
+      }
+      await PersianSherpaModels.delete(widget.kind, model.id);
+      _refresh();
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final models = ref.watch(_stt ? _shenavaProvider : _piperProvider).asData?.value ??
+        const <PersianSherpaModel>[];
+    final selected = ref.watch(_stt ? _userSttChoiceProvider : _userTtsChoiceProvider).asData?.value;
+    return SettingsRow(
+      key: Key(_stt ? 'shenava-importer' : 'piper-importer'),
+      leading: Icon(_stt ? Icons.hearing : Icons.record_voice_over),
+      title: Text(_stt ? 'موتور شنوا (Shenava)' : 'موتور Piper فارسی'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_stt
+              ? 'مدل ONNX فارسی + tokens.txt'
+              : 'صدای ONNX + tokens.txt + espeak-ng-data'),
+          for (final model in models)
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    key: Key('sherpa-choice-${model.id}'),
+                    selected: selected == model.selectionId,
+                    label: Text(model.label, overflow: TextOverflow.ellipsis),
+                    onSelected: _busy ? null : (_) => _select(model),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'حذف',
+                  onPressed: _busy ? null : () => _delete(model),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+          if (!_stt && models.any((m) => m.selectionId == selected))
+            TextButton.icon(
+              key: const Key('piper-test'),
+              onPressed: _busy ? null : () =>
+                  ref.read(voiceProvider.notifier).speak(
+                    'سلام، این یک آزمایش صدای فارسی پایپر است.',
+                    id: 'piper-sample',
+                  ),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('آزمایش صدای Piper'),
+            ),
+          OutlinedButton.icon(
+            key: Key(_stt ? 'shenava-add' : 'piper-add'),
+            onPressed: _busy ? null : _import,
+            icon: const Icon(Icons.folder_open_outlined),
+            label: Text(_busy
+                ? 'در حال بررسی فایل…'
+                : 'افزودن اختیاری ZIP یا TAR.BZ2'),
+          ),
+          if (_error != null)
+            Text(_error!, style: TextStyle(color: context.colors.warning)),
+          const Text('مدل باید روی تبلت و بدون اینترنت آزمایش شود.'),
         ],
       ),
     );
