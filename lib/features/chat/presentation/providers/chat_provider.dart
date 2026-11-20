@@ -3163,6 +3163,7 @@ class ChatNotifier extends _ChatBase
   /// tokens; remote: in the background on its own client. A spoken turn
   /// leaves both for [nameChatLater], once the voice is quiet.
   Future<List<Memory>> _learnAndName(_Turn t) async {
+    await ref.read(memoryPreferencesProvider.notifier).ready;
     var learned = state.learned;
     final model = t.model, settings = t.settings;
     if (model == null || settings == null) return learned;
@@ -3476,6 +3477,7 @@ class ChatNotifier extends _ChatBase
     String? extraSystem,
     bool? spoken,
   }) async {
+    await ref.read(memoryPreferencesProvider.notifier).ready;
     var facts = const <String>[];
     var notes = '';
     var researchNotes = '';

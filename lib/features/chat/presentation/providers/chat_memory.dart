@@ -65,6 +65,8 @@ mixin _ChatMemory on _ChatBase {
     String? sourceMessageId,
   }) async {
     try {
+      // Stored privacy preferences must finish loading before the first turn.
+      await ref.read(memoryPreferencesProvider.notifier).ready;
       final store = ref.read(memoryStoreProvider);
       final existing = await _activeMemoryFacts();
       final facts = UserMemory.explicitFacts(userMessage, existing: existing);
@@ -287,6 +289,7 @@ mixin _ChatMemory on _ChatBase {
     String? chatId,
     String? sourceMessageId,
   }) async {
+    await ref.read(memoryPreferencesProvider.notifier).ready;
     final facts = UserMemory.parseFacts(
       raw,
       existing: await _activeMemoryFacts(),

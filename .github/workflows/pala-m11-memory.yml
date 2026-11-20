@@ -33,7 +33,8 @@ jobs:
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/settings/presentation/screens/memory_page.dart \
             test/m11_memory_policy_test.dart \
-            test/m11_memory_persian_test.dart
+            test/m11_memory_persian_test.dart \
+            test/m11_memory_approval_test.dart
           git diff --stat
       - name: Analyze memory, chat and settings integration
         run: |
@@ -47,6 +48,7 @@ jobs:
           flutter test \
             test/m11_memory_policy_test.dart \
             test/m11_memory_persian_test.dart \
+            test/m11_memory_approval_test.dart \
             test/memory_page_test.dart \
             test/user_memory_test.dart \
             test/memory_statements_test.dart \
