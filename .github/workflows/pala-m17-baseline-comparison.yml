@@ -1,0 +1,60 @@
+name: PALA M17 baseline comparison - historical web regression
+
+on:
+  push:
+    branches: [pala/m17-persian-image-understanding-2026-11-20]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout prior accepted M15 checkpoint (read-only)
+        uses: actions/checkout@v4
+        with:
+          ref: b24e31dcb69a53b29f145b5e59a23ec864c5b53c
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Get identical dependencies
+        run: flutter pub get
+      - name: Run baseline chat regression without altering any assertion
+        shell: bash
+        run: |
+          set +e
+          flutter test test/chat_test.dart --plain-name 'a pasted URL is read directly; no search, no timeliness keyword' > /tmp/pala-base-chat.log 2>&1
+          code=$?
+          set -e
+          echo "BASE_STATUS=$code" >> "$GITHUB_ENV"
+          echo "M15 BASELINE status=$code"
+          tail -n 16 /tmp/pala-base-chat.log
+      - name: Return to M17 checkpoint
+        uses: actions/checkout@v4
+        with:
+          ref: pala/m17-persian-image-understanding-2026-11-20
+      - name: Resolve same dependencies
+        run: flutter pub get
+      - name: Compare same failing test on candidate
+        shell: bash
+        run: |
+          set +e
+          flutter test test/chat_test.dart --plain-name 'a pasted URL is read directly; no search, no timeliness keyword' > /tmp/pala-m17-chat.log 2>&1
+          code=$?
+          set -e
+          echo "M17 CANDIDATE status=$code | M15 BASELINE status=$BASE_STATUS"
+          tail -n 16 /tmp/pala-m17-chat.log
+          if [[ "$BASE_STATUS" == "0" && "$code" != "0" ]]; then
+            echo "::error::M17 introduced regression in this selected general chat test"
+            exit 1
+          fi
+          if [[ "$BASE_STATUS" != "0" && "$code" != "0" ]]; then
+            echo "::warning::Selected general chat test fails in both M15 and M17; do NOT claim overall full-suite success"
+          fi
+          if [[ "$BASE_STATUS" != "0" && "$code" == "0" ]]; then
+            echo "M17 fixes a pre-existing regression"
+          fi
