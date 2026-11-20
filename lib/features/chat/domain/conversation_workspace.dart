@@ -46,6 +46,18 @@ class ConversationWorkspace {
   ChatProject? projectFor(String? chatId) =>
       projects.where((p) => p.id == memberships[chatId]).firstOrNull;
   String stateOf(String id) => states[id] ?? 'active';
+
+  DateTime? boundaryFor(String? chatId) {
+    final raw = scopeStarts[chatId];
+    if (raw == null) return null;
+    // A corrupt boundary must never re-expose a previous project's history.
+    return DateTime.tryParse(raw) ?? DateTime.utc(9999);
+  }
+
+  bool mayUseInContext(String? chatId, DateTime messageTime) {
+    final cutoff = boundaryFor(chatId);
+    return cutoff == null || messageTime.isAfter(cutoff);
+  }
 }
 
 final conversationWorkspaceProvider =

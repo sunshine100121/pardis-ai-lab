@@ -108,6 +108,7 @@ import '../../../retrieval/domain/wikipedia_sources.dart';
 import '../../../retrieval/domain/subject_terms.dart';
 import '../../domain/turn_prompts.dart';
 import '../../domain/turn_policy.dart';
+import '../../domain/project_knowledge_policy.dart';
 import '../../domain/answer_checks.dart';
 import '../../domain/search_steps.dart';
 import '../../domain/chat_titles.dart';
@@ -527,6 +528,16 @@ class ChatNotifier extends _ChatBase
         .firstOrNull;
   }
 
+  /// Current chat scope boundary, persisted when a conversation moves
+  /// between projects. Messages before the move remain visible to the owner
+  /// but must not be supplied as instructions, memory or model context.
+  DateTime? get _scopeBoundary =>
+      ref.read(conversationWorkspaceProvider).boundaryFor(state.chatId);
+
+  bool _messageInScope(ChatMessage m) => ref
+      .read(conversationWorkspaceProvider)
+      .mayUseInContext(state.chatId, m.timestamp);
+
   Future<void> deleteChat(String id) async {
     if (state.isGenerating) return;
     unawaited(ref.read(chatModelPinsProvider.notifier).set(id, null));
@@ -823,6 +834,14 @@ class ChatNotifier extends _ChatBase
           .read(conversationWorkspaceProvider)
           .memberships[state.chatId];
     }
+    final boundary = _scopeBoundary;
+    if (t.resume != null &&
+        boundary != null &&
+        !t.resume!.timestamp.isAfter(boundary)) {
+      t.failure = 'این پاسخ متعلق به محدوده پیش از انتقال پروژه است؛ '
+          'لطفاً پرسش تازه‌ای در پروژه فعلی بنویسید.';
+      return null;
+    }
     // Project membership is a separate data boundary: previously approved
     // global HA sensors must not override a project's scoped source policy.
     if (_projectId != null &&
@@ -1090,7 +1109,8 @@ class ChatNotifier extends _ChatBase
     // the camera of the first question (report 2026-10-04).
     final previousQuestion = RetrievalPlan.conversationTopic([
       for (final m in state.messages)
-        if (m.role == ChatRole.user && isLive(m) && m.id != user.id) m.content,
+        if (m.role == ChatRole.user && isLive(m) &&
+            _messageInScope(m) && m.id != user.id) m.content,
     ]);
     final contextual = previousQuestion == null
         ? input
@@ -1478,12 +1498,13 @@ class ChatNotifier extends _ChatBase
         ? settings.remoteVision
         : engine.metrics['supportsVision'] == true;
     final documents = !settings.usesRemote || settings.remoteDocuments;
-    final live = state.messages.where(isLive).toList();
+    final live = state.messages.where((m) => isLive(m) && _messageInScope(m)).toList();
     final summary =
         !state.temporary &&
             !t.isolated &&
             t.resume == null &&
             t.promptOverride == null
+        && _scopeBoundary == null
         ? await ContextSummary.read(state.chatId)
         : null;
     final summarized = summary != null && summary.validFor(live);
@@ -1552,19 +1573,51 @@ class ChatNotifier extends _ChatBase
     // the evidence ahead of any web pages; a continuation or comparison
     // keeps what its original turn saw. A Remote profile with document
     // sharing off gets none (audit P1-03).
+    final scopeProject = ref.read(conversationWorkspaceProvider)
+        .projects.where((p) => p.id == _projectId).firstOrNull;
+    final approvedShared = scopeProject?.sharedCollections ?? const <String>[];
     if (documents &&
-        settings.knowledgeCollection.isNotEmpty &&
+        (settings.knowledgeCollection.isNotEmpty || approvedShared.isNotEmpty) &&
         t.resume == null &&
         t.reuseSourcesJson == null &&
         t.promptOverride == null &&
         input.isNotEmpty) {
-      Future<List<SearchResult>> retrieve() => ref
-          .read(knowledgeStoreProvider)
-          .search(
+      final scopedId = _projectId;
+      Future<List<SearchResult>> retrieve() async {
+        final store = ref.read(knowledgeStoreProvider);
+        final own = <SearchResult>[];
+        final collections = <String>[
+          if (settings.knowledgeCollection.isNotEmpty)
             settings.knowledgeCollection,
+          if (scopedId != null)
+            for (final c in approvedShared)
+              if (c != settings.knowledgeCollection) c,
+        ];
+        for (final c in collections.take(5)) {
+          // Access to shared collections requires explicit per-project opt-in.
+          if (scopedId != null) {
+            final current = ref.read(conversationWorkspaceProvider).projects
+                .where((p) => p.id == scopedId).firstOrNull;
+            if (!_alive || _cancelled || _projectId != scopedId ||
+                current == null ||
+                !(current.collection == c || current.sharedCollections.contains(c))) {
+              return const [];
+            }
+          }
+          final found = await store.search(
+            c,
             input,
-            maxPassages: settings.evidencePassages,
+            maxPassages: settings.evidencePassages.clamp(1, 6).toInt(),
           );
+          own.addAll(found);
+        }
+        return ProjectKnowledgePolicy.rank(
+          input,
+          own,
+          specialistCollection: settings.knowledgeCollection,
+          maxResults: 12,
+        );
+      }
       final own =
           engine is LlamaEngine &&
               DesktopHost.active &&
@@ -1582,6 +1635,17 @@ class ChatNotifier extends _ChatBase
             )
           : await retrieve();
       if (_cancelled || !_alive) return null;
+      if (scopedId != null) {
+        final active = ref.read(conversationWorkspaceProvider).projects
+            .where((p) => p.id == scopedId).firstOrNull;
+        if (_projectId != scopedId || active == null ||
+            active.collection != scopeProject?.collection ||
+            !Set<String>.from(active.sharedCollections)
+                .containsAll(approvedShared)) {
+          t.offlineRefusal = 'انتخاب منابع پروژه تغییر کرده است؛ لطفاً دوباره بپرسید.';
+          return null;
+        }
+      }
       if (own.isNotEmpty) {
         t.sources = [...own, ...t.sources];
         state = state.copyWith(
@@ -1747,6 +1811,16 @@ class ChatNotifier extends _ChatBase
             (s) => !s.url.startsWith('pala-') && !s.url.startsWith('zim://'),
           )
           .toList();
+    }
+    if (_projectId != null && t.sources.isNotEmpty) {
+      final current = ref.read(conversationWorkspaceProvider).projects
+          .where((p) => p.id == _projectId).firstOrNull;
+      t.sources = ProjectKnowledgePolicy.rank(
+        input,
+        t.sources,
+        specialistCollection: current?.collection ?? '',
+        maxResults: 16,
+      );
     }
     final fitted = await _fitEvidence(
       input,

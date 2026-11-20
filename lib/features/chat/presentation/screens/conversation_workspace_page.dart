@@ -9,6 +9,7 @@ import '../widgets/project_memory_expiry.dart';
 import '../../../../core/island/status_island.dart';
 import '../../../../core/design/app_dialog.dart';
 import '../../../knowledge/folder_library.dart';
+import '../../../knowledge/knowledge_store.dart';
 
 class ConversationWorkspacePage extends ConsumerStatefulWidget {
   const ConversationWorkspacePage({super.key});
@@ -39,8 +40,22 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
     final collection = TextEditingController(text: project?.collection ?? '');
     final notes = TextEditingController(text: project?.memoryNotes ?? '');
     final selectedSources = {...?project?.sourceIds};
+    final sharedCollections = {...?project?.sharedCollections};
     try {
       List<Map<String, dynamic>> sources = [];
+      List<String> availableCollections = [];
+      try {
+        availableCollections =
+            await ref.read(knowledgeStoreProvider).collections();
+      } catch (_) {
+        // Never clear an existing project if a library is inaccessible.
+      }
+      final selectableCollections = {
+        ...availableCollections,
+        if (project != null) ...project.sharedCollections,
+        if (project != null && project.collection.isNotEmpty)
+          project.collection,
+      }.where((name) => name.trim().isNotEmpty).toList()..sort();
       try {
         final data = await ref.read(folderLibraryProvider).state();
         sources = (data['files'] as List)
@@ -81,10 +96,49 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                   TextField(
                     controller: collection,
                     maxLength: 200,
-                    decoration: InputDecoration(
-                      labelText: dialog.l10n.knowledgeCollectionName,
+                    decoration: const InputDecoration(
+                      labelText: 'دانشنامه تخصصی این پروژه (اختیاری)',
+                      helperText: 'نام یکی از مجموعه‌های دانش موجود را انتخاب کنید',
                     ),
                   ),
+                  if (selectableCollections.isNotEmpty)
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final c in selectableCollections)
+                          ChoiceChip(
+                            label: Text(c),
+                            selected: collection.text == c,
+                            onSelected: (_) => update(() {
+                              collection.text = c;
+                              // A specialist source is not shared implicitly.
+                              sharedCollections.remove(c);
+                            }),
+                          ),
+                      ],
+                    ),
+                  const Text(
+                    'دانش عمومی مشترک (با انتخاب شما؛ بدون انتقال حافظه پروژه)',
+                  ),
+                  if (selectableCollections.isEmpty)
+                    const Text('مجموعه دانشی وارد نشده است.'),
+                  for (final c in selectableCollections)
+                    if (c != collection.text)
+                      CheckboxListTile(
+                        key: Key('project-shared-collection-' + c),
+                        title: Text(c),
+                        value: sharedCollections.contains(c),
+                        onChanged: (selected) => update(() {
+                          if (selected == true) {
+                            if (sharedCollections.length < 4) {
+                              sharedCollections.add(c);
+                            }
+                          } else {
+                            sharedCollections.remove(c);
+                          }
+                        }),
+                      ),
                   TextField(
                     controller: notes,
                     minLines: 2,
@@ -150,6 +204,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                 memoryNotes: notes.text,
                 collection: collection.text,
                 sourceIds: selectedSources.toList(),
+                sharedCollections: sharedCollections.toList(),
               ),
         );
       }

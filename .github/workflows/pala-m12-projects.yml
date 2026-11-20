@@ -1,0 +1,72 @@
+name: PALA M12 project isolation and shared knowledge (no APK)
+
+on:
+  push:
+    branches: [pala/m12-project-sources-2026-11-20]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Resolve existing Flutter dependencies
+        run: flutter pub get
+      - name: Format M11 changes
+        run: |
+          dart format \
+            lib/features/memory/domain/memory_policy.dart \
+            lib/features/chat/domain/conversation_workspace.dart \
+            lib/features/chat/domain/project_knowledge_policy.dart \
+            lib/features/chat/presentation/screens/conversation_workspace_page.dart \
+            lib/features/chat/presentation/widgets/project_memory_expiry.dart \
+            lib/features/memory/domain/memory_statements.dart \
+            lib/features/memory/domain/user_memory.dart \
+            lib/features/memory/presentation/providers/memory_preferences.dart \
+            lib/features/memory/presentation/providers/memory_provider.dart \
+            lib/features/memory/presentation/memory_policy_controls.dart \
+            lib/features/chat/presentation/providers/chat_memory.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/settings/presentation/screens/memory_page.dart \
+            test/m11_memory_policy_test.dart \
+            test/m11_memory_persian_test.dart \
+            test/m11_memory_approval_test.dart \
+            test/m11_project_expiry_test.dart \
+            test/m11_project_memory_expiry_ui_test.dart \
+            test/m12_project_scope_test.dart
+          git diff --stat
+      - name: Analyze memory, chat and settings integration
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/memory lib/features/chat/domain/conversation_workspace.dart \
+            lib/features/chat/domain/project_knowledge_policy.dart \
+            lib/features/chat/presentation/screens/conversation_workspace_page.dart \
+            lib/features/chat/presentation/widgets/project_memory_expiry.dart \
+            lib/features/chat/presentation/providers/chat_memory.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/settings/presentation/screens/memory_page.dart \
+            test/m11_memory_policy_test.dart
+      - name: Persistent memory, project isolation and old regression tests
+        run: |
+          flutter test \
+            test/m11_memory_policy_test.dart \
+            test/m11_memory_persian_test.dart \
+            test/m11_memory_approval_test.dart \
+            test/m11_project_expiry_test.dart \
+            test/m11_project_memory_expiry_ui_test.dart \
+            test/memory_page_test.dart \
+            test/user_memory_test.dart \
+            test/memory_statements_test.dart \
+            test/memory_history_scan_test.dart \
+            test/remote_memory_learning_test.dart \
+            test/project_tabs_test.dart \
+            test/zim_indexed_project_search_test.dart \
+            test/knowledge_test.dart
