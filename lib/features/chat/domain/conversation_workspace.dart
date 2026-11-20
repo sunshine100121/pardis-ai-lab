@@ -425,45 +425,14 @@ class ProjectMemoryGate {
 class ProjectMemoryEntry {
   static final _expiry = RegExp(r'؛ انقضا: ([^؛)]+)');
 
-  /// Only owner-approved notes with a chat/message origin are editable here.
-  /// Free-form project notes keep their legacy behavior and original text.
+  /// Only owner-approved message notes (not hand-written project notes)
+  /// can have their individual expiry edited in the existing editor.
   static bool _approved(String line) =>
       line.startsWith('• ') &&
       line.contains(' (تأیید مالک؛ تاریخ: ') &&
-      RegExp(r'؛ گفتگو: [^؛)]+؛ پیام: [^)]+\)
-
-  /// Legacy owner-confirmed notes have no expiry and remain untouched.
-  /// Expired entries are excluded from BOTH Qwen prompts and relevance
-  /// checks; the original saved text remains available for owner editing.
-  static String activeNotes(String notes, {DateTime? now}) {
-    final today = now ?? DateTime.now();
-    return notes.split('\n').where((line) {
-      final match = _expiry.firstMatch(line);
-      if (match == null) return true;
-      final date = DateTime.tryParse(match[1]!.trim());
-      return date != null && date.isAfter(today);
-    }).join('\n');
-  }
-
-  static bool belongsTo(String line, String chatId, String messageId) =>
-      line.startsWith('• ') &&
-      line.contains(' (تأیید مالک؛ تاریخ: ') &&
-      line.endsWith('؛ گفتگو: $chatId؛ پیام: $messageId)');
-
-  static String? noteFor(
-    String notes, {
-    required String chatId,
-    required String messageId,
-  }) {
-    for (final line in notes.split('\n')) {
-      if (!belongsTo(line, chatId, messageId)) continue;
-      final marker = line.lastIndexOf(' (تأیید مالک؛ تاریخ: ');
-      if (marker > 2) return line.substring(2, marker);
-    }
-    return null;
-  }
-}
-).hasMatch(line);
+      line.contains('؛ گفتگو: ') &&
+      line.contains('؛ پیام: ') &&
+      line.endsWith(')');
 
   static List<String> approvedLines(String notes) => [
     for (final line in notes.split('\n'))
@@ -481,9 +450,8 @@ class ProjectMemoryEntry {
     return match == null ? null : DateTime.tryParse(match[1]!.trim());
   }
 
-  /// Changes ONLY one exact approved source line. No mutation of chat
-  /// history, other projects, manually written notes, or origin metadata.
-  /// Returns a draft; caller must explicitly save the project.
+  /// Only one exact source line is modified. This produces a draft,
+  /// committed only on the editor's existing Save action.
   static String changeExpiry(
     String notes, {
     required String line,
