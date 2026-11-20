@@ -139,4 +139,6 @@ dependencies {
     // Official Vosk Android runtime; the language model is downloaded separately.
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
     implementation("net.java.dev.jna:jna:5.18.1@aar")
+    // JVM-only regression tests for Persian number normalization and BPE parsing.
+    testImplementation("junit:junit:4.13.2")
 }

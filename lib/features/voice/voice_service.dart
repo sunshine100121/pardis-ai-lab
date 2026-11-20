@@ -21,6 +21,7 @@ import 'voice_engine_selection.dart';
 import 'vosk_local_models.dart';
 import 'persian_sherpa_models.dart';
 import 'persian_sherpa_runtime.dart';
+import 'pocket_farsi_v2_reader.dart';
 import 'sherpa_voice.dart';
 import 'voice_models.dart';
 import 'voice_models_provider.dart';
@@ -82,6 +83,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
   OfflineDictation? _offline;
   PersianCtcListener? _ctc;
   PersianPiperSpeaker? _piper;
+  PocketFarsiLongReader? _pocketReader;
   String _spokenText = '';
   int _position = 0, _chunkStart = 0, _speechEpoch = 0;
   double _rate = 0.5;
@@ -141,6 +143,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
       unawaited(_offline?.dispose());
       _ctc?.dispose();
       _piper?.dispose();
+      unawaited(_pocketReader?.cancel());
       _stt?.cancel();
       unawaited(_stopTts());
     });
@@ -828,6 +831,26 @@ class VoiceNotifier extends Notifier<VoiceState> {
     );
     if (futureChoice != null) {
       final choice = VoiceEngineSelection.parse(futureChoice);
+      // Device-trial route only. This ID has no installer/UI entry, and
+      // cannot be selected automatically while Pocket is unverified.
+      if (choice?.kind == VoiceSelectionKind.tts &&
+          choice?.adapter == 'pocket-farsi-v2' &&
+          choice?.model == 'onnx') {
+        if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+          state = state.copyWith(
+            speaking: false,
+            error: 'Pocket Farsi v2 فقط روی اندروید آزمایشی اجرا می‌شود.',
+          );
+          return;
+        }
+        if (state.speaking && (id == null || id == state.speakingId)) {
+          return pauseSpeaking();
+        }
+        if (state.paused && id == state.speakingId) {
+          return resumeSpeaking();
+        }
+        return _speakPocket(speakable(markdown), id: id);
+      }
       final model =
           choice?.kind == VoiceSelectionKind.tts && choice?.adapter == 'piper'
           ? await PersianSherpaModels.find(PersianSherpaKind.tts, choice!.model)
@@ -940,6 +963,72 @@ class VoiceNotifier extends Notifier<VoiceState> {
       clearError: true,
     );
     await _read();
+  }
+
+  /// Only reachable through the explicit, experimental Pocket adapter ID.
+  /// No automatic switching of Gyro, Piper, or the user's stored voice.
+  Future<void> _speakPocket(String text, {String? id}) async {
+    if (text.isEmpty) return;
+    final epoch = ++_speechEpoch;
+    await _stopTts();
+    await _kokoro?.stop();
+    await _piper?.stop();
+    final older = _pocketReader;
+    if (older != null) await older.cancel();
+    if (!_alive || epoch != _speechEpoch) return;
+    final reader = _pocketReader = PocketFarsiLongReader();
+    _spokenText = text;
+    _position = 0;
+    state = state.copyWith(
+      speaking: true,
+      paused: false,
+      speakingId: id,
+      clearError: true,
+    );
+    try {
+      await reader.read(text);
+      if (_alive && epoch == _speechEpoch) {
+        state = state.copyWith(
+          speaking: false,
+          paused: false,
+          clearSpeakingId: true,
+        );
+      }
+    } catch (_) {
+      if (_alive && epoch == _speechEpoch) {
+        state = state.copyWith(
+          speaking: false,
+          paused: false,
+          clearSpeakingId: true,
+          error: 'موتور Pocket هنوز برای این متن یا بسته مدل آماده نیست.',
+        );
+      }
+    }
+  }
+
+  Future<void> _resumePocket() async {
+    final reader = _pocketReader;
+    if (reader == null || !reader.progress.paused) return;
+    final epoch = ++_speechEpoch;
+    state = state.copyWith(speaking: true, paused: false, clearError: true);
+    try {
+      await reader.resume();
+      if (_alive && epoch == _speechEpoch) {
+        state = state.copyWith(
+          speaking: false,
+          paused: false,
+          clearSpeakingId: true,
+        );
+      }
+    } catch (_) {
+      if (_alive && epoch == _speechEpoch) {
+        state = state.copyWith(
+          speaking: false,
+          paused: false,
+          error: 'ادامه خواندن Pocket ناموفق بود؛ صدای دیگری جایگزین نشد.',
+        );
+      }
+    }
   }
 
   /// Android voices may stream from the network: pick one flutter_tts
@@ -1098,10 +1187,16 @@ class VoiceNotifier extends Notifier<VoiceState> {
     await _stopTts();
     await _kokoro?.stop();
     await _piper?.stop();
+    if (_pocketReader?.isRunning == true) await _pocketReader?.pause();
   }
 
   Future<void> resumeSpeaking() async {
     if (!state.paused || _spokenText.isEmpty) return;
+    if (_pocketReader?.progress.paused == true &&
+        await VoiceChoiceStorage.current(VoiceSelectionKind.tts) ==
+            'tts:pocket-farsi-v2:onnx') {
+      return _resumePocket();
+    }
     if (await VoiceChoiceStorage.current(VoiceSelectionKind.tts) != null) {
       final messageId = state.speakingId;
       final utterance = _spokenText;
@@ -1122,6 +1217,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
     _spokenText = '';
     _position = 0;
     _sentences = const [];
+    if (_pocketReader != null &&
+        (_pocketReader!.isRunning || _pocketReader!.progress.paused)) {
+      await _pocketReader!.cancel();
+    }
     await _stopTts();
     await _kokoro?.stop();
     await _piper?.stop();

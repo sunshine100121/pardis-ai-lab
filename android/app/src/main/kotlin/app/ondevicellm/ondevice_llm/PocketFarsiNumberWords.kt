@@ -21,16 +21,23 @@ internal object PocketFarsiNumberWords {
             .replace(Regex("\\s+"), " ").trim()
     }
 
+    private fun toDecimalDigit(char: Char): Int = when (char) {
+        in '0'..'9' -> char.code - '0'.code
+        in '۰'..'۹' -> char.code - '۰'.code
+        in '٠'..'٩' -> char.code - '٠'.code
+        else -> error("Unsupported numeric digit")
+    }
+
     private fun spokenNumber(token: String): String {
         val negative = token.startsWith("-") || token.startsWith("−")
         val positive = if (negative) token.drop(1) else token
         val pieces = positive.split('.', '٫')
-        val digits = pieces[0].map { it.digitToIntOrNull() ?: error("Invalid number digit") }
+        val digits = pieces[0].map { toDecimalDigit(it) }
         if (digits.size > 12) error("Pocket numeric value is too large")
         val number = digits.fold(0L) { n, d -> n * 10 + d }
         var result = integerWords(number)
         if (pieces.size > 1) {
-            val decimals = pieces[1].map { it.digitToIntOrNull() ?: error("Invalid fraction") }
+            val decimals = pieces[1].map { toDecimalDigit(it) }
             if (decimals.size > 6) error("Pocket numeric fraction is too long")
             val fraction = if (decimals.size <= 2 && decimals.firstOrNull() != 0) {
                 integerWords(decimals.fold(0L) { n, d -> n * 10 + d })
