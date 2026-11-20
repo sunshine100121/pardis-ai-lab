@@ -1,0 +1,32 @@
+name: PALA Pocket Farsi v2 native G2P prototype (no APK)
+
+on:
+  push:
+    branches: [pala/pocket-farsi-v2-android-proto-2026-11-20]
+    paths:
+      - 'android/**'
+      - 'lib/features/voice/pocket_farsi_v2_probe.dart'
+      - '.github/workflows/pala-pocket-g2p-prototype.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-kotlin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib/features/voice/pocket_farsi_v2_probe.dart
+      - name: Compile native Android integration without building an APK
+        run: bash scripts/check_android_host.sh
