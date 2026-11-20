@@ -28,6 +28,7 @@ import '../../../helper/helper_live_panel.dart';
 import '../../../helper/helper_web_approval.dart';
 import '../../../helper/agent_web_approval_card.dart';
 import '../providers/online_turn_permission.dart';
+import '../../../settings/domain/entities/inference_settings.dart';
 import '../../../goals/goal_specialization.dart';
 import '../../../goals/presentation/goals_page.dart';
 import '../../../knowledge/knowledge_store.dart';
@@ -889,6 +890,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 PopupMenuItem(
                   value: 'models',
                   child: _MenuRow(Icons.memory, t.models),
+                ),
+                PopupMenuItem(
+                  key: const Key('m13-internet-menu'),
+                  value: 'internet-policy',
+                  child: const _MenuRow(
+                    Icons.wifi_tethering,
+                    'اینترنت: انتخاب حالت',
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'settings',

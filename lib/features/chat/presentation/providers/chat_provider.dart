@@ -307,11 +307,15 @@ class ChatNotifier extends _ChatBase
       // If a remote model was chosen, prevent secrets or HA credentials from
     // entering the outbound model request at all. The owner can rephrase
     // or choose a local model, but there is no silent automatic downgrade.
-    if (settings.usesRemote &&
-        OnlinePermissionPolicy.privateContent(input)) {
-      t.failure = 'این درخواست ممکن است حاوی رمز یا توکن خصوصی باشد؛ '
-          'برای حفاظت، به مدل اینترنتی ارسال نشد. از مدل محلی استفاده کنید.';
-      return null;
+
+    // Modes off/auto are local-inference first. A previously configured
+    // remote LLM is NOT permission to silently transmit the conversation:
+    // only the explicitly approved internet mode may use that model.
+    if (settings.webMode != WebMode.always && settings.usesRemote) {
+      settings = settings.copyWith(
+        remoteEnabled: false,
+        remoteWebResearch: false,
+      );
     }
     if (state.temporary) settings = settings.copyWith(memoryEnabled: false);
       if (settings.usesRemote || !settings.promptCache) return;
@@ -942,6 +946,14 @@ class ChatNotifier extends _ChatBase
     if (state.temporary) settings = settings.copyWith(memoryEnabled: false);
     if (t.localOnly && settings.usesRemote) {
       settings = settings.copyWith(remoteEnabled: false);
+    }
+    // Defense in depth for the permitted remote-model mode. Never send
+    // credential-bearing prompts to an external inference provider.
+    if (settings.usesRemote &&
+        OnlinePermissionPolicy.privateContent(input)) {
+      t.failure = 'این درخواست شامل اطلاعات محرمانه است؛ '
+          'به سرویس خارجی ارسال نشد. لطفاً از Qwen محلی استفاده کنید.';
+      return null;
     }
     if (saverReason != null) {
       state = state.copyWith(notice: BatterySaver.notice(saverReason, _t));

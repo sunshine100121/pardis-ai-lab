@@ -3,6 +3,49 @@ part of 'chat_screen.dart';
 /// The chat menu's actions: compare with another model, share, export,
 /// and create a document from the conversation.
 extension _ChatScreenActions on _ChatScreenState {
+  Future<void> _chooseInternetPolicy() async {
+    final current = ref.read(settingsProvider).webMode;
+    final selected = await showAppDialog<WebMode>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('دسترسی به اینترنت'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final mode in WebMode.values)
+              ListTile(
+                key: Key('m13-pick-mode-' + mode.name),
+                selected: current == mode,
+                leading: Icon(current == mode
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked),
+                title: Text(switch (mode) {
+                  WebMode.off => 'فقط آفلاین',
+                  WebMode.auto => 'آفلاین‌اول؛ پیشنهاد اجازه',
+                  WebMode.always => 'استفاده مجاز هنگام نیاز',
+                }),
+                onTap: () => Navigator.pop(dialog, mode),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog),
+            child: const Text('انصراف'),
+          ),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    await ref.read(settingsProvider.notifier).update(
+      ref.read(settingsProvider).copyWith(webMode: selected),
+    );
+    if (mounted) {
+      showIslandToast(context, 'حالت اینترنت ذخیره شد.');
+    }
+  }
+
+
   Future<void> _rememberProjectMessage(ChatMessage message) async {
     final chat = ref.read(chatProvider);
     final workspace = ref.read(conversationWorkspaceProvider);
@@ -1020,6 +1063,8 @@ extension _ChatScreenActions on _ChatScreenState {
         unawaited(_saveToKnowledge());
       case 'models':
         Navigator.pushNamed(context, AppRoutes.models);
+      case 'internet-policy':
+        unawaited(_chooseInternetPolicy());
       case 'settings':
         Navigator.pushNamed(context, AppRoutes.settings);
       case 'chat-settings':

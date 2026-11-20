@@ -16,15 +16,18 @@ final onlineTurnPermissionProvider =
 
 class OnlineTurnPermission extends Notifier<OnlineTurnQuestion?> {
   Completer<bool>? _answer;
+  bool _closed = false;
   @override
   OnlineTurnQuestion? build() {
     ref.onDispose(() {
+      _closed = true;
       if (!(_answer?.isCompleted ?? true)) _answer!.complete(false);
     });
     return null;
   }
 
   Future<bool> ask({required String query}) async {
+    if (_closed) return false;
     // The old pending request is denied rather than silently shared.
     reject();
     final answer = _answer = Completer<bool>();
@@ -40,7 +43,7 @@ class OnlineTurnPermission extends Notifier<OnlineTurnQuestion?> {
     final allowed = await Future.any([answer.future, timeout]);
     if (identical(_answer, answer)) {
       _answer = null;
-      state = null;
+      if (!_closed) state = null;
     }
     return allowed;
   }

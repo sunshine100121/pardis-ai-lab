@@ -10,9 +10,11 @@ export '../../../../core/motion/motion_choice.dart' show MotionChoice;
 
 enum KvCacheType { fp16, q8_0, q4_0 }
 
-/// Web retrieval policy (roadmap WEB-01). `auto` retrieves when the message
-/// pastes a link, asks to search, or looks time-sensitive; `always` researches
-/// every message.
+/// M13: offline-first internet policy; enum names stay stable so older
+/// preferences and project backups load without a destructive migration.
+/// off: never connect; auto: suggest per-turn permission when needed;
+/// always: owner-approved, but only search when the request calls for it.
+/// An explicit web-search request is a one-turn grant in auto/always.
 enum WebMode { off, auto, always }
 
 // Persisted by name; keep existing names stable. `qnn` is retained only so old

@@ -536,7 +536,13 @@ class ReasoningSearchPage extends ConsumerWidget {
             if (s.figureCheck) const _SupportCheckTile(),
           ],
         ),
-        SettingsNote(context.l10n.webModeNote),
+        const SettingsNote(
+          'فقط آفلاین: هیچ درخواست اینترنتی ارسال نمی‌شود. '
+          'آفلاین‌اول: اگر منابع محلی کافی نبودند، برای همان جست‌وجو '
+          'اجازه می‌گیرد. استفاده مجاز: فقط وقتی موضوع نیاز دارد '
+          'به اینترنت مراجعه می‌کند. فرمان صریح جست‌وجو در دو حالت '
+          'مجاز، تأیید دوباره نمی‌خواهد.',
+        ),
       ],
     );
   }
