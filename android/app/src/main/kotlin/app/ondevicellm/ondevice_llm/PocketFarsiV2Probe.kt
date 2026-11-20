@@ -119,9 +119,8 @@ internal class PocketFarsiV2Probe(
         if (normalized.length > 300 || !normalized.any { it in '\u0600'..'\u06FF' }) {
             throw IllegalArgumentException("Unsupported or overlong input")
         }
-        val sourceBytes = normalized.toByteArray(Charsets.UTF_8)
-        if (sourceBytes.size > 512) throw IllegalArgumentException("Input too long")
-        val inputIds = LongArray(sourceBytes.size) { i -> (sourceBytes[i].toInt() and 255).toLong() + 3L }
+        val windows = PocketFarsiG2pWindows.plan(normalized)
+        if (windows.isEmpty()) throw IllegalArgumentException("No Persian words")
         val env = OrtEnvironment.getEnvironment()
         val opts = OrtSession.SessionOptions()
         opts.setIntraOpNumThreads(2)
@@ -130,46 +129,61 @@ internal class PocketFarsiV2Probe(
         try {
             env.createSession(File(dir, "g2p_encoder.onnx").absolutePath, opts).use { encoder ->
                 env.createSession(File(dir, "g2p_decoder.onnx").absolutePath, opts).use { decoder ->
-                    val hidden = longTensor(env, inputIds).use { input ->
-                        encoder.run(mapOf("input_ids" to input)).use { output ->
-                            output[0].value
+                    val combined = ArrayList<String>(windows.size)
+                    for (window in windows) {
+                        val sourceBytes = window.toByteArray(Charsets.UTF_8)
+                        if (sourceBytes.isEmpty() || sourceBytes.size > 512) {
+                            throw IllegalArgumentException("G2P window too large")
                         }
-                    }
-                    val decoded = ArrayList<Int>()
-                    val tokens = ArrayList<Long>()
-                    tokens.add(0L)
-                    var ended = false
-                    for (step in 0 until 512) {
-                        val scores = longTensor(env, tokens.toLongArray()).use { decoderIds ->
-                            OnnxTensor.createTensor(env, hidden).use { encoderHidden ->
-                                decoder.run(mapOf(
-                                    "decoder_input_ids" to decoderIds,
-                                    "encoder_hidden" to encoderHidden
-                                )).use { output ->
-                                    val batch = output[0].value as Array<*>
-                                    val time = batch[0] as Array<*>
-                                    (time[time.size - 1] as FloatArray).copyOf()
-                                }
+                        val ids = LongArray(sourceBytes.size) { i ->
+                            (sourceBytes[i].toInt() and 255).toLong() + 3L
+                        }
+                        // Match upstream ByT5 PAD=0, EOS=1, byte token=byte+3.
+                        val hidden = longTensor(env, ids).use { input ->
+                            encoder.run(mapOf("input_ids" to input)).use { output ->
+                                output[0].value
                             }
                         }
-                        var bestIndex = 0
-                        for (i in 1 until scores.size) if (scores[i] > scores[bestIndex]) bestIndex = i
-                        if (bestIndex == 1) { ended = true; break }
-                        tokens.add(bestIndex.toLong())
-                        decoded.add(bestIndex)
+                        val decoded = ArrayList<Int>()
+                        val tokens = ArrayList<Long>()
+                        tokens.add(0L)
+                        var ended = false
+                        for (step in 0 until 512) {
+                            val scores = longTensor(env, tokens.toLongArray()).use { decoderIds ->
+                                OnnxTensor.createTensor(env, hidden).use { encoderHidden ->
+                                    decoder.run(mapOf(
+                                        "decoder_input_ids" to decoderIds,
+                                        "encoder_hidden" to encoderHidden
+                                    )).use { output ->
+                                        val batch = output[0].value as Array<*>
+                                        val time = batch[0] as Array<*>
+                                        (time[time.size - 1] as FloatArray).copyOf()
+                                    }
+                                }
+                            }
+                            var bestIndex = 0
+                            for (i in 1 until scores.size) {
+                                if (scores[i] > scores[bestIndex]) bestIndex = i
+                            }
+                            if (bestIndex == 1) { ended = true; break }
+                            tokens.add(bestIndex.toLong())
+                            decoded.add(bestIndex)
+                        }
+                        if (!ended) throw IllegalStateException("G2P did not terminate")
+                        val utf8 = ByteArrayOutputStream()
+                        for (id in decoded) if (id in 3..258) utf8.write(id - 3)
+                        val raw = utf8.toString(Charsets.UTF_8.name())
+                        val part = buildString {
+                            for (c in raw) append(when (c) {
+                                '/' -> 'a'; 'a' -> 'A'; '@' -> '?'; '$' -> 'S'; 'c' -> 'C'
+                                else -> c
+                            })
+                        }.replace("bo?d", "ba?d").replace("1", "").trim()
+                        if (part.isBlank()) throw IllegalStateException("Empty G2P window output")
+                        combined.add(part)
                     }
-                    if (!ended) throw IllegalStateException("G2P did not terminate")
-                    val utf8 = ByteArrayOutputStream()
-                    for (id in decoded) if (id in 3..258) utf8.write(id - 3)
-                    val raw = utf8.toString(Charsets.UTF_8.name())
-                    val output = buildString {
-                        for (c in raw) append(when (c) {
-                            '/' -> 'a'; 'a' -> 'A'; '@' -> '?'; '$' -> 'S'; 'c' -> 'C'
-                            else -> c
-                        })
-                    }.replace("bo?d", "ba?d").replace("1", "").trim()
-                    if (output.isBlank()) throw IllegalStateException("Empty G2P output")
-                    return output
+                    return combined.joinToString(" ")
+
                 }
             }
         } finally {
