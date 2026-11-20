@@ -31,7 +31,7 @@ abstract final class HaDoctorIntent {
     caseSensitive: false,
   );
   static final _problem = RegExp(
-    r'عیب|خراب|مشکل|خطا|ارور|کندی|سلامت|چکاپ|وضعیت سیستم|نسخه نصب|نسخه فعلی|لاگ|health|error|log|diagnos',
+    r'عیب|خراب|مشکل|خطا|ارور|کند|کندی|سلامت|چکاپ|وضعیت سیستم|نسخه نصب|نسخه فعلی|لاگ|health|error|log|diagnos',
     caseSensitive: false,
   );
   static final _subsystem = RegExp(
