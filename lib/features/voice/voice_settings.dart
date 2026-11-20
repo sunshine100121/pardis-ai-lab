@@ -17,6 +17,7 @@ import 'voice_service.dart';
 import 'offline_dictation.dart';
 import 'voice_engine_catalog.dart';
 import 'persian_stt_policy.dart';
+import 'persian_stt_quality.dart';
 import 'voice_choice_storage.dart';
 import 'voice_engine_selection.dart';
 import 'vosk_local_models.dart';
@@ -236,9 +237,15 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
   String _lastFinal = '';
   bool _ownsSession = false;
   bool _startFailed = false;
+  final _reference = TextEditingController(
+    text: PersianSttQuality.benchmarkUtterances.first,
+  );
+  DateTime? _startedAt;
+  Duration? _recognitionDelay;
 
   @override
   void dispose() {
+    _reference.dispose();
     if (_ownsSession) unawaited(_voice.stop());
     super.dispose();
   }
@@ -277,6 +284,15 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text('آزمون دقت فارسی — جمله مرجع را بگویید؛ متن ارسالی به Qwen ساخته نمی‌شود.'),
+        TextField(
+          key: const Key('persian-stt-reference'),
+          controller: _reference,
+          decoration: const InputDecoration(
+            labelText: 'جمله مرجع برای مقایسه با تشخیص',
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
         TextButton.icon(
           key: const Key('persian-stt-try'),
           onPressed:
@@ -294,6 +310,8 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
                     _startFailed = false;
                     _ownsSession = true;
                     _lastFinal = '';
+                    _startedAt = DateTime.now();
+                    _recognitionDelay = null;
                   });
                   try {
                     await _voice.listen(
@@ -302,6 +320,10 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
                         if (!mounted) return;
                         setState(() {
                           _lastFinal = PersianSttPolicy.finalPrompt(text) ?? '';
+                          final began = _startedAt;
+                          _recognitionDelay = began == null
+                              ? null
+                              : DateTime.now().difference(began);
                           _ownsSession = false;
                         });
                       },
@@ -344,6 +366,13 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
           SelectableText(
             'متن نهایی شناسایی‌شده: $_lastFinal',
             key: const Key('persian-stt-final'),
+          ),
+        if (_lastFinal.isNotEmpty && _reference.text.trim().isNotEmpty)
+          Text(
+            'خطای واژه‌ای (WER): '
+            '${(100 * (PersianSttQuality.wordErrorRate(_reference.text, _lastFinal) ?? 0)).toStringAsFixed(1)}٪'
+            '${_recognitionDelay == null ? '' : ' · زمان تا نتیجه: ${_recognitionDelay!.inMilliseconds} میلی‌ثانیه'}',
+            key: const Key('persian-stt-wer'),
           ),
         if (_started && voice.error != null) Text(voice.error!),
         if (_startFailed) const Text('آزمایش شنیدن شروع نشد.'),
