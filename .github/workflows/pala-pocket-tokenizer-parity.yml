@@ -1,0 +1,29 @@
+name: PALA Pocket official SentencePiece parity
+
+on:
+  push:
+    branches: [pala/pocket-farsi-v2-android-proto-2026-11-20]
+    paths: ['.github/workflows/pala-pocket-tokenizer-parity.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  reference-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official SentencePiece runtime
+        run: python3 -m pip install --disable-pip-version-check sentencepiece==0.2.1
+      - name: Download original tokenizer only for ephemeral verification
+        run: |
+          curl --fail --location --retry 2 --show-error --silent \
+            'https://huggingface.co/mehdi-hf/pocket-tts-farsi-v2/resolve/main/tokenizer_ph.model' \
+            --output "$RUNNER_TEMP/tokenizer_ph.model"
+          test -s "$RUNNER_TEMP/tokenizer_ph.model"
+      - name: Verify tokenizer parity with real SentencePiece model
+        run: python3 scripts/check_pocket_tokenizer_parity.py --tokenizer "$RUNNER_TEMP/tokenizer_ph.model"
+      - name: Remove temporary tokenizer
+        if: always()
+        run: rm -f "$RUNNER_TEMP/tokenizer_ph.model"
