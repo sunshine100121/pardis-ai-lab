@@ -20,6 +20,7 @@ import 'advanced_pages_2.dart';
 import 'effective_settings_page.dart';
 import 'inference_contract_page.dart';
 import 'folder_knowledge_page.dart';
+import '../../../health/pala_health_page.dart';
 import 'memory_page.dart';
 import 'model_profile_page.dart';
 import 'settings_search_page.dart';
@@ -372,6 +373,12 @@ class SettingsScreen extends ConsumerWidget {
                 label: context.l10n.sectionData,
                 icon: Icons.shield_outlined,
                 children: [
+                  _DrillRow(
+                    icon: Icons.monitor_heart_outlined,
+                    title: 'سلامت و عملکرد PALA',
+                    summary: 'بازخورد پاسخ‌ها، سرعت، خطاها و روند ۷/۳۰ روزه',
+                    page: const PalaHealthPage(),
+                  ),
                   _DrillRow(
                     icon: Icons.backup_outlined,
                     title: context.l10n.uiSettingsScreenEncryptedBackup,

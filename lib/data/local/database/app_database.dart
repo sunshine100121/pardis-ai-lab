@@ -97,6 +97,27 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA journal_mode=WAL;');
       // Required for ON DELETE CASCADE to actually fire.
       await customStatement('PRAGMA foreign_keys=ON;');
+      // M18: two small application-owned SQLite tables share the existing
+      // database, Backup and Restore. CREATE IF NOT EXISTS is idempotent
+      // on both the old v16 database and a fresh installation; no existing
+      // chat/model/knowledge tables are rebuilt or migrated.
+      await customStatement(
+        'CREATE TABLE IF NOT EXISTS pala_answer_feedback ('
+        'message_id TEXT PRIMARY KEY NOT NULL '
+        'REFERENCES messages(id) ON DELETE CASCADE, '
+        'vote INTEGER NOT NULL CHECK(vote IN (-1, 1)), '
+        'reason_code TEXT, updated_ms INTEGER NOT NULL)',
+      );
+      await customStatement(
+        'CREATE TABLE IF NOT EXISTS pala_health_test_events ('
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+        'at_ms INTEGER NOT NULL, check_id TEXT NOT NULL, '
+        'passed INTEGER NOT NULL CHECK(passed IN (0, 1)))',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_pala_health_test_time '
+        'ON pala_health_test_events(at_ms)',
+      );
       await _ensureFts(freshlyCreated: details.wasCreated);
     },
   );

@@ -1,0 +1,47 @@
+name: PALA M18 local feedback and honest health dashboard (no APK)
+on:
+  push:
+    branches: [pala/m18-feedback-health-2026-11-20]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  m18-feedback-health:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - run: flutter pub get
+      - name: Format reviewed M18 Dart files
+        run: |
+          dart format \
+            lib/data/local/database/app_database.dart \
+            lib/features/health/pala_feedback_store.dart \
+            lib/features/health/pala_health_report.dart \
+            lib/features/health/pala_health_page.dart \
+            lib/features/health/answer_feedback_bar.dart \
+            lib/features/chat/presentation/widgets/chat_bubble.dart \
+            lib/features/chat/presentation/screens/chat_screen.dart \
+            lib/features/settings/presentation/screens/settings_screen.dart \
+            test/m18_feedback_health_test.dart
+      - name: Analyze changed sources without hiding diagnostics
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/data/local/database/app_database.dart \
+            lib/features/health \
+            lib/features/chat/presentation/widgets/chat_bubble.dart \
+            lib/features/chat/presentation/screens/chat_screen.dart \
+            lib/features/settings/presentation/screens/settings_screen.dart \
+            test/m18_feedback_health_test.dart
+      - name: Test feedback migration safety and preserved M17 features
+        run: |
+          flutter test --concurrency=1 \
+            test/m18_feedback_health_test.dart \
+            test/chat_widgets_test.dart \
+            test/offline_upgrade_compatibility_test.dart \
+            test/m17_vision_safety_test.dart \
+            test/turn_coordinator_test.dart

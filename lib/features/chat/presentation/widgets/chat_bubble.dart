@@ -43,6 +43,9 @@ class ChatBubble extends StatelessWidget {
   final String sourceImageQuestion;
   final bool streaming;
   final Widget? helperChip;
+  /// Optional, persisted local rating controls supplied by ChatScreen.
+  /// Other consumers and existing tests need no database provider.
+  final Widget? feedbackBar;
   final String? liveReasoningTitle;
 
   /// Display name of the model that produced this turn, for the caption.
@@ -83,6 +86,7 @@ class ChatBubble extends StatelessWidget {
     this.sourceImageQuestion = '',
     this.streaming = false,
     this.helperChip,
+    this.feedbackBar,
     this.liveReasoningTitle,
     this.modelName,
     this.onRegenerate,
@@ -865,6 +869,10 @@ class _AssistantTurn extends StatelessWidget {
           ),
         if (bubble.helperChip != null) bubble.helperChip!,
         if (!streaming) _actionBar(context, c),
+        if (!streaming &&
+            message.content.isNotEmpty &&
+            bubble.feedbackBar != null)
+          bubble.feedbackBar!,
       ],
     );
   }

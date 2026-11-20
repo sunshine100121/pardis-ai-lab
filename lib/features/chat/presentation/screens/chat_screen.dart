@@ -66,6 +66,7 @@ import '../providers/chat_model_pins.dart';
 import '../../domain/retrieval_plan.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/chat_bubble.dart';
+import '../../../health/answer_feedback_bar.dart';
 import '../widgets/chat_title.dart';
 import '../widgets/composer.dart';
 import '../widgets/conversations_sheet.dart';
@@ -1090,6 +1091,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           helperChip: HelperUsedChip(
                                             messageId: m.id,
                                           ),
+                                          feedbackBar:
+                                              m.role == ChatRole.assistant &&
+                                              !m.isSuperseded &&
+                                              m.responseStatus != 'generating'
+                                              ? AnswerFeedbackBar(
+                                                  key: ValueKey('feedback-' + m.id),
+                                                  messageId: m.id,
+                                                )
+                                              : null,
                                           savedProjectMemory:
                                               state.chatId != null &&
                                               ProjectMemoryEntry.noteFor(
