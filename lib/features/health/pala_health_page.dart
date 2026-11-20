@@ -85,7 +85,7 @@ class _PalaHealthPageState extends ConsumerState<PalaHealthPage> {
                   style: theme.textTheme.titleMedium),
               Text(
                 w.index == null ? 'داده کافی نیست'
-                    : w.index.toString() + ' از ۱۰۰',
+                    : palaPersianDigits(w.index.toString()) + ' از ۱۰۰',
                 key: const Key('pala-health-index'),
                 style: theme.textTheme.headlineMedium,
               ),
@@ -205,6 +205,12 @@ class _PalaHealthPageState extends ConsumerState<PalaHealthPage> {
       n == null ? 'بدون داده' : n.round().toString() + ' میلی‌ثانیه';
 }
 
+// Keep numerical summaries readable in the Persian owner interface.
+String palaPersianDigits(String value) => value.replaceAllMapped(
+  RegExp(r'[0-9]'),
+  (m) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(m.group(0)!)],
+);
+
 class _Stat extends StatelessWidget {
   final String name, value;
   final String? note;
@@ -218,7 +224,7 @@ class _Stat extends StatelessWidget {
         Row(children: [
           Expanded(child: Text(name)),
           const SizedBox(width: 12),
-          Flexible(child: Text(value, textAlign: TextAlign.end,
+          Flexible(child: Text(palaPersianDigits(value), textAlign: TextAlign.end,
               style: const TextStyle(fontWeight: FontWeight.w600))),
         ]),
         if (note != null)
