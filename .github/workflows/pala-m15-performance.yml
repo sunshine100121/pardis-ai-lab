@@ -40,14 +40,20 @@ jobs:
             lib/features/settings/presentation/screens/remote_profile_page.dart \
             test/benchmark_test.dart \
             test/m15_lan_probe_test.dart
+      - name: Prepare locked PDFium native asset for Linux tests
+        run: |
+          dart run scripts/prepare_pdfium_assets.dart
+          pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
+          test -n "$pdfium"
+          echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
       - name: Run same-condition unit, cancellation and regression tests
         run: |
-          # Serial execution avoids unrelated PDFium initialization races
-          # while keeping every existing test and assertion enabled.
+          # Serial execution ensures reproducible PDFium initialization.
           flutter test --concurrency=1 \
             test/benchmark_test.dart \
             test/m15_lan_probe_test.dart \
             test/offline_folder_library_test.dart \
+            test/offline_pdf_native_test.dart \
             test/hosting_lifecycle_test.dart \
             test/device_hosting_page_test.dart \
             test/remote_server_settings_test.dart \
