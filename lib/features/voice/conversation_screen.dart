@@ -28,6 +28,7 @@ import 'voice_models_provider.dart';
 import 'voice_pipeline.dart';
 import 'voice_service.dart';
 import 'persian_stt_policy.dart';
+import 'conversation_voice_policy.dart';
 
 part 'conversation_widgets.dart';
 part 'conversation_wave.dart';
@@ -360,7 +361,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     _chat = ref.read(chatProvider.notifier);
     _voice = ref.read(voiceProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_start()));
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_startSafely()));
   }
 
   /// Out of sight (Home, the lock screen, another app): the answer stops
@@ -449,6 +450,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
 
   void _set(VoidCallback f) {
     if (!_closed && mounted) setState(f);
+  }
+
+  Future<void> _startSafely() async {
+    try {
+      await _start();
+    } catch (error, stack) {
+      Logger('voice').warning('Conversation setup failed', error, stack);
+      if (_closed) return;
+      _set(() {
+        _phase = ConversationPhase.idle;
+        _muted = true;
+        _notice = 'صفحه مکالمه باز است، اما آماده‌سازی صوتی ناموفق بود. '
+            'مدل Qwen، میکروفون و موتور گفتار را بررسی کنید و دوباره تلاش کنید.';
+      });
+    }
   }
 
   Future<void> _start() async {
@@ -939,10 +955,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     if (rest.trim().isNotEmpty) _say(rest);
     _showAnswer(last.content);
     if (!_natural) {
-      unawaited(
-        ref.read(voiceProvider.notifier).speak(last.content, id: last.id),
-      );
       _set(() => _phase = ConversationPhase.speaking);
+      unawaited(_speakSystemAnswer(last.content, last.id));
     }
     final chatId = now.chatId;
     if (chatId != null &&
@@ -951,6 +965,29 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
       unawaited(
         ref.read(chatModelPinsProvider.notifier).set(chatId, _modelId!),
       );
+    }
+  }
+
+  /// Persian TTS runs asynchronously. Preserve the conversation screen
+  /// until the speech worker has finished or reported an error.
+  Future<void> _speakSystemAnswer(String answer, String messageId) async {
+    try {
+      await _voice.speak(answer, id: messageId);
+      if (_closed || _natural || _turn) return;
+      final voice = ref.read(voiceProvider);
+      if (!voice.speaking && _phase == ConversationPhase.speaking) {
+        _set(() {
+          _phase = ConversationPhase.idle;
+          if (voice.error != null) _notice = voice.error;
+        });
+      }
+    } catch (error, stack) {
+      Logger('voice').warning('Persian TTS failed', error, stack);
+      if (_closed) return;
+      _set(() {
+        _phase = ConversationPhase.idle;
+        _notice = 'پخش صدای فارسی انجام نشد. موتور آفلاین انتخابی را بررسی کنید.';
+      });
     }
   }
 
@@ -966,7 +1003,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     _turn = false;
     if (_natural) {
       if (!(_mouth?.busy ?? false)) _afterSpeaking();
-    } else if (!ref.read(voiceProvider).speaking) {
+    } else if (!ref.read(voiceProvider).speaking &&
+        _phase != ConversationPhase.speaking) {
       _set(() => _phase = ConversationPhase.idle);
     }
   }
@@ -974,8 +1012,19 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   // ---- System voice fallback -------------------------------------------
 
   void _listenSystem() {
-    if (_closed || _muted || _natural) return;
-    if (ref.read(chatProvider).isGenerating) return;
+    final audio = ref.read(voiceProvider);
+    if (!ConversationVoicePolicy.canStartMicrophone(
+      closed: _closed,
+      away: _away,
+      muted: _muted,
+      naturalMode: _natural,
+      isListening: _phase == ConversationPhase.listening || audio.listening,
+      isSpeaking: _phase == ConversationPhase.speaking || audio.speaking,
+      isThinking: _phase == ConversationPhase.thinking || _turn,
+      chatGenerating: ref.read(chatProvider).isGenerating,
+    )) {
+      return;
+    }
     _set(() {
       _phase = ConversationPhase.listening;
       _userCaption = '';
@@ -1023,7 +1072,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
       _held = null;
       _settle?.cancel();
       unawaited(_mouth?.stop());
-      unawaited(ref.read(voiceProvider.notifier).stopSpeaking());
+      final stopped = ref.read(voiceProvider.notifier).stopSpeaking();
       if (ref.read(chatProvider).isGenerating) {
         ref.read(chatProvider.notifier).cancel();
       }
@@ -1037,7 +1086,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
         }
         _phase = ConversationPhase.idle;
       });
-      if (!_natural) _listenSystem();
+      if (!_natural && !_muted) {
+        unawaited(stopped.then((_) {
+          if (!_closed && !_away && !_turn) _listenSystem();
+        }));
+      } else {
+        unawaited(stopped);
+      }
       if (_natural && !_muted) {
         _set(() => _phase = ConversationPhase.listening);
       }
@@ -1236,7 +1291,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     });
     // System voice: when the answer has been read, listen again.
     ref.listen(voiceProvider.select((v) => v.speaking), (was, now) {
-      if (!_natural && was == true && !now && !_turn) _listenSystem();
+      if (!_natural && was == true && !now && !_turn) {
+        if (_phase == ConversationPhase.speaking) {
+          _set(() => _phase = ConversationPhase.idle);
+        }
+        _listenSystem();
+      }
     });
     final packs = ref.watch(voiceModelsProvider);
     final modelName = _remote
@@ -1311,6 +1371,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
                       children: [
                         Text(_notice!, style: context.text.bodyMuted),
                         if (!_natural &&
+                            voiceLanguage(ref.read(settingsProvider).localeCode) !=
+                                'fa' &&
                             (!packs.canListen ||
                                 !packs.canSpeakWith(
                                   ref.read(settingsProvider).readingVoice,

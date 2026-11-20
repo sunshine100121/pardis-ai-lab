@@ -648,6 +648,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
     String? previous;
     try {
+      // Do not overlap voices when the user selects another Android engine.
+      await stopSpeaking();
       await _initTts();
       final prefs = await SharedPreferences.getInstance();
       previous =

@@ -63,6 +63,7 @@ abstract final class VoiceEngineCatalog {
   static String androidEngineName(String packageId) {
     final lower = packageId.toLowerCase();
     if (lower.contains('hayai')) return 'HayaiTTS · $packageId';
+    if (lower.contains('gyro')) return 'Gyro · $packageId';
     return packageId;
   }
 }

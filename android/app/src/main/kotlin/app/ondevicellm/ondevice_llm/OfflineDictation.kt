@@ -34,6 +34,7 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var voskModel: Model? = null
+    private var voskModelPath: String? = null
     private var voskService: SpeechService? = null
     private var activeEngine = "android-local"
     private val voskCommitted = mutableListOf<String>()
@@ -250,7 +251,17 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
             voskCommitted.clear()
             Thread {
                 try {
-                    val model = voskModel ?: Model(modelPath).also { voskModel = it }
+                    // Switching user-selected Vosk models must not silently
+                    // reuse the previously cached acoustic model.
+                    val model = if (voskModelPath == modelPath && voskModel != null) {
+                        voskModel!!
+                    } else {
+                        voskModel?.close()
+                        Model(modelPath).also {
+                            voskModel = it
+                            voskModelPath = modelPath
+                        }
+                    }
                     val decoder = Recognizer(model, 16000.0f)
                     val service = SpeechService(decoder, 16000.0f)
                     handler.post {
@@ -385,5 +396,6 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
         channel.setMethodCallHandler(null)
         try { voskModel?.close() } catch (_: Exception) {}
         voskModel = null
+        voskModelPath = null
     }
 }
