@@ -22,6 +22,7 @@ import 'vosk_local_models.dart';
 import 'persian_sherpa_models.dart';
 import 'persian_sherpa_runtime.dart';
 import 'pocket_farsi_v2_reader.dart';
+import 'pocket_farsi_v2_audio.dart';
 import 'sherpa_voice.dart';
 import 'voice_models.dart';
 import 'voice_models_provider.dart';
@@ -1003,6 +1004,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
           error: 'موتور Pocket هنوز برای این متن یا بسته مدل آماده نیست.',
         );
       }
+    } finally {
+      try {
+        await PocketFarsiV2Audio.release();
+      } catch (_) { /* Experimental native engine may be absent. */ }
     }
   }
 
@@ -1028,6 +1033,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
           error: 'ادامه خواندن Pocket ناموفق بود؛ صدای دیگری جایگزین نشد.',
         );
       }
+    } finally {
+      try {
+        await PocketFarsiV2Audio.release();
+      } catch (_) { /* Optional diagnostic runtime. */ }
     }
   }
 
@@ -1187,7 +1196,12 @@ class VoiceNotifier extends Notifier<VoiceState> {
     await _stopTts();
     await _kokoro?.stop();
     await _piper?.stop();
-    if (_pocketReader?.isRunning == true) await _pocketReader?.pause();
+    if (_pocketReader?.isRunning == true) {
+      await _pocketReader?.pause();
+      try {
+        await PocketFarsiV2Audio.cancelSynthesis();
+      } catch (_) { /* Missing diagnostic channel is not fatal. */ }
+    }
   }
 
   Future<void> resumeSpeaking() async {
@@ -1220,6 +1234,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (_pocketReader != null &&
         (_pocketReader!.isRunning || _pocketReader!.progress.paused)) {
       await _pocketReader!.cancel();
+      try {
+        await PocketFarsiV2Audio.cancelSynthesis();
+      } catch (_) { /* Missing diagnostic channel is not fatal. */ }
     }
     await _stopTts();
     await _kokoro?.stop();

@@ -46,6 +46,17 @@ abstract final class PocketFarsiV2Audio {
     );
   }
 
+  /// Release native ONNX sessions after the reading session ends.
+  /// During generation the native bridge defers release until safe.
+  static Future<void> release() async {
+    await _channel.invokeMethod<bool>('release');
+  }
+
+  /// Signal interruption between native FlowLM frames, not only playback.
+  static Future<void> cancelSynthesis() async {
+    await _channel.invokeMethod<bool>('cancel');
+  }
+
   static Future<bool> play(PocketGeneratedAudio clip) =>
       VoiceAudioChannel.play(clip.audio);
 

@@ -22,11 +22,42 @@ internal data class PocketTensor(
 ) {
     val count: Int get() = (floats?.size ?: longs?.size) ?: 0
 
+    // FlowLM and Mimi state is updated after each step. A persistent direct
+    // buffer prevents allocating/copying the entire 12MB cache every frame.
+    private var nativeFloats: FloatBuffer? = null
+
     fun toOrt(env: OrtEnvironment): OnnxTensor {
         return if (floats != null) {
-            OnnxTensor.createTensor(env, FloatBuffer.wrap(floats), shape)
+            val values = if (shape.size == 5 && floats.size > 100000) {
+                var buffer = nativeFloats
+                if (buffer == null) {
+                    buffer = ByteBuffer.allocateDirect(floats.size * 4)
+                        .order(ByteOrder.nativeOrder()).asFloatBuffer()
+                    buffer.put(floats)
+                    buffer.rewind()
+                    nativeFloats = buffer
+                }
+                buffer.duplicate().apply { position(0) }
+            } else {
+                FloatBuffer.wrap(floats)
+            }
+            OnnxTensor.createTensor(env, values, shape)
         } else {
             OnnxTensor.createTensor(env, LongBuffer.wrap(longs ?: error("Empty tensor")), shape)
+        }
+    }
+
+    fun putFloats(dstOffset: Int, source: FloatArray, srcOffset: Int, length: Int) {
+        val target = floats ?: error("Non-float tensor write")
+        if (dstOffset < 0 || length < 0 || dstOffset + length > target.size ||
+            srcOffset < 0 || srcOffset + length > source.size) {
+            error("Tensor delta write out of bounds")
+        }
+        System.arraycopy(source, srcOffset, target, dstOffset, length)
+        val copy = nativeFloats?.duplicate()
+        if (copy != null) {
+            copy.position(dstOffset)
+            copy.put(source, srcOffset, length)
         }
     }
 
@@ -124,7 +155,7 @@ internal object PocketNpz {
     }
 }
 
-/** Minimal verified-format SentencePiece UNIGRAM reader; rejects BPE/unsupported models. */
+/** Experimental SentencePiece UNIGRAM/BPE reader; device parity still required. */
 internal class PocketPhonemeTokenizer private constructor(
     private val byFirst: Map<Char, List<Token>>,
     private val unknownId: Int,

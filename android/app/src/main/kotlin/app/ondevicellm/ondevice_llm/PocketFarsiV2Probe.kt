@@ -32,6 +32,52 @@ internal class PocketFarsiV2Probe(
     private val main = Handler(Looper.getMainLooper())
     private val dir = File(context.filesDir, "voice_models/pocket_farsi_v2")
 
+    private var resident: G2pResident? = null
+
+    private class G2pResident(
+        val env: OrtEnvironment,
+        val options: OrtSession.SessionOptions,
+        val encoder: OrtSession,
+        val decoder: OrtSession
+    ) {
+        fun close() {
+            decoder.close()
+            encoder.close()
+            options.close()
+        }
+    }
+
+    @Synchronized
+    internal fun releaseSessions() {
+        if (busy.get()) return
+        resident?.close()
+        resident = null
+    }
+
+    private fun current(): G2pResident {
+        resident?.let { return it }
+        val env = OrtEnvironment.getEnvironment()
+        val options = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(2)
+            setInterOpNumThreads(1)
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+        }
+        var encoder: OrtSession? = null
+        var decoder: OrtSession? = null
+        try {
+            encoder = env.createSession(File(dir, "g2p_encoder.onnx").absolutePath, options)
+            decoder = env.createSession(File(dir, "g2p_decoder.onnx").absolutePath, options)
+            return G2pResident(env, options, encoder, decoder)
+                .also { resident = it }
+        } catch (e: Exception) {
+            decoder?.close()
+            encoder?.close()
+            options.close()
+            throw e
+        }
+    }
+
+
     init {
         MethodChannel(messenger, "pala/pocket_farsi_v2_probe")
             .setMethodCallHandler { call, result ->
@@ -113,6 +159,7 @@ internal class PocketFarsiV2Probe(
     /** Diagnostic-only entry used by the isolated native synthesis prototype. */
     internal fun phonemiseLocal(text: String): String = phonemise(text)
 
+    @Synchronized
     private fun phonemise(text: String): String {
         val normalized = PocketFarsiNormalizer.normalize(text)
             .replace("؟", "").replace("?", "").replace(":", "")
@@ -121,14 +168,10 @@ internal class PocketFarsiV2Probe(
         }
         val windows = PocketFarsiG2pWindows.plan(normalized)
         if (windows.isEmpty()) throw IllegalArgumentException("No Persian words")
-        val env = OrtEnvironment.getEnvironment()
-        val opts = OrtSession.SessionOptions()
-        opts.setIntraOpNumThreads(2)
-        opts.setInterOpNumThreads(1)
-        opts.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-        try {
-            env.createSession(File(dir, "g2p_encoder.onnx").absolutePath, opts).use { encoder ->
-                env.createSession(File(dir, "g2p_decoder.onnx").absolutePath, opts).use { decoder ->
+        val model = current()
+        val env = model.env
+        val encoder = model.encoder
+        val decoder = model.decoder
                     val combined = ArrayList<String>(windows.size)
                     for (window in windows) {
                         val sourceBytes = window.toByteArray(Charsets.UTF_8)
@@ -182,13 +225,7 @@ internal class PocketFarsiV2Probe(
                         if (part.isBlank()) throw IllegalStateException("Empty G2P window output")
                         combined.add(part)
                     }
-                    return combined.joinToString(" ")
-
-                }
-            }
-        } finally {
-            opts.close()
-        }
+        return combined.joinToString(" ")
     }
 
     private fun longTensor(env: OrtEnvironment, ids: LongArray): OnnxTensor =

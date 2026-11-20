@@ -71,4 +71,15 @@ void main() {
       throwsA(isA<PlatformException>()),
     );
   });
+  test('cancellation and runtime release are explicit native actions', () async {
+    final called = <String>[];
+    messenger.setMockMethodCallHandler(pocket, (call) async {
+      called.add(call.method);
+      return true;
+    });
+    await PocketFarsiV2Audio.cancelSynthesis();
+    await PocketFarsiV2Audio.release();
+    expect(called, ['cancel', 'release']);
+  });
+
 }
