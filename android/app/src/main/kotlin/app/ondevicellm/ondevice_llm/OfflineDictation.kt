@@ -348,7 +348,7 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
                                 }
                                 release()
                             }
-                        })
+                        }, 30000) // Bounded recording: timeout returns a clear error or final text.
                     }
                 } catch (e: Exception) {
                     handler.post {
