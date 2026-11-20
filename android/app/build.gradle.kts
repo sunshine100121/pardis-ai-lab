@@ -100,6 +100,14 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Diagnostic APK is a SECOND, isolated app. Never overwrite the
+            // owner's signed ir.pardis.ai.pala.f1diag2 install or its data.
+            if (System.getenv("PALA_POCKET_TEST_APK") == "true") {
+                applicationIdSuffix = ".pockettest"
+                versionNameSuffix = "-pockettest"
+            }
+        }
         release {
             // Debug fallback keeps local release profiling usable. Production
             // jobs must set ODLLM_REQUIRE_RELEASE_SIGNING=true (or the Gradle

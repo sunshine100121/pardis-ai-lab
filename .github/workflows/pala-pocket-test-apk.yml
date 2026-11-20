@@ -1,0 +1,55 @@
+name: PALA Pocket Farsi v2 isolated diagnostic APK (no model)
+
+on:
+  push:
+    branches: [pala/pocket-farsi-v2-android-proto-2026-11-20]
+    paths:
+      - '.github/workflows/pala-pocket-test-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile Kotlin and prepare the pinned Android build
+        run: bash scripts/check_android_host.sh
+      - name: Build one separately installable ARM64 debug APK
+        env:
+          PALA_POCKET_TEST_APK: 'true'
+        run: flutter build apk --debug --target-platform android-arm64 --no-pub
+      - name: Verify separate package ID and no bundled model weights
+        run: |
+          python3 - <<'PY'
+          import pathlib,subprocess,zipfile
+          f=pathlib.Path('build/app/outputs/flutter-apk/app-debug.apk')
+          assert f.is_file() and f.stat().st_size > 1024*1024, 'No APK produced'
+          sdk=pathlib.Path(__import__('os').environ['ANDROID_HOME'])
+          aapts=sorted(sdk.glob('build-tools/*/aapt'))
+          assert aapts, 'Android package identity cannot be verified'
+          report=subprocess.check_output([str(aapts[-1]),'dump','badging',str(f)],text=True)
+          assert "name='ir.pardis.ai.pala.f1diag2.pockettest'" in report, report[:250]
+          with zipfile.ZipFile(f) as z:
+              forbidden=('flow_lm_step.onnx.data','weights.npz','decode_state_init.npz','voice_reference.wav')
+              for entry in z.namelist():
+                  assert not any(entry.endswith('/'+x) for x in forbidden), 'Model weights bundled'
+          print('Verified isolated APK:',f.stat().st_size,'bytes')
+          PY
+      - name: Upload ONLY the separate diagnostic APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pala-pocket-native-diagnostic-arm64
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
