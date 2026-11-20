@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/features/chat/domain/entities/turn_run.dart';
@@ -50,7 +50,7 @@ void main() {
     expect(await store.read('answer-a'), isNull);
     final rows = await db.customSelect(
       'SELECT content FROM messages WHERE id = ?',
-      variables: [const Variable.withString('answer-a')],
+      variables: [Variable.withString('answer-a')],
     ).get();
     expect(rows.where((r) => r.read<String>('content') == 'synthetic answer'),
         isNotEmpty);
