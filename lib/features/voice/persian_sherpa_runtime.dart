@@ -137,6 +137,9 @@ class PersianCtcListener {
   final _preroll = <Float32List>[];
   var _epoch = 0;
   var _speaking = false;
+  var _candidateFrames = 0;
+  var _voicedSamples = 0;
+  var _finishing = false;
   var _afterSpeech = 0;
   var _sampleCount = 0;
   double _noise = 0.006;
@@ -157,6 +160,10 @@ class PersianCtcListener {
   static bool containsVoice(double rms, double idleNoise) =>
       rms >= math.max(0.018, idleNoise * 3.2);
 
+  /// Three consecutive 32-ms windows reject brief spikes before committing
+  /// to a sentence, while preserving a 300-ms audio preroll.
+  static bool isSpeechStartConfirmed(int frames) => frames >= 3;
+
   Future<bool> start() async {
     if (running) return true;
     if (model.kind != PersianSherpaKind.stt) return false;
@@ -164,6 +171,9 @@ class PersianCtcListener {
     _frames.clear();
     _preroll.clear();
     _speaking = false;
+    _candidateFrames = 0;
+    _voicedSamples = 0;
+    _finishing = false;
     _afterSpeech = 0;
     _sampleCount = 0;
     _noise = 0.006;
@@ -182,27 +192,34 @@ class PersianCtcListener {
   }
 
   void _receive(Float32List frame) {
-    if (!running) return;
+    if (!running || _finishing) return;
     final rms = energy(frame);
     final speech = containsVoice(rms, _noise);
     if (!_speaking) {
       _preroll.add(frame);
-      if (_preroll.length > 9) _preroll.removeAt(0);
+      if (_preroll.length > 10) _preroll.removeAt(0);
       if (!speech) {
+        _candidateFrames = 0;
         _noise = 0.98 * _noise + 0.02 * rms;
         return;
       }
+      _candidateFrames++;
+      if (!isSpeechStartConfirmed(_candidateFrames)) return;
       _speaking = true;
+      // Every frame is appended exactly once; include the onset from preroll.
       _frames.addAll(_preroll);
+      _sampleCount += _preroll.fold<int>(0, (n, f) => n + f.length);
+      _voicedSamples = _candidateFrames * frame.length;
       _preroll.clear();
+      return;
     }
     _frames.add(frame);
     _sampleCount += frame.length;
     if (speech) {
+      _voicedSamples += frame.length;
       _afterSpeech = 0;
     } else {
       _afterSpeech += frame.length;
-      // About one second of silence ends a conversational utterance.
       if (_afterSpeech >= 16000) {
         unawaited(_finish());
       }
@@ -211,11 +228,14 @@ class PersianCtcListener {
   }
 
   Future<void> _finish() async {
-    if (!running) return;
+    if (!running || _finishing) return;
+    _finishing = true;
     final epoch = _epoch;
     await _pauseMicrophone();
-    if (_sampleCount < 6400) {
+    if (_sampleCount < 6400 || _voicedSamples < 2500) {
       if (epoch == _epoch) onError('هیچ جمله فارسی معتبری تشخیص داده نشد.');
+      _frames.clear();
+      _finishing = false;
       return;
     }
     final samples = Float32List(_frames.fold(0, (n, f) => n + f.length));
@@ -248,6 +268,7 @@ class PersianCtcListener {
       _worker?.dispose();
       _worker = null;
       _frames.clear();
+      _finishing = false;
     }
   }
 
@@ -266,6 +287,7 @@ class PersianCtcListener {
     await _pauseMicrophone();
     _frames.clear();
     _preroll.clear();
+    _candidateFrames = 0;
     _worker?.dispose();
     _worker = null;
   }

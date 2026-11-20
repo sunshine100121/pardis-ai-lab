@@ -42,5 +42,8 @@ void main() {
     expect(PersianCtcListener.containsVoice(0.002, 0.002), isFalse);
     expect(PersianCtcListener.containsVoice(0.06, 0.002), isTrue);
     expect(PersianCtcListener.containsVoice(0.02, 0.03), isFalse);
+    expect(PersianCtcListener.isSpeechStartConfirmed(1), isFalse);
+    expect(PersianCtcListener.isSpeechStartConfirmed(2), isFalse);
+    expect(PersianCtcListener.isSpeechStartConfirmed(3), isTrue);
   });
 }
