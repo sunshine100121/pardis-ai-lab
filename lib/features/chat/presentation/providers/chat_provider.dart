@@ -419,7 +419,12 @@ class ChatNotifier extends _ChatBase
     final diffusion = ref.read(diffusionGemmaEngineProvider);
     ref.onDispose(() {
       _alive = false;
-      _turns.dispose();
+      // M17 stability gate: _turns cancellation normally calls
+      // modelManager.stopLoad, which reads Riverpod state. Doing that
+      // during this notifier's onDispose causes provider lifecycle errors.
+      // Retrieval is still cancelled, and the captured engines are stopped
+      // immediately below without reading another provider.
+      _turns.dispose(notifyEngines: false);
       engine.cancel();
       remote.cancel();
       diffusion.cancel();

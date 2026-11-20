@@ -69,4 +69,18 @@ void main() {
     coordinator.release(turn);
     coordinator.dispose();
   });
+
+  test('provider disposal cancels retrieval without invoking provider callback',
+      () {
+    final coordinator = TurnCoordinator();
+    var providerMutations = 0;
+    final t = coordinator.begin(() => providerMutations++);
+    coordinator.dispose(notifyEngines: false);
+    expect(t.cancelled, true);
+    expect(t.ended, true);
+    expect(t.retrieval.isCancelled, true);
+    expect(providerMutations, 0);
+    expect(() => coordinator.begin(() {}), throwsStateError);
+  });
+
 }

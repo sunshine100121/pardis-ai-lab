@@ -24,6 +24,7 @@ jobs:
         run: |
           dart format \
             lib/features/chat/domain/photo_understanding_policy.dart \
+            lib/features/chat/domain/turn_coordinator.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/hosting/presentation/device_hosting_provider.dart \
             lib/features/models/presentation/providers/model_manager_provider.dart \
@@ -33,6 +34,7 @@ jobs:
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings \
             lib/features/chat/domain/photo_understanding_policy.dart \
+            lib/features/chat/domain/turn_coordinator.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/hosting/presentation/device_hosting_provider.dart \
             lib/features/models/presentation/providers/model_manager_provider.dart \
@@ -51,4 +53,10 @@ jobs:
             test/hf_projector_persistence_test.dart \
             test/hosting_lifecycle_test.dart \
             test/owner_model_details_test.dart \
-            test/audit_attachment_dialog_test.dart
+            test/audit_attachment_dialog_test.dart \
+            test/turn_coordinator_test.dart
+
+      - name: Verify a previously failing general-chat web test
+        run: >-
+          flutter test test/chat_test.dart
+          --plain-name 'a pasted URL is read directly; no search, no timeliness keyword'

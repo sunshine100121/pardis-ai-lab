@@ -64,11 +64,11 @@ class TurnLease {
     _record();
   }
 
-  void cancel() {
+  void cancel({bool notifyEngines = true}) {
     if (ended || cancelled) return;
     cancelled = true;
     retrieval.cancel('Turn cancelled');
-    _cancelEngines();
+    if (notifyEngines) _cancelEngines();
     transition(TurnStage.stopped);
   }
 
@@ -115,8 +115,11 @@ class TurnCoordinator {
     active = null;
   }
 
-  void dispose() {
-    active?.cancel();
+  /// Avoid invoking provider-owning callbacks from the provider's own
+  /// onDispose hook: Riverpod forbids modifying providers during disposal.
+  /// The caller then cancels the captured engines directly.
+  void dispose({bool notifyEngines = true}) {
+    active?.cancel(notifyEngines: notifyEngines);
     if (active case final lease?) release(lease);
     _disposed = true;
   }
