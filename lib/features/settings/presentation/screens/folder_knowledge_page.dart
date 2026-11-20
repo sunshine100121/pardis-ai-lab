@@ -317,7 +317,7 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
   final _base = TextEditingController(),
       _entities = TextEditingController(),
       _token = TextEditingController();
-  bool _enabled = false, _ack = false, _saving = false;
+  bool _enabled = false, _doctorEnabled = false, _ack = false, _saving = false;
   String? _status;
   @override
   void initState() {
@@ -335,7 +335,10 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
     _entities.text = (data['entities'] as Map).entries
         .map((e) => '${e.key}=${e.value}')
         .join('\n');
-    setState(() => _enabled = data['enabled'] == true);
+    setState(() {
+      _enabled = data['enabled'] == true;
+      _doctorEnabled = data['doctorEnabled'] == true;
+    });
   }
 
   @override
@@ -386,6 +389,7 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
           'base': base.toString(),
           'entities': map,
           'enabled': _enabled,
+          'doctorEnabled': _enabled && _doctorEnabled,
         }),
       );
       _token.clear();
@@ -413,7 +417,7 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          'این برنامه فقط GET حسگر و تاریخچه یک ساعت اخیر را درخواست می‌کند. توکن HA ذاتاً فقط‌خواندنی نیست؛ از حساب اختصاصی غیرمدیر با حداقل اختیار موجود استفاده کنید. توکن مدیر را وارد نکنید. HTTP محلی رمزگذاری ندارد؛ در شبکه نامطمئن از HTTPS معتبر استفاده کنید. هیچ تنظیم HA خودکار تغییر نمی‌کند.',
+          'این برنامه فقط GET انجام می‌دهد. با فعال‌سازی HA Doctor، نسخه Core، لاگ و چند حسگر مجاز هنگام درخواست بررسی می‌شوند. توکن HA ذاتاً فقط‌خواندنی نیست؛ از حساب اختصاصی غیرمدیر با حداقل اختیار موجود استفاده کنید. توکن مدیر را وارد نکنید. HTTP محلی رمزگذاری ندارد؛ در شبکه نامطمئن از HTTPS معتبر استفاده کنید. هیچ تنظیم HA خودکار تغییر نمی‌کند.',
         ),
         TextField(
           controller: _base,
@@ -441,6 +445,14 @@ class _HaReadSettingsPageState extends State<HaReadSettingsPage> {
           title: const Text('خواندن هنگام پرسش'),
           value: _enabled,
           onChanged: _saving ? null : (v) => setState(() => _enabled = v),
+        ),
+        SwitchListTile(
+          title: const Text('بررسی فقط‌خواندنی سلامت سیستم'),
+          subtitle: const Text(
+            'HA Doctor فقط هنگام درخواست، نسخه Core، لاگ و حداکثر ۳ حسگر مجاز را می‌خواند؛ تعمیر خودکار ندارد.',
+          ),
+          value: _doctorEnabled,
+          onChanged: _saving ? null : (v) => setState(() => _doctorEnabled = v),
         ),
         CheckboxListTile(
           title: const Text(

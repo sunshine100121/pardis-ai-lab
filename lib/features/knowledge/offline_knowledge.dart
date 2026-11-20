@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/network/web_search/search_models.dart';
 import 'folder_library.dart';
 import 'ha_read_client.dart';
+import 'ha_doctor.dart';
 import 'ha_sensor_language.dart';
 import '../chat/domain/live_time_answer.dart';
 import 'ha_hourly_statistics.dart';
@@ -117,6 +118,74 @@ class OfflineKnowledge {
       return 'دریافت اطلاعات واقعی حسگر از Home Assistant ممکن نشد؛ '
           'اتصال یا مجوز را بررسی کنید. از دانشنامه یا Qwen '
           'برای حدس مقدار و زمان استفاده نمی‌کنم.';
+    }
+  }
+
+  /// App-owned HA Doctor report. Read permission is one opt-in in the
+  /// existing connection page, not an instruction from Qwen.
+  Future<String> doctorReport(
+    String question, {
+    Set<String>? projectSourceIds,
+  }) async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(configKey);
+      if (raw == null) {
+        return 'HA Doctor: اتصال خواندنی Home Assistant تنظیم نشده است. '
+            'اطلاعات زنده‌ای دریافت نشد.';
+      }
+      final config = jsonDecode(raw);
+      if (config is! Map ||
+          config['enabled'] != true ||
+          config['doctorEnabled'] != true ||
+          config['base'] is! String ||
+          config['entities'] is! Map) {
+        return 'HA Doctor: در تنظیمات اتصال Home Assistant گزینه '
+            '«بررسی فقط‌خواندنی سلامت سیستم» فعال نیست. '
+            'با فعال‌سازی یک‌باره، بررسی فقط هنگام درخواست انجام می‌شود.';
+      }
+      final names = Map<String, dynamic>.from(config['entities'] as Map);
+      if (names.isEmpty ||
+          names.values.any((v) => v is! String || v.trim().isEmpty)) {
+        return 'HA Doctor: فهرست حسگرهای مجاز معتبر نیست.';
+      }
+      final token = await readToken();
+      if (token == null || token.trim().isEmpty) {
+        return 'HA Doctor: مجوز خواندن Home Assistant در دسترس نیست؛ '
+            'هیچ وضعیتی حدس زده نمی‌شود.';
+      }
+      final client = HaReadClient(
+        base: Uri.parse(config['base'] as String),
+        token: token,
+        entities: names.keys.toSet(),
+        clock: clock,
+      );
+      final snapshot = await client.doctorSnapshot();
+      final localTitles = <String>[];
+      try {
+        final local = await library.searchDetailed(
+          question,
+          sourceIds: projectSourceIds,
+        ).timeout(const Duration(seconds: 5));
+        for (final evidence in local.sources) {
+          if (evidence.title.trim().isNotEmpty &&
+              (evidence.pageText?.trim().isNotEmpty ?? false)) {
+            localTitles.add(evidence.title.trim());
+          }
+          if (localTitles.length >= 2) break;
+        }
+      } catch (_) {
+        // Local references are optional, never substituted for live data.
+      }
+      return HaDoctorDiagnosis.report(
+        snapshot,
+        labels: {
+          for (final e in names.entries) e.key: e.value as String,
+        },
+        documentTitles: localTitles,
+      );
+    } catch (_) {
+      return 'HA Doctor: جمع‌آوری شواهد کامل نشد؛ وضعیت نامعلوم است. '
+          'اتصال و اختیار خواندن را بررسی کنید؛ هیچ تعمیر اجرا نشد.';
     }
   }
 

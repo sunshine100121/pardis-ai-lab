@@ -34,6 +34,7 @@ import '../../../knowledge/knowledge_embedder.dart';
 import '../../../knowledge/knowledge_store.dart';
 import '../../../knowledge/offline_knowledge.dart';
 import '../../../knowledge/ha_sensor_language.dart';
+import '../../../knowledge/ha_doctor.dart';
 import '../../../zim/zim_wikipedia.dart';
 import '../../../zim/zim_index_storage.dart';
 import '../../../zim/zim_indexed_project_search.dart';
@@ -785,6 +786,30 @@ class ChatNotifier extends _ChatBase
     try {
       final asked = await _prepareTurn(t);
       if (asked == null) return t.accepted;
+      final doctorQuestion = HaDoctorIntent.matches(t.input) &&
+          resume == null &&
+          attachments.isEmpty &&
+          compareWith == null &&
+          reuseSourcesJson == null &&
+          promptOverride == null &&
+          answerSources == null &&
+          !forceResearch &&
+          !isolated;
+      if (doctorQuestion) {
+        final workspace = ref.read(conversationWorkspaceProvider);
+        final project = workspace.projects
+            .where((p) => p.id == _projectId).firstOrNull;
+        final scoped = _projectId == null
+            ? null
+            : (project?.sourceIds.toSet() ?? <String>{});
+        final result = await ref.read(offlineKnowledgeProvider).doctorReport(
+          t.input, projectSourceIds: scoped,
+        );
+        // Direct report: no Qwen, online lookup or Home Assistant write.
+        t.appAnswer = result;
+        t.replaceAnswer(result);
+        return t.accepted;
+      }
       if (t.directTime) {
         final kind = LiveTimeAnswer.intent(t.input);
         final knowledge = ref.read(offlineKnowledgeProvider);
