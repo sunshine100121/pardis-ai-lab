@@ -27,6 +27,7 @@ class MainActivity : FlutterActivity() {
     private var scheduledPrompts: ScheduledPrompts? = null
     private var hostDiscovery: HostDiscovery? = null
     private var voiceAudio: VoiceAudio? = null
+    private var pocketProbe: PocketFarsiV2Probe? = null
     private var displayManager: DisplayManager? = null
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) = refreshDisplay(displayId)
@@ -76,6 +77,7 @@ class MainActivity : FlutterActivity() {
         hostDiscovery = null
         voiceAudio?.close()
         voiceAudio = null
+        pocketProbe = null
         super.onDestroy()
         // The engine and its isolates are gone; the process and its native
         // memory may stay, so the model this window loaded is freed now.
@@ -139,7 +141,8 @@ class MainActivity : FlutterActivity() {
         voiceAudio?.close()
         voiceAudio = VoiceAudio(this, flutterEngine.dartExecutor.binaryMessenger)
         // Diagnostic-only native ONNX G2P; does not change any speaking engine.
-        PocketFarsiV2Probe(this, flutterEngine.dartExecutor.binaryMessenger)
+        pocketProbe = PocketFarsiV2Probe(this, flutterEngine.dartExecutor.binaryMessenger)
+        PocketFarsiV2Audio(this, flutterEngine.dartExecutor.binaryMessenger, pocketProbe!!)
         hostDiscovery?.close()
         hostDiscovery = HostDiscovery(this, flutterEngine.dartExecutor.binaryMessenger)
         // Read-only device facts used to size models and defaults. Nothing leaves the device.

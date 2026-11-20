@@ -107,6 +107,9 @@ internal class PocketFarsiV2Probe(
      * Port of the unmodified greedy ONNX semantics in persian_tts/g2p_onnx.py.
      * Text normalization/transliteration parity still needs device testing.
      */
+    /** Diagnostic-only entry used by the isolated native synthesis prototype. */
+    internal fun phonemiseLocal(text: String): String = phonemise(text)
+
     private fun phonemise(text: String): String {
         val normalized = text.replace('ي', 'ی').replace('ك', 'ک')
             .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
