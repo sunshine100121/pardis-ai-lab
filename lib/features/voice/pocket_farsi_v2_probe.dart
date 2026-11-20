@@ -22,8 +22,7 @@ abstract final class PocketFarsiV2Probe {
       'phonemise',
       {'text': persianText},
     );
-    if (result?['audioGenerated'] != false ||
-        result?['stage'] != 'g2p-only') {
+    if (result?['audioGenerated'] != false || result?['stage'] != 'g2p-only') {
       throw StateError('Pocket speech inference is not verified');
     }
     return result?['phonemes'] as String? ?? '';
