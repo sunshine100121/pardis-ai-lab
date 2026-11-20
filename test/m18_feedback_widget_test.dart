@@ -68,7 +68,12 @@ void main() {
     await tester.tap(find.text('۳۰ روز'));
     await tester.pumpAndSettle();
     expect(find.text('داده کافی نیست'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('pala-run-health-checks')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('pala-run-health-checks')),
+      300,
+      scrollable: find.byType(Scrollable).last,
+      maxScrolls: 25,
+    );
     await tester.tap(find.byKey(const Key('pala-run-health-checks')));
     await tester.pumpAndSettle();
     expect(find.text('۲ موفق از ۲'), findsOneWidget);

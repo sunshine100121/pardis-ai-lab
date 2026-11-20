@@ -94,11 +94,15 @@ abstract final class PalaHealthCalculator {
   }) {
     assert(days == 7 || days == 30);
     final utc = now.toUtc();
-    final since = utc.subtract(Duration(days: days));
+    // Calendar-day windows match the 7/30 daily bars, including the
+    // entire oldest day instead of mixing rolling-hours and daily counts.
+    final since = DateTime.utc(utc.year, utc.month, utc.day)
+        .subtract(Duration(days: days - 1));
     final current = answers.where((a) =>
         !a.at.toUtc().isBefore(since) &&
         !a.at.toUtc().isAfter(utc) &&
-        a.status != 'generating').toList();
+        a.status != 'generating' &&
+        a.status != 'superseded').toList();
     final localTests = tests.where((t) =>
         !t.at.toUtc().isBefore(since) &&
         !t.at.toUtc().isAfter(utc)).toList();
@@ -244,7 +248,8 @@ class PalaHealthRepository {
 
   Future<PalaHealthReport> load({DateTime? now}) async {
     final at = (now ?? DateTime.now()).toUtc();
-    final since = at.subtract(const Duration(days: 30));
+    final since = DateTime.utc(at.year, at.month, at.day)
+        .subtract(const Duration(days: 29));
     // Project only metadata: no large assistant text, image or prompt.
     final q = db.selectOnly(db.messages)
       ..addColumns([
