@@ -43,6 +43,8 @@ mixin _ChatWeb on _ChatBase {
   }) async {
     sources = List.of(sources);
     final message = originalInput ?? plan.query;
+    final originatingChatId = state.chatId;
+    final originatingProjectId = _projectId;
     // All external requests (including instant answers, news feeds and
     // Wikipedia lookups) pass the same permission/privacy boundary BEFORE
     // any network work or embedding warm-up begins.
@@ -122,12 +124,21 @@ mixin _ChatWeb on _ChatBase {
           if (_cancelled || !_alive) return null;
         }
       }
-      if (!OnlinePermissionPolicy.mayContact(
-        mode: settings.webMode,
-        input: message,
-        insideProject: deniedByScope,
-        approvedThisTurn: approved,
-      )) {
+      final latestOwnerMode = ref.read(settingsProvider).webMode;
+      final noLongerAllowed =
+          state.chatId != originatingChatId ||
+          _projectId != originatingProjectId ||
+          !ref.read(conversationWorkspaceProvider).readable ||
+          latestOwnerMode == WebMode.off ||
+          (latestOwnerMode == WebMode.auto &&
+              settings.webMode == WebMode.always);
+      if (noLongerAllowed ||
+          !OnlinePermissionPolicy.mayContact(
+            mode: settings.webMode,
+            input: message,
+            insideProject: deniedByScope,
+            approvedThisTurn: approved,
+          )) {
         state = state.copyWith(
           notice: 'جست‌وجوی آنلاین تأیید نشد؛ مسیر آفلاین فعال است.',
         );
