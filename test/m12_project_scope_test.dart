@@ -227,4 +227,28 @@ void main() {
         .mayUseInContext('existing-chat', now), isFalse);
   });
 
+  test('revoking shared or specialized sources invalidates in-flight scope', () {
+    const snapshot = ChatProject('garden', 'باغبانی پردیس',
+      collection: 'garden-encyclopedia',
+      sourceIds: ['garden-zim'],
+      sharedCollections: ['general-wikipedia'],
+    );
+    const renamed = ChatProject('garden', 'باغبانی پردیس جدید',
+      collection: 'garden-encyclopedia',
+      sourceIds: ['garden-zim'],
+      sharedCollections: ['general-wikipedia'],
+    );
+    const revokedShared = ChatProject('garden', 'باغبانی پردیس',
+      collection: 'garden-encyclopedia',
+      sourceIds: ['garden-zim'],
+    );
+    const revokedSpecialist = ChatProject('garden', 'باغبانی پردیس',
+      collection: 'garden-encyclopedia',
+      sharedCollections: ['general-wikipedia'],
+    );
+    expect(snapshot.sameKnowledgeScope(renamed), isTrue);
+    expect(snapshot.sameKnowledgeScope(revokedShared), isFalse);
+    expect(snapshot.sameKnowledgeScope(revokedSpecialist), isFalse);
+  });
+
 }

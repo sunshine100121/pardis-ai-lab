@@ -17,6 +17,15 @@ class ChatProject {
     this.sourceIds = const [],
     this.sharedCollections = const [],
   });
+  /// Exact permission comparison for in-flight retrieval. Removing a
+  /// library grant during a search must invalidate all old excerpts.
+  bool sameKnowledgeScope(ChatProject other) =>
+      collection == other.collection &&
+      sourceIds.length == other.sourceIds.length &&
+      sourceIds.toSet().containsAll(other.sourceIds) &&
+      sharedCollections.length == other.sharedCollections.length &&
+      sharedCollections.toSet().containsAll(other.sharedCollections);
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,

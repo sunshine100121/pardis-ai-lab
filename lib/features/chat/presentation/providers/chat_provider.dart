@@ -1639,9 +1639,8 @@ class ChatNotifier extends _ChatBase
         final active = ref.read(conversationWorkspaceProvider).projects
             .where((p) => p.id == scopedId).firstOrNull;
         if (_projectId != scopedId || active == null ||
-            active.collection != scopeProject?.collection ||
-            !Set<String>.from(active.sharedCollections)
-                .containsAll(approvedShared)) {
+            scopeProject == null ||
+            !active.sameKnowledgeScope(scopeProject)) {
           t.offlineRefusal = 'انتخاب منابع پروژه تغییر کرده است؛ لطفاً دوباره بپرسید.';
           return null;
         }
@@ -1745,15 +1744,12 @@ class ChatNotifier extends _ChatBase
           .projects
           .where((p) => p.id == _projectId)
           .firstOrNull;
-      final currentIds = currentProject?.sourceIds.toSet() ?? <String>{};
       final scopeChanged =
           _projectId != null &&
           (project == null ||
               currentProject == null ||
               settings.knowledgeCollection != project.collection ||
-              currentProject.collection != project.collection ||
-              currentIds.length != projectSourceIds.length ||
-              !currentIds.containsAll(projectSourceIds));
+              !currentProject.sameKnowledgeScope(project));
       t.sources = [
         if (!scopeChanged)
           ...indexedSources.where(
