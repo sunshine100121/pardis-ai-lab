@@ -288,11 +288,16 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
                                 if (segment.isNotBlank() && voskCommitted.lastOrNull() != segment) {
                                     voskCommitted.add(segment)
                                 }
+                                val utterance = voskCommitted.joinToString(" ").trim()
+                                if (utterance.isBlank()) return
+                                // Vosk reached a speech endpoint after a pause. In
+                                // one-turn Persian chat, this is the final question.
                                 channel.invokeMethod("result", mapOf(
                                     "session" to token,
-                                    "text" to voskCommitted.joinToString(" "),
-                                    "final" to false,
+                                    "text" to utterance,
+                                    "final" to true,
                                 ))
+                                release()
                             }
 
                             override fun onFinalResult(hypothesis: String?) {
@@ -301,11 +306,19 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
                                 if (segment.isNotBlank() && voskCommitted.lastOrNull() != segment) {
                                     voskCommitted.add(segment)
                                 }
-                                channel.invokeMethod("result", mapOf(
-                                    "session" to token,
-                                    "text" to voskCommitted.joinToString(" "),
-                                    "final" to true,
-                                ))
+                                val utterance = voskCommitted.joinToString(" ").trim()
+                                if (utterance.isNotBlank()) {
+                                    channel.invokeMethod("result", mapOf(
+                                        "session" to token,
+                                        "text" to utterance,
+                                        "final" to true,
+                                    ))
+                                } else {
+                                    channel.invokeMethod("error", mapOf(
+                                        "session" to token,
+                                        "code" to "error_no_match",
+                                    ))
+                                }
                                 release()
                             }
 
@@ -320,11 +333,19 @@ class OfflineDictation(private val activity: Activity, messenger: BinaryMessenge
 
                             override fun onTimeout() {
                                 if (session != token) return
-                                channel.invokeMethod("result", mapOf(
-                                    "session" to token,
-                                    "text" to voskCommitted.joinToString(" "),
-                                    "final" to true,
-                                ))
+                                val utterance = voskCommitted.joinToString(" ").trim()
+                                if (utterance.isNotBlank()) {
+                                    channel.invokeMethod("result", mapOf(
+                                        "session" to token,
+                                        "text" to utterance,
+                                        "final" to true,
+                                    ))
+                                } else {
+                                    channel.invokeMethod("error", mapOf(
+                                        "session" to token,
+                                        "code" to "error_speech_timeout",
+                                    ))
+                                }
                                 release()
                             }
                         })
