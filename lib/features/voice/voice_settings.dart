@@ -154,7 +154,9 @@ class _PersianEngines extends ConsumerWidget {
                         await ref
                             .read(settingsProvider.notifier)
                             .update(
-                              settings.copyWith(listeningModel: 'android-local'),
+                              settings.copyWith(
+                                listeningModel: 'android-local',
+                              ),
                             );
                       }
                     : null,
@@ -193,7 +195,9 @@ class _PersianEngines extends ConsumerWidget {
                         ref.invalidate(_userSttChoiceProvider);
                         await ref
                             .read(settingsProvider.notifier)
-                            .update(settings.copyWith(listeningModel: 'vosk-fa'));
+                            .update(
+                              settings.copyWith(listeningModel: 'vosk-fa'),
+                            );
                       }
                     : null,
               ),
@@ -243,7 +247,8 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
     final voskReady =
         packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
     final selectedImport = ref.watch(_userSttChoiceProvider).asData?.value;
-    final imported = ref.watch(_userVoskModelsProvider).asData?.value ??
+    final imported =
+        ref.watch(_userVoskModelsProvider).asData?.value ??
         const <VoskLocalModel>[];
     final ready = selectedImport == null
         ? PersianSttPolicy.ready(
@@ -477,9 +482,7 @@ class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
     if (accepted != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final selected = await VoiceChoiceStorage.current(
-        VoiceSelectionKind.stt,
-      );
+      final selected = await VoiceChoiceStorage.current(VoiceSelectionKind.stt);
       if (selected == model.selectionId) {
         await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
       }
@@ -495,7 +498,8 @@ class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
 
   @override
   Widget build(BuildContext context) {
-    final models = ref.watch(_userVoskModelsProvider).asData?.value ??
+    final models =
+        ref.watch(_userVoskModelsProvider).asData?.value ??
         const <VoskLocalModel>[];
     final selected = ref.watch(_userSttChoiceProvider).asData?.value;
     return SettingsRow(
@@ -505,7 +509,9 @@ class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('ورود اختیاری فایل ZIP از حافظه تبلت؛ هیچ دانلود خودکاری ندارد.'),
+          const Text(
+            'ورود اختیاری فایل ZIP از حافظه تبلت؛ هیچ دانلود خودکاری ندارد.',
+          ),
           for (final model in models)
             Row(
               children: [
@@ -513,10 +519,7 @@ class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
                   child: ChoiceChip(
                     key: Key('user-vosk-${model.id}'),
                     selected: selected == model.selectionId,
-                    label: Text(
-                      model.name,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    label: Text(model.name, overflow: TextOverflow.ellipsis),
                     onSelected: _busy ? null : (_) => _select(model),
                   ),
                 ),

@@ -253,7 +253,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     // A user-imported Vosk ZIP is a real local adapter route. Unknown
     // adapters fail closed, without silently falling back to Android STT.
     final requested = VoiceEngineSelection.parse(futureChoice);
-    final customPath = requested?.kind == VoiceSelectionKind.stt &&
+    final customPath =
+        requested?.kind == VoiceSelectionKind.stt &&
             requested?.adapter == 'vosk'
         ? await VoskLocalModels.pathFor(requested!.model)
         : null;
@@ -261,7 +262,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (futureChoice != null && customPath == null) {
       state = state.copyWith(
         listening: false,
-        error: 'مدل STT انتخابی موجود یا سازگار نیست؛ '
+        error:
+            'مدل STT انتخابی موجود یا سازگار نیست؛ '
             'انتخاب حفظ شد و موتور جایگزین خودکار اجرا نشد.',
       );
       return;
@@ -326,7 +328,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
     if (!_alive || epoch != _listenEpoch) return;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      final voskPath = customPath ??
+      final voskPath =
+          customPath ??
           (explicitVosk ? await VoiceModels.voskPersianPath() : null);
       if (explicitVosk && voskPath == null) {
         state = state.copyWith(
