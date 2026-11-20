@@ -16,7 +16,7 @@ class MemoryPreferences {
   const MemoryPreferences({
     this.learning = MemoryLearningMode.automatic,
     this.retention = MemoryRetention.untilDeleted,
-    this.responseStyle = MemoryResponseStyle.friendly,
+    this.responseStyle = MemoryResponseStyle.systemDefault,
   });
 
   MemoryPreferences copyWith({
@@ -58,7 +58,7 @@ class MemoryPreferences {
       responseStyle: read(
         MemoryResponseStyle.values,
         'responseStyle',
-        MemoryResponseStyle.friendly,
+        MemoryResponseStyle.systemDefault,
       ),
     );
   }

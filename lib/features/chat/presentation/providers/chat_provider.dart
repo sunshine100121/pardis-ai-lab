@@ -3516,10 +3516,10 @@ class ChatNotifier extends _ChatBase
     baseSystem.write('\n${settings.systemPrompt}');
     // Personal tone is a saved UI preference, never a factual claim.
     // It applies across chats but cannot override safety or project rules.
-    baseSystem.write(
-      '\nResponse tone preference: '
-      '${ref.read(memoryPreferencesProvider).responseStyle.promptNote}',
-    );
+    final ownerStyle = ref.read(memoryPreferencesProvider).responseStyle.promptNote;
+    if (ownerStyle.isNotEmpty) {
+      baseSystem.write('\nResponse tone preference: $ownerStyle');
+    }
     if (extraSystem != null && extraSystem.trim().isNotEmpty) {
       baseSystem.write('\n${extraSystem.trim()}');
     }

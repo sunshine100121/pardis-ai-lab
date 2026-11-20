@@ -17,6 +17,7 @@ enum MemoryRetention {
 }
 
 enum MemoryResponseStyle {
+  systemDefault('پیش‌فرض پالا'),
   formal('رسمی'),
   friendly('دوستانه'),
   humorous('شوخ‌طبع');
@@ -26,6 +27,7 @@ enum MemoryResponseStyle {
 
   /// Response style is guidance, never evidence or a change to safety policy.
   String get promptNote => switch (this) {
+    systemDefault => '',
     formal => 'Use a clear, professional and respectful response style.',
     friendly => 'Use a friendly, natural, concise response style.',
     humorous => 'Use light humor only when appropriate; never in safety, '
