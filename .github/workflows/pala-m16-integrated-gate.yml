@@ -1,7 +1,6 @@
 name: PALA M16 integrated 0.3.4 release gate (source only; no APK)
 on:
-  push:
-    branches: [pala/m16-release-gate-034-2026-11-21]
+  # Single deliberate run per reviewed release commit; documentation-only commits cost no CI.
   workflow_dispatch:
 permissions:
   contents: read
