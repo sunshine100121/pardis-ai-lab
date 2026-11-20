@@ -573,9 +573,8 @@ class _ImportedSherpaModelsState extends ConsumerState<_ImportedSherpaModels> {
   bool _busy = false;
   String? _error;
   bool get _stt => widget.kind == PersianSherpaKind.stt;
-  VoiceSelectionKind get _choice => _stt
-      ? VoiceSelectionKind.stt
-      : VoiceSelectionKind.tts;
+  VoiceSelectionKind get _choice =>
+      _stt ? VoiceSelectionKind.stt : VoiceSelectionKind.tts;
 
   void _refresh() {
     ref.invalidate(_stt ? _shenavaProvider : _piperProvider);
@@ -659,9 +658,13 @@ class _ImportedSherpaModelsState extends ConsumerState<_ImportedSherpaModels> {
 
   @override
   Widget build(BuildContext context) {
-    final models = ref.watch(_stt ? _shenavaProvider : _piperProvider).asData?.value ??
+    final models =
+        ref.watch(_stt ? _shenavaProvider : _piperProvider).asData?.value ??
         const <PersianSherpaModel>[];
-    final selected = ref.watch(_stt ? _userSttChoiceProvider : _userTtsChoiceProvider).asData?.value;
+    final selected = ref
+        .watch(_stt ? _userSttChoiceProvider : _userTtsChoiceProvider)
+        .asData
+        ?.value;
     return SettingsRow(
       key: Key(_stt ? 'shenava-importer' : 'piper-importer'),
       leading: Icon(_stt ? Icons.hearing : Icons.record_voice_over),
@@ -669,9 +672,11 @@ class _ImportedSherpaModelsState extends ConsumerState<_ImportedSherpaModels> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(_stt
-              ? 'مدل ONNX فارسی + tokens.txt'
-              : 'صدای ONNX + tokens.txt + espeak-ng-data'),
+          Text(
+            _stt
+                ? 'مدل ONNX فارسی + tokens.txt'
+                : 'صدای ONNX + tokens.txt + espeak-ng-data',
+          ),
           for (final model in models)
             Row(
               children: [
@@ -693,11 +698,14 @@ class _ImportedSherpaModelsState extends ConsumerState<_ImportedSherpaModels> {
           if (!_stt && models.any((m) => m.selectionId == selected))
             TextButton.icon(
               key: const Key('piper-test'),
-              onPressed: _busy ? null : () =>
-                  ref.read(voiceProvider.notifier).speak(
-                    'سلام، این یک آزمایش صدای فارسی پایپر است.',
-                    id: 'piper-sample',
-                  ),
+              onPressed: _busy
+                  ? null
+                  : () => ref
+                        .read(voiceProvider.notifier)
+                        .speak(
+                          'سلام، این یک آزمایش صدای فارسی پایپر است.',
+                          id: 'piper-sample',
+                        ),
               icon: const Icon(Icons.play_arrow),
               label: const Text('آزمایش صدای Piper'),
             ),
@@ -705,9 +713,9 @@ class _ImportedSherpaModelsState extends ConsumerState<_ImportedSherpaModels> {
             key: Key(_stt ? 'shenava-add' : 'piper-add'),
             onPressed: _busy ? null : _import,
             icon: const Icon(Icons.folder_open_outlined),
-            label: Text(_busy
-                ? 'در حال بررسی فایل…'
-                : 'افزودن اختیاری ZIP یا TAR.BZ2'),
+            label: Text(
+              _busy ? 'در حال بررسی فایل…' : 'افزودن اختیاری ZIP یا TAR.BZ2',
+            ),
           ),
           if (_error != null)
             Text(_error!, style: TextStyle(color: context.colors.warning)),

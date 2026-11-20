@@ -266,7 +266,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
         ? await VoskLocalModels.pathFor(requested!.model)
         : null;
     if (!_alive || epoch != _listenEpoch) return;
-    final shenava = requested?.kind == VoiceSelectionKind.stt &&
+    final shenava =
+        requested?.kind == VoiceSelectionKind.stt &&
             requested?.adapter == 'sherpa-ctc'
         ? await PersianSherpaModels.find(
             PersianSherpaKind.stt,
@@ -827,18 +828,16 @@ class VoiceNotifier extends Notifier<VoiceState> {
     );
     if (futureChoice != null) {
       final choice = VoiceEngineSelection.parse(futureChoice);
-      final model = choice?.kind == VoiceSelectionKind.tts &&
-              choice?.adapter == 'piper'
-          ? await PersianSherpaModels.find(
-              PersianSherpaKind.tts,
-              choice!.model,
-            )
+      final model =
+          choice?.kind == VoiceSelectionKind.tts && choice?.adapter == 'piper'
+          ? await PersianSherpaModels.find(PersianSherpaKind.tts, choice!.model)
           : null;
       if (model == null) {
         state = state.copyWith(
           speaking: false,
           clearSpeakingId: true,
-          error: 'مدل TTS انتخابی یا آداپتور آن آماده نیست؛ '
+          error:
+              'مدل TTS انتخابی یا آداپتور آن آماده نیست؛ '
               'موتور دیگری خودکار اجرا نمی‌شود.',
         );
         return;

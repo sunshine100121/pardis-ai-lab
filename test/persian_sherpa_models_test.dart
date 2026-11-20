@@ -14,7 +14,11 @@ void main() {
     if (await temp.exists()) await temp.delete(recursive: true);
   });
 
-  Future<File> fake(String fileName, {bool piper = false, bool unsafe = false}) async {
+  Future<File> fake(
+    String fileName, {
+    bool piper = false,
+    bool unsafe = false,
+  }) async {
     final pack = Archive()
       ..addFile(ArchiveFile.string('bundle/model.onnx', 'onnx'))
       ..addFile(ArchiveFile.string('bundle/tokens.txt', 'tokens'));
@@ -39,36 +43,76 @@ void main() {
       label: 'شنوا ریزه',
     );
     expect(model.selectionId, startsWith('stt:sherpa-ctc:'));
-    expect(await PersianSherpaModels.find(PersianSherpaKind.stt, model.id, root: root), isNotNull);
-    expect((await PersianSherpaModels.installed(PersianSherpaKind.stt, root: root)).single.id, model.id);
+    expect(
+      await PersianSherpaModels.find(
+        PersianSherpaKind.stt,
+        model.id,
+        root: root,
+      ),
+      isNotNull,
+    );
+    expect(
+      (await PersianSherpaModels.installed(
+        PersianSherpaKind.stt,
+        root: root,
+      )).single.id,
+      model.id,
+    );
     expect(await pack.exists(), isTrue);
-    await PersianSherpaModels.delete(PersianSherpaKind.stt, model.id, root: root);
-    expect(await PersianSherpaModels.installed(PersianSherpaKind.stt, root: root), isEmpty);
-  });
-
-  test('Piper requires phonemizer assets and remains separate from STT', () async {
-    final root = Directory(p.join(temp.path, 'models'));
-    final pack = await fake('piper.zip', piper: true);
-    final model = await PersianSherpaModels.importArchive(
-      pack,
-      PersianSherpaKind.tts,
+    await PersianSherpaModels.delete(
+      PersianSherpaKind.stt,
+      model.id,
       root: root,
     );
-    expect(model.selectionId, startsWith('tts:piper:'));
-    expect((await PersianSherpaModels.installed(PersianSherpaKind.tts, root: root)).single.id, model.id);
-    expect(await PersianSherpaModels.installed(PersianSherpaKind.stt, root: root), isEmpty);
-    final bad = await fake('bad-piper.zip');
     expect(
-      () => PersianSherpaModels.importArchive(bad, PersianSherpaKind.tts, root: root),
-      throwsFormatException,
+      await PersianSherpaModels.installed(PersianSherpaKind.stt, root: root),
+      isEmpty,
     );
   });
+
+  test(
+    'Piper requires phonemizer assets and remains separate from STT',
+    () async {
+      final root = Directory(p.join(temp.path, 'models'));
+      final pack = await fake('piper.zip', piper: true);
+      final model = await PersianSherpaModels.importArchive(
+        pack,
+        PersianSherpaKind.tts,
+        root: root,
+      );
+      expect(model.selectionId, startsWith('tts:piper:'));
+      expect(
+        (await PersianSherpaModels.installed(
+          PersianSherpaKind.tts,
+          root: root,
+        )).single.id,
+        model.id,
+      );
+      expect(
+        await PersianSherpaModels.installed(PersianSherpaKind.stt, root: root),
+        isEmpty,
+      );
+      final bad = await fake('bad-piper.zip');
+      expect(
+        () => PersianSherpaModels.importArchive(
+          bad,
+          PersianSherpaKind.tts,
+          root: root,
+        ),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('reject traversal before writing outside staging', () async {
     final root = Directory(p.join(temp.path, 'models'));
     final pack = await fake('unsafe.zip', unsafe: true);
     await expectLater(
-      PersianSherpaModels.importArchive(pack, PersianSherpaKind.stt, root: root),
+      PersianSherpaModels.importArchive(
+        pack,
+        PersianSherpaKind.stt,
+        root: root,
+      ),
       throwsFormatException,
     );
     expect(await File(p.join(temp.path, 'escape')).exists(), isFalse);

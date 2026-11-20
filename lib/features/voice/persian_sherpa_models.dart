@@ -83,7 +83,9 @@ abstract final class PersianSherpaModels {
           !await File(p.join(dir.path, 'espeak-ng-data', 'phontab')).exists()) {
         return null;
       }
-      final label = decoded['label'] is String ? decoded['label'] as String : '';
+      final label = decoded['label'] is String
+          ? decoded['label'] as String
+          : '';
       return PersianSherpaModel(
         id: id,
         label: label.isEmpty ? '${kind.name} $id' : label,
@@ -154,10 +156,15 @@ abstract final class PersianSherpaModels {
     final present = await find(kind, id, root: parent);
     if (present != null) return present;
     if (await target.exists()) {
-      throw const FormatException('پوشه ناقص مدل موجود است؛ جایگزینی انجام نشد.');
+      throw const FormatException(
+        'پوشه ناقص مدل موجود است؛ جایگزینی انجام نشد.',
+      );
     }
     final stage = await Directory(
-      p.join(parent.path, '.pala-sherpa-stage-$id-${DateTime.now().microsecondsSinceEpoch}'),
+      p.join(
+        parent.path,
+        '.pala-sherpa-stage-$id-${DateTime.now().microsecondsSinceEpoch}',
+      ),
     ).create();
     try {
       await Isolate.run(() => _extract(archiveFile.path, stage.path));
@@ -173,22 +180,27 @@ abstract final class PersianSherpaModels {
       }
       if (onnxFiles.length != 1 ||
           await File(p.join(stage.path, onnxFiles.single)).length() == 0) {
-        throw const FormatException('بسته باید دقیقاً یک مدل ONNX معتبر داشته باشد.');
+        throw const FormatException(
+          'بسته باید دقیقاً یک مدل ONNX معتبر داشته باشد.',
+        );
       }
       if (kind == PersianSherpaKind.stt && onnxFiles.single != 'model.onnx') {
         throw const FormatException('بسته شنوا باید model.onnx داشته باشد.');
       }
       if (kind == PersianSherpaKind.tts &&
-          !await File(p.join(stage.path, 'espeak-ng-data', 'phontab')).exists()) {
+          !await File(p.join(stage.path, 'espeak-ng-data', 'phontab'))
+              .exists()) {
         throw const FormatException('بسته Piper به espeak-ng-data نیاز دارد.');
       }
       final text = (label ?? p.basename(archiveFile.path)).trim();
-      await File(p.join(stage.path, _meta)).writeAsString(jsonEncode({
-        'kind': kind.name,
-        'model': onnxFiles.single,
-        'sha256': hash,
-        'label': text.length > 72 ? text.substring(0, 72) : text,
-      }));
+      await File(p.join(stage.path, _meta)).writeAsString(
+        jsonEncode({
+          'kind': kind.name,
+          'model': onnxFiles.single,
+          'sha256': hash,
+          'label': text.length > 72 ? text.substring(0, 72) : text,
+        }),
+      );
       if (await target.exists()) {
         throw const FormatException('مدل هم‌زمان اضافه شد؛ فایلی جایگزین نشد.');
       }
@@ -239,7 +251,8 @@ abstract final class PersianSherpaModels {
           throw const FormatException('مسیر ناامن در بسته مدل.');
         }
         final parts = raw.split('/');
-        final rootFiles = raw == 'tokens.txt' ||
+        final rootFiles =
+            raw == 'tokens.txt' ||
             raw == 'model.onnx' ||
             raw.startsWith('espeak-ng-data/') ||
             (parts.length == 1 && raw.endsWith('.onnx'));

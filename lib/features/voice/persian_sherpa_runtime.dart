@@ -17,9 +17,7 @@ sherpa.OfflineRecognizerConfig persianCtcConfig(
   int threads = 4,
 }) => sherpa.OfflineRecognizerConfig(
   model: sherpa.OfflineModelConfig(
-    nemoCtc: sherpa.OfflineNemoEncDecCtcModelConfig(
-      model: model.modelPath,
-    ),
+    nemoCtc: sherpa.OfflineNemoEncDecCtcModelConfig(model: model.modelPath),
     tokens: model.tokensPath,
     numThreads: threads,
     debug: false,
@@ -45,86 +43,78 @@ void _ctcWorkerMain(SendPort boot) {
   sherpa.initBindings();
   sherpa.OfflineRecognizer? recognizer;
   String? loaded;
-  serveSherpaWorker(
-    boot,
-    (m) {
-      final model = m['model'] as String;
-      if (recognizer == null || loaded != model) {
-        recognizer?.free();
-        final dir = m['directory'] as String;
-        recognizer = sherpa.OfflineRecognizer(
-          sherpa.OfflineRecognizerConfig(
-            model: sherpa.OfflineModelConfig(
-              nemoCtc: sherpa.OfflineNemoEncDecCtcModelConfig(model: model),
-              tokens: p.join(dir, 'tokens.txt'),
-              numThreads: 4,
-              debug: false,
-            ),
+  serveSherpaWorker(boot, (m) {
+    final model = m['model'] as String;
+    if (recognizer == null || loaded != model) {
+      recognizer?.free();
+      final dir = m['directory'] as String;
+      recognizer = sherpa.OfflineRecognizer(
+        sherpa.OfflineRecognizerConfig(
+          model: sherpa.OfflineModelConfig(
+            nemoCtc: sherpa.OfflineNemoEncDecCtcModelConfig(model: model),
+            tokens: p.join(dir, 'tokens.txt'),
+            numThreads: 4,
+            debug: false,
           ),
-        );
-        loaded = model;
-      }
-      final samples = (m['samples'] as TransferableTypedData)
-          .materialize()
-          .asFloat32List();
-      final stream = recognizer!.createStream();
-      try {
-        stream.acceptWaveform(samples: samples, sampleRate: 16000);
-        recognizer!.decode(stream);
-        return {'text': recognizer!.getResult(stream).text.trim()};
-      } finally {
-        stream.free();
-      }
-    },
-    () => recognizer?.free(),
-  );
+        ),
+      );
+      loaded = model;
+    }
+    final samples = (m['samples'] as TransferableTypedData)
+        .materialize()
+        .asFloat32List();
+    final stream = recognizer!.createStream();
+    try {
+      stream.acceptWaveform(samples: samples, sampleRate: 16000);
+      recognizer!.decode(stream);
+      return {'text': recognizer!.getResult(stream).text.trim()};
+    } finally {
+      stream.free();
+    }
+  }, () => recognizer?.free());
 }
 
 void _piperWorkerMain(SendPort boot) {
   sherpa.initBindings();
   sherpa.OfflineTts? tts;
   String? loaded;
-  serveSherpaWorker(
-    boot,
-    (m) {
-      final path = m['model'] as String;
-      if (tts == null || loaded != path) {
-        tts?.free();
-        final dir = m['directory'] as String;
-        tts = sherpa.OfflineTts(
-          sherpa.OfflineTtsConfig(
-            model: sherpa.OfflineTtsModelConfig(
-              vits: sherpa.OfflineTtsVitsModelConfig(
-                model: path,
-                tokens: p.join(dir, 'tokens.txt'),
-                dataDir: p.join(dir, 'espeak-ng-data'),
-              ),
-              numThreads: 3,
-              debug: false,
+  serveSherpaWorker(boot, (m) {
+    final path = m['model'] as String;
+    if (tts == null || loaded != path) {
+      tts?.free();
+      final dir = m['directory'] as String;
+      tts = sherpa.OfflineTts(
+        sherpa.OfflineTtsConfig(
+          model: sherpa.OfflineTtsModelConfig(
+            vits: sherpa.OfflineTtsVitsModelConfig(
+              model: path,
+              tokens: p.join(dir, 'tokens.txt'),
+              dataDir: p.join(dir, 'espeak-ng-data'),
             ),
+            numThreads: 3,
+            debug: false,
           ),
-        );
-        loaded = path;
-      }
-      final audio = tts!.generate(
-        text: m['text'] as String,
-        sid: 0,
-        speed: (m['speed'] as num).toDouble().clamp(0.6, 1.6),
+        ),
       );
-      if (audio.samples.isEmpty || audio.sampleRate <= 0) {
-        return {'error': 'این مدل Piper صدای قابل‌پخش تولید نکرد.'};
-      }
-      final pcm = Int16List(audio.samples.length);
-      for (var i = 0; i < pcm.length; i++) {
-        pcm[i] = (audio.samples[i].clamp(-1.0, 1.0) * 32767).round();
-      }
-      return {
-        'pcm': TransferableTypedData.fromList([pcm]),
-        'rate': audio.sampleRate,
-      };
-    },
-    () => tts?.free(),
-  );
+      loaded = path;
+    }
+    final audio = tts!.generate(
+      text: m['text'] as String,
+      sid: 0,
+      speed: (m['speed'] as num).toDouble().clamp(0.6, 1.6),
+    );
+    if (audio.samples.isEmpty || audio.sampleRate <= 0) {
+      return {'error': 'این مدل Piper صدای قابل‌پخش تولید نکرد.'};
+    }
+    final pcm = Int16List(audio.samples.length);
+    for (var i = 0; i < pcm.length; i++) {
+      pcm[i] = (audio.samples[i].clamp(-1.0, 1.0) * 32767).round();
+    }
+    return {
+      'pcm': TransferableTypedData.fromList([pcm]),
+      'rate': audio.sampleRate,
+    };
+  }, () => tts?.free());
 }
 
 /// One sentence at a time: audio is captured locally at 16 kHz and only
@@ -293,7 +283,8 @@ class PersianPiperSpeaker {
     String text, {
     double speed = 1,
   }) async {
-    if (model.kind != PersianSherpaKind.tts || text.trim().isEmpty) return false;
+    if (model.kind != PersianSherpaKind.tts || text.trim().isEmpty)
+      return false;
     final epoch = ++_epoch;
     final worker = _worker ??= await SherpaWorker.spawn(_piperWorkerMain);
     final result = await worker.call({
