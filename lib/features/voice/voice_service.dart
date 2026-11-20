@@ -18,6 +18,7 @@ import 'offline_dictation.dart';
 import 'persian_stt_policy.dart';
 import 'voice_choice_storage.dart';
 import 'voice_engine_selection.dart';
+import 'vosk_local_models.dart';
 import 'sherpa_voice.dart';
 import 'voice_models.dart';
 import 'voice_models_provider.dart';
@@ -249,12 +250,19 @@ class VoiceNotifier extends Notifier<VoiceState> {
       VoiceSelectionKind.stt,
     );
     if (!_alive || epoch != _listenEpoch) return;
-    if (futureChoice != null) {
+    // A user-imported Vosk ZIP is a real local adapter route. Unknown
+    // adapters fail closed, without silently falling back to Android STT.
+    final requested = VoiceEngineSelection.parse(futureChoice);
+    final customPath = requested?.kind == VoiceSelectionKind.stt &&
+            requested?.adapter == 'vosk'
+        ? await VoskLocalModels.pathFor(requested!.model)
+        : null;
+    if (!_alive || epoch != _listenEpoch) return;
+    if (futureChoice != null && customPath == null) {
       state = state.copyWith(
         listening: false,
-        error:
-            'مدل STT انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
-            'موتور دیگری به‌جای آن خودکار اجرا نشد.',
+        error: 'مدل STT انتخابی موجود یا سازگار نیست؛ '
+            'انتخاب حفظ شد و موتور جایگزین خودکار اجرا نشد.',
       );
       return;
     }
@@ -265,7 +273,16 @@ class VoiceNotifier extends Notifier<VoiceState> {
     );
     final explicitWhisper =
         persian && selectedPersian == PersianSttPolicy.whisper;
-    final explicitVosk = persian && selectedPersian == PersianSttPolicy.vosk;
+    final explicitVosk =
+        persian &&
+        (selectedPersian == PersianSttPolicy.vosk || customPath != null);
+    if (futureChoice != null && !persian) {
+      state = state.copyWith(
+        listening: false,
+        error: 'مدل Vosk واردشده فارسی است؛ زبان مکالمه را فارسی انتخاب کنید.',
+      );
+      return;
+    }
     if (persian &&
         selectedPersian != PersianSttPolicy.android &&
         !explicitWhisper &&
@@ -309,9 +326,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
     if (!_alive || epoch != _listenEpoch) return;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      final voskPath = explicitVosk
-          ? await VoiceModels.voskPersianPath()
-          : null;
+      final voskPath = customPath ??
+          (explicitVosk ? await VoiceModels.voskPersianPath() : null);
       if (explicitVosk && voskPath == null) {
         state = state.copyWith(
           listening: false,

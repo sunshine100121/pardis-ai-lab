@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,7 +17,17 @@ import 'voice_service.dart';
 import 'offline_dictation.dart';
 import 'voice_engine_catalog.dart';
 import 'persian_stt_policy.dart';
+import 'voice_choice_storage.dart';
+import 'voice_engine_selection.dart';
+import 'vosk_local_models.dart';
 import '../../core/platform/form_factor.dart';
+
+final _userVoskModelsProvider = FutureProvider<List<VoskLocalModel>>(
+  (ref) => VoskLocalModels.installed(),
+);
+final _userSttChoiceProvider = FutureProvider<String?>(
+  (ref) => VoiceChoiceStorage.current(VoiceSelectionKind.stt),
+);
 
 final _androidPersianSttStatusProvider = FutureProvider<Map<String, dynamic>>((
   ref,
@@ -60,6 +72,7 @@ class NaturalVoiceSettings extends ConsumerWidget {
           const _PersianEngines(),
           const _AndroidPersianSttModel(),
           const _VoskDownloadRow(),
+          const _UserVoskModelsTile(),
           const _PersianTtsEngines(),
           const _VoiceDownloadRow(),
         ],
@@ -102,6 +115,7 @@ class _PersianEngines extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final packs = ref.watch(voiceModelsProvider);
+    final userChoice = ref.watch(_userSttChoiceProvider).asData?.value;
     final ready =
         packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
     final voskReady =
@@ -129,27 +143,39 @@ class _PersianEngines extends ConsumerWidget {
                   androidReady ? 'Android · آماده' : 'Android · آفلاین ناموجود',
                 ),
                 selected:
+                    userChoice == null &&
                     PersianSttPolicy.selected(settings.listeningModel) ==
                         PersianSttPolicy.android &&
                     androidReady,
                 onSelected: androidReady
-                    ? (_) => ref
-                          .read(settingsProvider.notifier)
-                          .update(
-                            settings.copyWith(listeningModel: 'android-local'),
-                          )
+                    ? (_) async {
+                        await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
+                        ref.invalidate(_userSttChoiceProvider);
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .update(
+                              settings.copyWith(listeningModel: 'android-local'),
+                            );
+                      }
                     : null,
               ),
               ChoiceChip(
                 key: const Key('persian-stt-whisper'),
                 label: Text(ready ? 'Whisper · آماده' : 'Whisper · نصب نشده'),
-                selected: settings.listeningModel == 'whisper-fa' && ready,
+                selected:
+                    userChoice == null &&
+                    settings.listeningModel == 'whisper-fa' &&
+                    ready,
                 onSelected: ready
-                    ? (_) => ref
-                          .read(settingsProvider.notifier)
-                          .update(
-                            settings.copyWith(listeningModel: 'whisper-fa'),
-                          )
+                    ? (_) async {
+                        await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
+                        ref.invalidate(_userSttChoiceProvider);
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .update(
+                              settings.copyWith(listeningModel: 'whisper-fa'),
+                            );
+                      }
                     : null,
               ),
               ChoiceChip(
@@ -157,11 +183,18 @@ class _PersianEngines extends ConsumerWidget {
                 label: Text(
                   voskReady ? 'Vosk فارسی · آماده' : 'Vosk فارسی · نصب نشده',
                 ),
-                selected: settings.listeningModel == 'vosk-fa' && voskReady,
+                selected:
+                    userChoice == null &&
+                    settings.listeningModel == 'vosk-fa' &&
+                    voskReady,
                 onSelected: voskReady
-                    ? (_) => ref
-                          .read(settingsProvider.notifier)
-                          .update(settings.copyWith(listeningModel: 'vosk-fa'))
+                    ? (_) async {
+                        await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
+                        ref.invalidate(_userSttChoiceProvider);
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .update(settings.copyWith(listeningModel: 'vosk-fa'));
+                      }
                     : null,
               ),
             ],
@@ -209,12 +242,17 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
         packs.of(VoiceModels.listening).status == VoicePackStatus.ready;
     final voskReady =
         packs.of(VoiceModels.voskPersian).status == VoicePackStatus.ready;
-    final ready = PersianSttPolicy.ready(
-      setting: settings.listeningModel,
-      androidReady: androidReady,
-      whisperReady: whisperReady,
-      voskReady: voskReady,
-    );
+    final selectedImport = ref.watch(_userSttChoiceProvider).asData?.value;
+    final imported = ref.watch(_userVoskModelsProvider).asData?.value ??
+        const <VoskLocalModel>[];
+    final ready = selectedImport == null
+        ? PersianSttPolicy.ready(
+            setting: settings.listeningModel,
+            androidReady: androidReady,
+            whisperReady: whisperReady,
+            voskReady: voskReady,
+          )
+        : imported.any((model) => model.selectionId == selectedImport);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,12 +308,14 @@ class _PersianSttTestState extends ConsumerState<_PersianSttTest> {
         ),
         if (!ready)
           Text(
-            PersianSttPolicy.unavailable(
-              setting: settings.listeningModel,
-              androidReady: androidReady,
-              whisperReady: whisperReady,
-              voskReady: voskReady,
-            ),
+            selectedImport == null
+                ? PersianSttPolicy.unavailable(
+                    setting: settings.listeningModel,
+                    androidReady: androidReady,
+                    whisperReady: whisperReady,
+                    voskReady: voskReady,
+                  )
+                : 'مدل Vosk انتخابی فعلاً آماده نیست؛ فایل واردشده را بررسی کنید.',
             key: const Key('persian-stt-fallback'),
           ),
         if (_started && voice.partial.isNotEmpty) Text(voice.partial),
@@ -354,6 +394,147 @@ class _VoskDownloadRow extends ConsumerWidget {
             Text(state.error!, style: TextStyle(color: context.colors.warning)),
           const SizedBox(height: AppDesign.xs),
           action,
+        ],
+      ),
+    );
+  }
+}
+
+class _UserVoskModelsTile extends ConsumerStatefulWidget {
+  const _UserVoskModelsTile();
+
+  @override
+  ConsumerState<_UserVoskModelsTile> createState() =>
+      _UserVoskModelsTileState();
+}
+
+class _UserVoskModelsTileState extends ConsumerState<_UserVoskModelsTile> {
+  bool _busy = false;
+  String? _problem;
+
+  Future<void> _import() async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+      if (picked == null) return;
+      final path = picked.files.single.path;
+      if (path == null) {
+        throw const FormatException('فایل انتخابی از حافظه در دسترس نیست.');
+      }
+      final model = await VoskLocalModels.importZip(
+        File(path),
+        displayName: picked.files.single.name,
+      );
+      await VoiceChoiceStorage.choose(
+        VoiceSelectionKind.stt,
+        model.selectionId,
+      );
+      ref.invalidate(_userVoskModelsProvider);
+      ref.invalidate(_userSttChoiceProvider);
+    } catch (error) {
+      if (mounted) setState(() => _problem = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _select(VoskLocalModel model) async {
+    try {
+      await VoiceChoiceStorage.choose(
+        VoiceSelectionKind.stt,
+        model.selectionId,
+      );
+      ref.invalidate(_userSttChoiceProvider);
+    } catch (error) {
+      if (mounted) setState(() => _problem = '$error');
+    }
+  }
+
+  Future<void> _delete(VoskLocalModel model) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف مدل گفتار؟'),
+        content: Text('مدل «${model.name}» از حافظه پالا حذف شود؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف مدل'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final selected = await VoiceChoiceStorage.current(
+        VoiceSelectionKind.stt,
+      );
+      if (selected == model.selectionId) {
+        await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
+      }
+      await VoskLocalModels.delete(model.id);
+      ref.invalidate(_userVoskModelsProvider);
+      ref.invalidate(_userSttChoiceProvider);
+    } catch (error) {
+      if (mounted) setState(() => _problem = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final models = ref.watch(_userVoskModelsProvider).asData?.value ??
+        const <VoskLocalModel>[];
+    final selected = ref.watch(_userSttChoiceProvider).asData?.value;
+    return SettingsRow(
+      key: const Key('local-vosk-library'),
+      leading: const Icon(Icons.folder_open_outlined),
+      title: const Text('مدل‌های Vosk دلخواه'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('ورود اختیاری فایل ZIP از حافظه تبلت؛ هیچ دانلود خودکاری ندارد.'),
+          for (final model in models)
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    key: Key('user-vosk-${model.id}'),
+                    selected: selected == model.selectionId,
+                    label: Text(
+                      model.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onSelected: _busy ? null : (_) => _select(model),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'حذف مدل',
+                  onPressed: _busy ? null : () => _delete(model),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+          OutlinedButton.icon(
+            key: const Key('local-vosk-import'),
+            onPressed: _busy ? null : _import,
+            icon: const Icon(Icons.add_circle_outline),
+            label: Text(_busy ? 'در حال بررسی مدل…' : 'افزودن مدل Vosk از ZIP'),
+          ),
+          if (_problem != null)
+            Text(_problem!, style: TextStyle(color: context.colors.warning)),
         ],
       ),
     );
@@ -465,7 +646,7 @@ class _PersianTtsEngines extends ConsumerStatefulWidget {
 }
 
 class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
-  late final Future<(List<String>, String?)> _engines = _load();
+  late Future<(List<String>, String?)> _engines = _load();
   String? _selected;
   bool _busy = false;
 
@@ -551,6 +732,14 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
               onPressed: () => OfflineDictation.openSystemTtsSettings(),
               icon: const Icon(Icons.settings_outlined),
               label: const Text('نصب یا مدیریت موتورهای Android'),
+            ),
+            TextButton.icon(
+              key: const Key('persian-tts-refresh'),
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _engines = _load()),
+              icon: const Icon(Icons.refresh),
+              label: const Text('بازخوانی موتورهای نصب‌شده'),
             ),
             TextButton.icon(
               key: const Key('persian-tts-try'),
