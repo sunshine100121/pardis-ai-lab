@@ -48,6 +48,8 @@ jobs:
         run: |
           flutter test --concurrency=1 \
             test/m17_vision_safety_test.dart \
+            test/m13_internet_policy_test.dart \
+            test/m13_project_public_web_query_test.dart \
             test/m15_lan_probe_test.dart \
             test/import_projector_test.dart \
             test/hf_projector_persistence_test.dart \

@@ -1,8 +1,6 @@
 name: PALA M17 baseline comparison - historical web regression
 
 on:
-  push:
-    branches: [pala/m17-persian-image-understanding-2026-11-20]
   workflow_dispatch:
 
 permissions:
