@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for existing baseline and installed-reference commit checks
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.5'
