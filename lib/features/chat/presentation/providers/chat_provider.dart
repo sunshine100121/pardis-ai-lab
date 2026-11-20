@@ -1367,7 +1367,7 @@ class ChatNotifier extends _ChatBase
     }
     // "Where I live", "near me": the place the user named in this chat,
     // not wherever a result page locates the phone.
-    if (plan.mode == RetrievalMode.search) {
+    if (plan.mode == RetrievalMode.search && _projectId == null) {
       final placed = RetrievalPlan.withUserPlace(plan.query, [
         for (final m in state.messages)
           if (m.role == ChatRole.user && isLive(m) &&
@@ -1383,24 +1383,35 @@ class ChatNotifier extends _ChatBase
         );
       }
     }
-    // The outbound query in a project is built ONLY from the current
-    // user's public-topic words. Contextual rewrites, earlier messages,
-    // private notes, URLs, numerical IDs and model-generated terms are
-    // not allowed to become search-engine input.
+    // Project internet is first-class, but never sends project history,
+    // saved notes or model-generated text. A current-turn public search
+    // uses the same permission gate and search engine as a normal chat.
     if (_projectId != null && plan.mode != RetrievalMode.none) {
-      final publicQuery = ProjectPublicWebQuery.fromMessage(input);
-      if (publicQuery == null) {
-        plan = RetrievalPlan.of(input, webEnabled: false);
-        state = state.copyWith(
-          notice: 'عبارت عمومی و بی‌نام برای جست‌وجوی امن پیدا نشد؛ '
-              'اطلاعات پروژه به اینترنت ارسال نشد.',
+      final currentProject = ref.read(conversationWorkspaceProvider)
+          .projects.where((p) => p.id == _projectId).firstOrNull;
+      final publicQuery = ProjectPublicWebQuery.fromMessage(
+        input, projectName: currentProject?.name ?? '',
+      );
+      if (plan.mode == RetrievalMode.readUrls &&
+          ProjectPublicWebQuery.publicUrlsFromMessage(input, plan.urls)) {
+        plan = RetrievalPlan(
+          mode: RetrievalMode.readUrls,
+          urls: plan.urls,
+          query: '',
+          wantsWeb: true,
         );
-      } else {
+      } else if (plan.mode == RetrievalMode.search && publicQuery != null) {
         plan = RetrievalPlan(
           mode: RetrievalMode.search,
           urls: const [],
           query: publicQuery,
           wantsWeb: true,
+        );
+      } else {
+        plan = RetrievalPlan.of(input, webEnabled: false);
+        state = state.copyWith(
+          notice: 'عبارت مناسب و امن برای اینترنت مشخص نشد؛ '
+              'درخواست به منابع محلی محدود ماند.',
         );
       }
     }

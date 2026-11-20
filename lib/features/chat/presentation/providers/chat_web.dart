@@ -49,17 +49,27 @@ mixin _ChatWeb on _ChatBase {
     // Wikipedia lookups) pass the same permission/privacy boundary BEFORE
     // any network work or embedding warm-up begins.
     if (plan.mode != RetrievalMode.none) {
-      // A project search is eligible ONLY if its full outgoing query
-      // exactly equals the allowlisted extraction of the current turn.
+      // Projects may search ANY public subject, not only a fixed wordlist.
+      // Only a locally constructed query from this turn (or a pasted
+      // public HTTPS URL) may cross the web boundary. Old conversations,
+      // project instructions and local files cannot enter the query.
+      final currentProjectName = ref.read(conversationWorkspaceProvider)
+          .projects.where((p) => p.id == _projectId).firstOrNull?.name ?? '';
       final publicQuery = _projectId == null
           ? null
-          : ProjectPublicWebQuery.fromMessage(message);
+          : ProjectPublicWebQuery.fromMessage(
+              message, projectName: currentProjectName,
+            );
+      final scopedSearch = plan.mode == RetrievalMode.search &&
+          plan.query == publicQuery && publicQuery != null;
+      final scopedLinks = plan.mode == RetrievalMode.readUrls &&
+          ProjectPublicWebQuery.publicUrlsFromMessage(message, plan.urls);
       final deniedByScope = _projectId != null &&
-          (plan.mode != RetrievalMode.search || plan.query != publicQuery);
+          !(scopedSearch || scopedLinks);
       final sensitive =
           OnlinePermissionPolicy.privateContent(message) ||
           OnlinePermissionPolicy.privateContent(plan.query) ||
-          _containsSensitiveHistory;
+          (_projectId == null && _containsSensitiveHistory);
       if (settings.webMode == WebMode.off || deniedByScope || sensitive) {
         state = state.copyWith(
           notice: deniedByScope
@@ -76,7 +86,10 @@ mixin _ChatWeb on _ChatBase {
           newsTurn: false,
         );
       }
-      var approved = approvedByUserButton;
+      // Pasting a public link is itself the owner's one-turn request
+      // to read that link, not a standing permission for other searches.
+      var approved = approvedByUserButton ||
+          (_projectId != null && scopedLinks);
       if (OnlinePermissionPolicy.requiresPermission(
         mode: settings.webMode,
         input: message,
@@ -84,7 +97,7 @@ mixin _ChatWeb on _ChatBase {
       ) && !approved) {
         // Offline-first: if trustworthy local documents answer a stable
         // question, do not request network access or interrupt the user.
-        if (!RetrievalPlan.timeSensitive(message)) {
+        if (_projectId == null && !RetrievalPlan.timeSensitive(message)) {
           try {
             final local = await ref.read(offlineKnowledgeProvider)
                 .searchDetailed(message);
@@ -137,7 +150,17 @@ mixin _ChatWeb on _ChatBase {
               (originatingChatId != null &&
                   workspace.memberships[originatingChatId] !=
                       originatingProjectId));
+      final currentProjectNameAfterApproval = workspace.projects
+          .where((p) => p.id == originatingProjectId).firstOrNull?.name ?? '';
+      final stillSafe = originatingProjectId == null ||
+          (plan.mode == RetrievalMode.search &&
+              plan.query == ProjectPublicWebQuery.fromMessage(
+                message, projectName: currentProjectNameAfterApproval,
+              )) ||
+          (plan.mode == RetrievalMode.readUrls &&
+              ProjectPublicWebQuery.publicUrlsFromMessage(message, plan.urls));
       final noLongerAllowed =
+          !stillSafe ||
           projectMembershipChanged ||
           state.chatId != originatingChatId ||
           _projectId != originatingProjectId ||
@@ -462,7 +485,8 @@ mixin _ChatWeb on _ChatBase {
           // Search again (report 2026-10-04): when the pages leave
           // words of the question unanswered, one more query for those
           // words and up to two more pages.
-          if (settings.searchAgain && operationBudget == null) {
+          if (_projectId == null &&
+              settings.searchAgain && operationBudget == null) {
             sources = await _searchAgain(plan.query, sources, settings, lock);
             stage('searchAgainMs');
             if (_cancelled || !_alive) return null;

@@ -19,7 +19,7 @@ abstract final class OnlinePermissionPolicy {
     r'توکن|رمز|گذرواژه|password|passphrase|'
     r'api[ _-]?key|access[ _-]?token|bearer|authorization|'
     r'private[ _-]?key|کلید خصوصی|secret|'
-    r'شماره حساب|بانک|کارت بانکی|شماره کارت|'
+    r'شماره حساب|کارت بانکی|شماره کارت|'
     r'کد ملی|passport|آدرس منزل|نشانی منزل|'
     r'نام کاربری و رمز|مختصات خانه|مکان دقیق خانه)',
     caseSensitive: false,
