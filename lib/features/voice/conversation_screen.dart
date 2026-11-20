@@ -361,7 +361,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     _chat = ref.read(chatProvider.notifier);
     _voice = ref.read(voiceProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_startSafely()));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_startSafely()),
+    );
   }
 
   /// Out of sight (Home, the lock screen, another app): the answer stops
@@ -461,7 +463,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
       _set(() {
         _phase = ConversationPhase.idle;
         _muted = true;
-        _notice = 'صفحه مکالمه باز است، اما آماده‌سازی صوتی ناموفق بود. '
+        _notice =
+            'صفحه مکالمه باز است، اما آماده‌سازی صوتی ناموفق بود. '
             'مدل Qwen، میکروفون و موتور گفتار را بررسی کنید و دوباره تلاش کنید.';
       });
     }
@@ -986,7 +989,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
       if (_closed) return;
       _set(() {
         _phase = ConversationPhase.idle;
-        _notice = 'پخش صدای فارسی انجام نشد. موتور آفلاین انتخابی را بررسی کنید.';
+        _notice =
+            'پخش صدای فارسی انجام نشد. موتور آفلاین انتخابی را بررسی کنید.';
       });
     }
   }
@@ -1087,9 +1091,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
         _phase = ConversationPhase.idle;
       });
       if (!_natural && !_muted) {
-        unawaited(stopped.then((_) {
-          if (!_closed && !_away && !_turn) _listenSystem();
-        }));
+        unawaited(
+          stopped.then((_) {
+            if (!_closed && !_away && !_turn) _listenSystem();
+          }),
+        );
       } else {
         unawaited(stopped);
       }
@@ -1371,7 +1377,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
                       children: [
                         Text(_notice!, style: context.text.bodyMuted),
                         if (!_natural &&
-                            voiceLanguage(ref.read(settingsProvider).localeCode) !=
+                            voiceLanguage(
+                                  ref.read(settingsProvider).localeCode,
+                                ) !=
                                 'fa' &&
                             (!packs.canListen ||
                                 !packs.canSpeakWith(

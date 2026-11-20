@@ -103,12 +103,17 @@ abstract final class VoskLocalModels {
     final label = name.length > 70 ? name.substring(0, 70) : name;
     if (await target.exists()) {
       if (!await _ready(target)) {
-        throw const FormatException('نسخه ناقص مدل موجود است؛ جایگزین خودکار مجاز نیست.');
+        throw const FormatException(
+          'نسخه ناقص مدل موجود است؛ جایگزین خودکار مجاز نیست.',
+        );
       }
       return (await installed(root: parent)).firstWhere((m) => m.id == id);
     }
     final stage = await Directory(
-      p.join(parent.path, '.pala-vosk-import-$id-${DateTime.now().microsecondsSinceEpoch}'),
+      p.join(
+        parent.path,
+        '.pala-vosk-import-$id-${DateTime.now().microsecondsSinceEpoch}',
+      ),
     ).create();
     try {
       await Isolate.run(() => _extract(archiveFile.path, stage.path));
@@ -120,13 +125,13 @@ abstract final class VoskLocalModels {
           );
         }
       }
-      await File(p.join(stage.path, _metadata)).writeAsString(jsonEncode({
-        'name': label,
-        'sha256': digest,
-        'archiveBytes': size,
-      }));
+      await File(p.join(stage.path, _metadata)).writeAsString(
+        jsonEncode({'name': label, 'sha256': digest, 'archiveBytes': size}),
+      );
       if (await target.exists()) {
-        throw const FormatException('مدل هم‌زمان وارد شده است؛ هیچ فایلی جایگزین نشد.');
+        throw const FormatException(
+          'مدل هم‌زمان وارد شده است؛ هیچ فایلی جایگزین نشد.',
+        );
       }
       await stage.rename(target.path);
       return VoskLocalModel(
@@ -178,7 +183,9 @@ abstract final class VoskLocalModels {
         }
         total += entry.size;
         if (entry.size < 0 || total > _maxUnpackedBytes) {
-          throw const FormatException('اندازه مدل استخراج‌شده بیش از سقف ایمن است.');
+          throw const FormatException(
+            'اندازه مدل استخراج‌شده بیش از سقف ایمن است.',
+          );
         }
         final file = File(p.join(outPath, safe));
         file.parent.createSync(recursive: true);
@@ -198,7 +205,8 @@ abstract final class VoskLocalModels {
   }
 
   static Future<void> delete(String id, {Directory? root}) async {
-    if (!_idFormat.hasMatch(id)) throw const FormatException('شناسه مدل معتبر نیست.');
+    if (!_idFormat.hasMatch(id))
+      throw const FormatException('شناسه مدل معتبر نیست.');
     final parent = await _root(root);
     final dir = Directory(p.join(parent.path, '$_prefix$id'));
     if (!await _ready(dir)) throw const FormatException('مدل معتبر پیدا نشد.');

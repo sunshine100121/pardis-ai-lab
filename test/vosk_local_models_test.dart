@@ -47,14 +47,17 @@ void main() {
     expect(await zip.exists(), isTrue);
   });
 
-  test('unsafe archive cannot write outside app-owned model directory', () async {
-    final zip = await makeZip('unsafe.zip', malicious: true);
-    final root = Directory(p.join(temp.path, 'models'));
-    await expectLater(
-      VoskLocalModels.importZip(zip, root: root),
-      throwsFormatException,
-    );
-    expect(await File(p.join(temp.path, 'escape.txt')).exists(), isFalse);
-    expect(await VoskLocalModels.installed(root: root), isEmpty);
-  });
+  test(
+    'unsafe archive cannot write outside app-owned model directory',
+    () async {
+      final zip = await makeZip('unsafe.zip', malicious: true);
+      final root = Directory(p.join(temp.path, 'models'));
+      await expectLater(
+        VoskLocalModels.importZip(zip, root: root),
+        throwsFormatException,
+      );
+      expect(await File(p.join(temp.path, 'escape.txt')).exists(), isFalse);
+      expect(await VoskLocalModels.installed(root: root), isEmpty);
+    },
+  );
 }
