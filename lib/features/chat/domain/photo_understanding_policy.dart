@@ -34,10 +34,16 @@ abstract final class PhotoUnderstandingPolicy {
   static String? refusal({
     required List<Attachment> attachments,
     required bool visionAvailable,
+    bool remoteOutsideLan = false,
     int? availableRamBytes,
   }) {
     final photos = attachments.where((a) => a.isImage).toList();
     if (photos.isEmpty) return null;
+    if (remoteOutsideLan) {
+      return 'برای حفظ حریم خصوصی، عکس در این مرحله فقط به Qwen محلی '
+          'یا تبلت جفت‌شده در شبکه داخلی ارسال می‌شود؛ '
+          'هیچ تصویر خصوصی به سرور بیرونی فرستاده نشد.';
+    }
     if (!visionAvailable) {
       return 'این مدل در وضعیت فعلی تصویر را نمی‌بیند. '
           'برای تحلیل عکس، قابلیت بینایی مدل و فایل سازگار آن باید یک‌بار '

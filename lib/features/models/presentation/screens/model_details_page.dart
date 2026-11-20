@@ -177,12 +177,14 @@ class ModelDetailsPage extends ConsumerWidget {
                   await ref.read(modelManagerProvider.notifier)
                       .downloadVision(paired);
                   if (context.mounted) {
+                    final ready = ref.read(modelManagerProvider)
+                        .vision.contains(current.id);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text(
-                        'درخواست دریافت فایل بینایی ثبت شد. '
-                        'پس از تأیید دانلود و بارگذاری مجدد، '
-                        'می‌توانید عکس آزمایشی بفرستید.',
-                      )),
+                      SnackBar(content: Text(ready
+                          ? 'فایل بینایی تأیید شد. برای تحلیل عکس، '
+                              'مدل را یک بار دوباره بارگذاری کنید.'
+                          : 'فایل بینایی هنوز آماده نشده است؛ '
+                              'وضعیت دانلود را در بخش مدل‌ها بررسی کنید.')),
                     );
                   }
                 } catch (_) {

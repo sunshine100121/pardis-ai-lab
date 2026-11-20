@@ -74,6 +74,7 @@ import '../../../settings/domain/settings_scope.dart';
 import '../../../../core/platform/desktop_host.dart';
 import '../../../../core/platform/device_info.dart';
 import '../../../hosting/presentation/device_hosting_provider.dart';
+import '../../../hosting/lan_probe_runner.dart';
 import '../../../settings/domain/battery_saver.dart';
 import 'chat_model_pins.dart';
 import 'search_misses.dart';
@@ -792,13 +793,16 @@ class ChatNotifier extends _ChatBase
       // retrieval, remote web tools or any answer generation.
       if (t.attachments.any((a) => a.isImage) && t.resume == null) {
         final isRemote = t.settings?.usesRemote == true;
+        final outsideLan = isRemote &&
+            !LanProbeRunner.isLocal(t.settings?.remoteUri);
         final supported = isRemote
-            ? t.settings?.remoteVision == true
+            ? t.settings?.remoteVision == true && !outsideLan
             : t.engine.metrics['supportsVision'] == true;
         final memory = isRemote ? null : await DeviceMemory.read();
         final refusal = PhotoUnderstandingPolicy.refusal(
           attachments: t.attachments,
           visionAvailable: supported,
+          remoteOutsideLan: outsideLan,
           availableRamBytes: memory?.availableBytes,
         );
         final fileError = refusal == null

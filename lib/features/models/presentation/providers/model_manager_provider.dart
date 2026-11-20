@@ -1338,6 +1338,14 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
         projector.sizeBytes < 100 * 1024 * 1024) {
       throw StateError('مرجع معتبر فایل بینایی موجود نیست.');
     }
+    final existing = await ModelStorage.modelFile(projector.fileName);
+    if (await existing.exists()) {
+      if (await existing.length() != projector.sizeBytes ||
+          await ModelStorage.validateAndHash(existing.path) != projector.sha256) {
+        throw StateError('فایل بینایی موجود تأیید نشد؛ '
+            'برای حفاظت، هیچ فایل یا مدل اصلی تغییر نکرد.');
+      }
+    }
     final paired = info.copyWith(projector: projector);
     // Only metadata for the existing model is updated; neither its GGUF
     // nor project/memory files are modified. The pinned hash is verified by

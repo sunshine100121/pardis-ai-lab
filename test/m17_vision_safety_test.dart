@@ -74,6 +74,15 @@ void main() {
     expect(response, isNot(contains(a.path)));
   });
 
+  test('private photo never goes to an external provider by default', () {
+    final a = imageFixture('/tmp/attachments/leaf.png', 40000);
+    final answer = PhotoUnderstandingPolicy.refusal(
+      attachments: [a], visionAvailable: false, remoteOutsideLan: true,
+    )!;
+    expect(answer, contains('سرور بیرونی'));
+    expect(answer, contains('فرستاده نشد'));
+  });
+
   test('bounded photo allowed; excessive photos, bytes and low RAM refused',
       () {
     final a = imageFixture('/tmp/attachments/leaf.png', 40000);
