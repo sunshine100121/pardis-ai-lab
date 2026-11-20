@@ -59,8 +59,10 @@ class ModelDetailsPage extends ConsumerWidget {
         uri?.host == 'huggingface.co' && uri!.pathSegments.length >= 2
         ? uri.pathSegments.take(2).join('/')
         : t.modelUnknown;
-    final current = ref.watch(modelManagerProvider).catalog
-        .where((m) => m.id == model.id).firstOrNull ?? model;
+    // Detail widgets must not force model-database initialization just to
+    // display the already-selected model. After pairing, reopening this page
+    // reads the updated model catalog normally.
+    final current = model;
     final projector = current.projector ?? visionProjectors[current.id];
     final compatibleImported4b =
         current.projector == null &&
