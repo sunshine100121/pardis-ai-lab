@@ -84,7 +84,7 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
 
   Future<void> _proposeCorrection() async {
     if (saving) return;
-    final controller = TextEditingController();
+    var draftText = '';
     try {
       final correction = await showDialog<String>(
         context: context,
@@ -99,7 +99,7 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
               const SizedBox(height: 8),
               TextField(
                 key: const Key('m19-owner-correction-field'),
-                controller: controller,
+                onChanged: (value) => draftText = value,
                 maxLines: 4,
                 maxLength: 450,
                 decoration: const InputDecoration(
@@ -116,7 +116,7 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
             ),
             FilledButton(
               key: const Key('m19-submit-correction'),
-              onPressed: () => Navigator.pop(dialog, controller.text.trim()),
+              onPressed: () => Navigator.pop(dialog, draftText.trim()),
               child: const Text('ثبت پیشنهاد'),
             ),
           ],
@@ -145,7 +145,7 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
         );
       }
     } finally {
-      controller.dispose();
+      // The dialog owns the field lifecycle; no controller to dispose.
       if (mounted && saving) setState(() => saving = false);
     }
   }
