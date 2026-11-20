@@ -1,3 +1,4 @@
+/// Offline-only local evaluation; no guessed STT accuracy is reported.
 /// Local, deterministic evaluation of a Persian STT transcript.
 /// WER = edit errors / reference words. It can exceed 100% on insertions;
 /// it must not be silently clamped or mistaken for a model accuracy claim.
