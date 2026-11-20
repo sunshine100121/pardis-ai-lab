@@ -19,6 +19,8 @@ import 'persian_stt_policy.dart';
 import 'voice_choice_storage.dart';
 import 'voice_engine_selection.dart';
 import 'vosk_local_models.dart';
+import 'persian_sherpa_models.dart';
+import 'persian_sherpa_runtime.dart';
 import 'sherpa_voice.dart';
 import 'voice_models.dart';
 import 'voice_models_provider.dart';
@@ -78,6 +80,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
   bool _ttsBusy = false;
   bool _sttReady = false, _alive = true, _usingOffline = false;
   OfflineDictation? _offline;
+  PersianCtcListener? _ctc;
+  PersianPiperSpeaker? _piper;
   String _spokenText = '';
   int _position = 0, _chunkStart = 0, _speechEpoch = 0;
   double _rate = 0.5;
@@ -135,6 +139,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
       _whisper?.dispose();
       unawaited(_kokoro?.stop());
       unawaited(_offline?.dispose());
+      _ctc?.dispose();
+      _piper?.dispose();
       _stt?.cancel();
       unawaited(_stopTts());
     });
@@ -260,7 +266,15 @@ class VoiceNotifier extends Notifier<VoiceState> {
         ? await VoskLocalModels.pathFor(requested!.model)
         : null;
     if (!_alive || epoch != _listenEpoch) return;
-    if (futureChoice != null && customPath == null) {
+    final shenava = requested?.kind == VoiceSelectionKind.stt &&
+            requested?.adapter == 'sherpa-ctc'
+        ? await PersianSherpaModels.find(
+            PersianSherpaKind.stt,
+            requested!.model,
+          )
+        : null;
+    if (!_alive || epoch != _listenEpoch) return;
+    if (futureChoice != null && customPath == null && shenava == null) {
       state = state.copyWith(
         listening: false,
         error:
@@ -283,8 +297,50 @@ class VoiceNotifier extends Notifier<VoiceState> {
     if (futureChoice != null && !persian) {
       state = state.copyWith(
         listening: false,
-        error: 'مدل Vosk واردشده فارسی است؛ زبان مکالمه را فارسی انتخاب کنید.',
+        error: 'مدل گفتار واردشده فارسی است؛ زبان مکالمه را فارسی انتخاب کنید.',
       );
+      return;
+    }
+    if (shenava != null) {
+      _ctc?.dispose();
+      late final PersianCtcListener listener;
+      listener = PersianCtcListener(
+        model: shenava,
+        onFinal: (text) {
+          if (!_alive || epoch != _listenEpoch) return;
+          state = state.copyWith(listening: false, partial: text);
+          onText(text);
+          onFinal?.call(text);
+        },
+        onError: (message) {
+          if (!_alive || epoch != _listenEpoch) return;
+          state = state.copyWith(listening: false, error: message);
+        },
+      );
+      _ctc = listener;
+      state = state.copyWith(
+        listening: true,
+        partial: '',
+        available: true,
+        clearError: true,
+      );
+      try {
+        if (!await listener.start()) {
+          if (_alive && epoch == _listenEpoch) {
+            state = state.copyWith(
+              listening: false,
+              error: 'میکروفون یا مدل شنوا آماده نیست.',
+            );
+          }
+        }
+      } catch (_) {
+        if (_alive && epoch == _listenEpoch) {
+          state = state.copyWith(
+            listening: false,
+            error: 'اجرای موتور آفلاین شنوا ناموفق بود.',
+          );
+        }
+      }
       return;
     }
     if (persian &&
@@ -601,6 +657,13 @@ class VoiceNotifier extends Notifier<VoiceState> {
 
   Future<void> stop() async {
     _listenEpoch++;
+    if (_ctc != null) {
+      final listener = _ctc;
+      _ctc = null;
+      await listener?.stop();
+      if (_alive) state = state.copyWith(listening: false);
+      return;
+    }
     if (_whisper != null) {
       await _stopWhisper();
       if (_alive) state = state.copyWith(listening: false);
@@ -693,10 +756,12 @@ class VoiceNotifier extends Notifier<VoiceState> {
       final voice = candidates.first;
       final result = await _tts!.setVoice(voice);
       if (result != 1) return false;
-      return (await SharedPreferences.getInstance()).setString(
+      final saved = await (await SharedPreferences.getInstance()).setString(
         _androidTtsVoiceKey,
         name,
       );
+      if (saved) await VoiceChoiceStorage.clear(VoiceSelectionKind.tts);
+      return saved;
     } catch (_) {
       return false;
     }
@@ -737,7 +802,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
         return false;
       }
       final saved = await prefs.setString(_androidTtsEngineKey, engine);
-      if (saved) await prefs.remove(_androidTtsVoiceKey);
+      if (saved) {
+        await prefs.remove(_androidTtsVoiceKey);
+        await VoiceChoiceStorage.clear(VoiceSelectionKind.tts);
+      }
       if (!saved && previous is String && previous.isNotEmpty) {
         await _tts!.setEngine(previous);
       }
@@ -758,13 +826,72 @@ class VoiceNotifier extends Notifier<VoiceState> {
       VoiceSelectionKind.tts,
     );
     if (futureChoice != null) {
+      final choice = VoiceEngineSelection.parse(futureChoice);
+      final model = choice?.kind == VoiceSelectionKind.tts &&
+              choice?.adapter == 'piper'
+          ? await PersianSherpaModels.find(
+              PersianSherpaKind.tts,
+              choice!.model,
+            )
+          : null;
+      if (model == null) {
+        state = state.copyWith(
+          speaking: false,
+          clearSpeakingId: true,
+          error: 'مدل TTS انتخابی یا آداپتور آن آماده نیست؛ '
+              'موتور دیگری خودکار اجرا نمی‌شود.',
+        );
+        return;
+      }
+      if (state.speaking && (id == null || id == state.speakingId)) {
+        return pauseSpeaking();
+      }
+      final text = speakable(markdown);
+      if (text.isEmpty) return;
+      final epoch = ++_speechEpoch;
+      await _stopTts();
+      await _kokoro?.stop();
+      await _piper?.stop();
+      if (!_alive || epoch != _speechEpoch) return;
+      _spokenText = text;
+      _position = 0;
       state = state.copyWith(
-        speaking: false,
-        clearSpeakingId: true,
-        error:
-            'مدل TTS انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
-            'موتور دیگری به‌جای آن خودکار پخش نشد.',
+        speaking: true,
+        paused: false,
+        speakingId: id,
+        clearError: true,
       );
+      final piper = _piper ??= PersianPiperSpeaker();
+      try {
+        for (final chunk in chunks(text, limit: 240)) {
+          if (!_alive || epoch != _speechEpoch) return;
+          final played = await piper.play(
+            model,
+            chunk,
+            speed: ref.read(settingsProvider).readingSpeed,
+          );
+          if (!_alive || epoch != _speechEpoch) return;
+          if (!played) {
+            throw StateError('پخش صدای Piper کامل نشد.');
+          }
+          _position += chunk.length;
+        }
+        if (_alive && epoch == _speechEpoch) {
+          state = state.copyWith(
+            speaking: false,
+            paused: false,
+            clearSpeakingId: true,
+          );
+        }
+      } catch (_) {
+        if (_alive && epoch == _speechEpoch) {
+          state = state.copyWith(
+            speaking: false,
+            clearSpeakingId: true,
+            error: 'موتور Piper فارسی نتوانست پاسخ را پخش کند.',
+          );
+        }
+      }
       return;
     }
     final preferred = ref.read(settingsProvider).readingVoice;
@@ -788,6 +915,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
     _speechEpoch++;
     await _stopTts();
     await _kokoro?.stop();
+    await _piper?.stop();
     _rate = rate ?? 0.5 * ref.read(settingsProvider).readingSpeed;
     _spokenText = text;
     if (_naturalSpeaking()) {
@@ -970,10 +1098,17 @@ class VoiceNotifier extends Notifier<VoiceState> {
     state = state.copyWith(speaking: false, paused: true);
     await _stopTts();
     await _kokoro?.stop();
+    await _piper?.stop();
   }
 
   Future<void> resumeSpeaking() async {
     if (!state.paused || _spokenText.isEmpty) return;
+    if (await VoiceChoiceStorage.current(VoiceSelectionKind.tts) != null) {
+      final messageId = state.speakingId;
+      final utterance = _spokenText;
+      state = state.copyWith(speaking: false, paused: false);
+      return speak(utterance, id: messageId);
+    }
     state = state.copyWith(speaking: true, paused: false);
     if (_sentences.isNotEmpty) {
       _speechEpoch++;
@@ -990,6 +1125,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
     _sentences = const [];
     await _stopTts();
     await _kokoro?.stop();
+    await _piper?.stop();
     if (_alive) {
       state = state.copyWith(
         speaking: false,
