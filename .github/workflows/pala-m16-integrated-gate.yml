@@ -1,0 +1,85 @@
+name: PALA M16 integrated 0.3.4 release gate (source only; no APK)
+on:
+  push:
+    branches: [pala/m16-release-gate-034-2026-11-21]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pala-m16-source-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  integrated-source-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Inspect release identifiers without exposing signing material
+        run: |
+          grep '^version:' pubspec.yaml
+          grep 'applicationId = ' android/app/build.gradle.kts
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.3+6'
+          grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
+          echo 'SOURCE_VERSION_ONLY_0.3.3+6; RELEASE_BUILD_BLOCKED_PENDING_ALL_GATES'
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter gen-l10n
+      - name: Verify protected offline-first source baseline
+        run: python3 scripts/check_offline_baseline.py
+      - name: Check changed source and test formatting without rewriting repository
+        run: |
+          mapfile -t changed < <(git diff --name-only cae3ac12b0719212109c7b0fd6c0fe85c85c19c3 HEAD -- '*.dart' | grep -E '^(lib/|test/)' || true)
+          if (("${#changed[@]}" > 0)); then dart format --output=none --set-exit-if-changed "${changed[@]}"; fi
+      - name: Analyze full integrated Dart code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Prepare existing locked PDFium asset for Linux fixture tests
+        run: |
+          dart run scripts/prepare_pdfium_assets.dart
+          pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
+          test -n "$pdfium"
+          echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
+      - name: Missions 9-19 plus data, security, offline and upgrade checks
+        run: |
+          flutter test --concurrency=1 \
+            test/conversation_voice_policy_test.dart \
+            test/voice_engine_selection_test.dart \
+            test/persian_voice_routing_test.dart \
+            test/persian_stt_quality_test.dart \
+            test/voice_pipeline_test.dart \
+            test/m11_memory_approval_test.dart \
+            test/m11_memory_persian_test.dart \
+            test/m11_memory_policy_test.dart \
+            test/m11_project_expiry_test.dart \
+            test/m11_project_memory_expiry_ui_test.dart \
+            test/m12_project_scope_test.dart \
+            test/m13_internet_policy_test.dart \
+            test/m13_project_public_web_query_test.dart \
+            test/m14_ha_doctor_test.dart \
+            test/m14_ha_doctor_readouts_test.dart \
+            test/m15_lan_probe_test.dart \
+            test/benchmark_test.dart \
+            test/m17_vision_safety_test.dart \
+            test/m18_feedback_health_test.dart \
+            test/m18_feedback_widget_test.dart \
+            test/m19_controlled_learning_test.dart \
+            test/m19_learning_widgets_test.dart \
+            test/offline_upgrade_compatibility_test.dart \
+            test/offline_folder_library_test.dart \
+            test/ha_read_client_test.dart \
+            test/zim_indexed_project_search_test.dart \
+            test/project_tabs_test.dart \
+            test/chat_test.dart
+      - name: Android host compilation check only - NEVER build APK
+        run: bash scripts/check_android_host.sh
+      - name: Explicit release boundary
+        run: |
+          echo 'M16_SOURCE_CI_ONLY=PASS'
+          echo 'APK_CREATED=NO'
+          echo 'SIGNING_CERTIFICATE_MATCH=NOT_VERIFIED'
+          echo 'BACKUP_RESTORE_ROLLBACK_ON_OWNER_DEVICE=NOT_VERIFIED'
+          echo 'POCKET_FARSI_ANDROID_AND_REAL_TAB_ACCEPTANCE=NOT_VERIFIED'
+          echo 'RELEASE_APPROVAL=BLOCKED_PENDING_DEVICE_AND_SIGNING_GATES'
