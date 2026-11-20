@@ -31,6 +31,17 @@ void main() {
     );
   });
 
+  test('installed imported Vosk overrides a legacy Whisper preference', () {
+    expect(
+      PersianSttPolicy.effective('whisper-fa', customVoskReady: true),
+      'vosk-fa',
+    );
+    expect(
+      PersianSttPolicy.effective('whisper-fa', customVoskReady: false),
+      'whisper-fa',
+    );
+  });
+
   test('fallback is manual and does not start or download any engine', () {
     expect(
       PersianSttPolicy.unavailable(

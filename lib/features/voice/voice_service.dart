@@ -270,8 +270,9 @@ class VoiceNotifier extends Notifier<VoiceState> {
     }
     final selectedSettings = ref.read(settingsProvider);
     final persian = voiceLanguage(selectedSettings.localeCode) == 'fa';
-    final selectedPersian = PersianSttPolicy.selected(
+    final selectedPersian = PersianSttPolicy.effective(
       selectedSettings.listeningModel,
+      customVoskReady: customPath != null,
     );
     final explicitWhisper =
         persian && selectedPersian == PersianSttPolicy.whisper;
@@ -304,7 +305,7 @@ class VoiceNotifier extends Notifier<VoiceState> {
       );
       return;
     }
-    if (_naturalListening()) {
+    if (customPath == null && _naturalListening()) {
       try {
         if (await _listenWhisper(onText, onFinal)) return;
         if (explicitWhisper && _alive && epoch == _listenEpoch) {

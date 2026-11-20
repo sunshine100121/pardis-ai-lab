@@ -16,6 +16,11 @@ abstract final class PersianSttPolicy {
     return android; // Legacy empty and invalid values only.
   }
 
+  /// An explicitly imported, verified Vosk pack takes priority over an old
+  /// Whisper/Android setting. A missing pack must fail closed upstream.
+  static String effective(String setting, {required bool customVoskReady}) =>
+      customVoskReady ? vosk : selected(setting);
+
   static bool ready({
     required String setting,
     required bool androidReady,
