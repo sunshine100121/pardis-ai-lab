@@ -111,6 +111,9 @@ void main() {
         sourceIds: {FolderLibrary.sourceId('garden.pdf')},
       );
       expect(report.sources, hasLength(1));
+      expect(report.checks.single['code'], 'pdf_page_scan');
+      expect(report.checks.single['elapsedMs'], isA<int>());
+      expect(report.checks.single['elapsedMs'], greaterThanOrEqualTo(0));
       expect(report.sources.single.title, contains('garden.pdf'));
       expect(report.sources.single.pageText, isNot(contains('medical')));
       // Only the project-authorized garden PDF is scanned on demand.
@@ -177,7 +180,11 @@ void main() {
     folder.add('book.epub', Uint8List.fromList(ZipEncoder().encode(zip)));
     final library = FolderLibrary(access: folder);
     await library.refresh(pick: true);
-    final results = await library.search('orchid nutrient');
+    final report = await library.searchDetailed('orchid nutrient');
+    final results = report.sources;
+    final pdfStatus = report.checks.where((check) => check['file'] == 'small.pdf').single;
+    expect(pdfStatus['code'], 'pdf_page_scan');
+    expect(pdfStatus['elapsedMs'], isA<int>());
     expect(
       results.any(
         (s) => s.title.contains('صفحه 2') && s.pageText!.contains('42'),

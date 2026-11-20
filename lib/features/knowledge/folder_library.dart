@@ -473,6 +473,9 @@ class FolderLibrary {
       // more relevant chapters. Reads are sparse and no full PDF is copied.
       if ((f['name'] as String).toLowerCase().endsWith('.pdf') &&
           terms.isNotEmpty) {
+        // M15: no additional scan, copy or allocation; measure the
+        // existing approved-page lookup from open through final cleanup.
+        final pageScanClock = Stopwatch()..start();
         try {
           final source = await access.open(f['uri'] as String);
           late ({
@@ -553,6 +556,14 @@ class FolderLibrary {
           checks.add({'file': f['name'], 'code': 'pdf_page_scan_failed'});
           // No stale excerpts or unverified synthetic page labels.
           continue;
+        } finally {
+          pageScanClock.stop();
+          // Every existing PDF result path (success, no text, error or
+          // changed source) appends its own status before leaving the loop.
+          // Never persist source text, prompt or private document bytes.
+          if (checks.isNotEmpty && checks.last['file'] == f['name']) {
+            checks.last['elapsedMs'] = pageScanClock.elapsedMilliseconds;
+          }
         }
       }
       for (final p in f['passages'] as List) {
