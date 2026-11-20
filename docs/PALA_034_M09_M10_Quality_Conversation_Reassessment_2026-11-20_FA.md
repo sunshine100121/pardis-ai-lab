@@ -32,3 +32,9 @@
 - https://github.com/k2-fsa/sherpa-onnx — runtime واقعی Vosk/Shenava/Piper؛ اما سبزشدن CI کیفیت صدا را اثبات نمی‌کند
 
 **وضعیت:** اصلاحات کد و واحدهای آزمون در حال اعتبارسنجی CI هستند؛ Pocket Android هنوز پیاده‌سازی و تست نشده است. هیچ برنامه‌ای روی تبلت نصب یا دست‌کاری نشده است.
+
+## اعتبارسنجی جدید — CI 232
+- [GitHub Actions #232](https://github.com/sunshine100121/pardis-ai-lab/actions/runs/44687304465) **SUCCESS**؛ `baseline=success` و `mvp=success`.
+- **۳۶۹ آزمون موفق، صفر شکست**؛ Dart formatter `Formatted 97 files (0 changed)`؛ Flutter analyze با **۱۱۶ مورد غیرمسدودکننده**؛ کامپایل Android بدون APK با `BUILD SUCCESSFUL`.
+- نتیجه این CI تغییرات `Conversation`، WER فارسی و Shenava VAD را پوشش می‌دهد، ولی شامل آزمون‌های موجود اضافی `conversation_answers_test`، `conversation_accuracy_test` و `conversation_model_test` که پس از آن به خط CI اضافه شدند نیست. اجرای بعدی #233 برای این پوشش آغاز شده است.
+- **هیچ معیار کیفیت صوتی/دقت واقعی تبلت یا Pocket Farsi v2 در #232 تست نشده است**؛ انتهای مأموریت‌های ۰۹ و ۱۰ همچنان OPEN است.
