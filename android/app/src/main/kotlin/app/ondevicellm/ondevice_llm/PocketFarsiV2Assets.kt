@@ -127,13 +127,16 @@ internal object PocketNpz {
 /** Minimal verified-format SentencePiece UNIGRAM reader; rejects BPE/unsupported models. */
 internal class PocketPhonemeTokenizer private constructor(
     private val byFirst: Map<Char, List<Token>>,
-    private val unknownId: Int
+    private val unknownId: Int,
+    private val modelType: Int,
+    private val activeByName: Map<String, Token>
 ) {
     internal data class Token(val piece: String, val id: Int, val score: Double)
     fun encode(text: String): IntArray {
         // SentencePiece dummy-prefix + escaped whitespace used by the phoneme model.
         val src = "▁" + text.trim().replace(Regex("\\s+"), "▁")
         if (src.length > 2048 || src.isEmpty()) error("Phoneme input too long")
+        if (modelType == 2) return encodeBpe(src)
         val best = DoubleArray(src.length + 1) { Double.NEGATIVE_INFINITY }
         val from = IntArray(src.length + 1) { -1 }
         val token = IntArray(src.length + 1) { -1 }
@@ -172,6 +175,43 @@ internal class PocketPhonemeTokenizer private constructor(
         }
         out.reverse()
         return out.toIntArray()
+    }
+
+
+    /** SentencePiece BPE: start at UTF-8 codepoints; merge highest-scored
+     * eligible adjacent pair until no merge is available. Never substitute
+     * a replacement token for an unknown Persian phoneme character.
+     * Parity with the original tokenizer_ph.model is still a device gate.
+     */
+    private fun encodeBpe(src: String): IntArray {
+        val segments = ArrayList<String>()
+        var i = 0
+        while (i < src.length) {
+            val cp = Character.codePointAt(src, i)
+            val value = String(Character.toChars(cp))
+            if (!activeByName.containsKey(value)) {
+                error("Unsupported BPE phoneme")
+            }
+            segments.add(value)
+            i += Character.charCount(cp)
+        }
+        while (segments.size > 1) {
+            var bestAt = -1
+            var bestScore = Double.NEGATIVE_INFINITY
+            for (k in 0 until segments.lastIndex) {
+                val candidate = activeByName[segments[k] + segments[k + 1]]
+                if (candidate != null && candidate.score > bestScore) {
+                    bestAt = k
+                    bestScore = candidate.score
+                }
+            }
+            if (bestAt < 0) break
+            segments[bestAt] = segments[bestAt] + segments[bestAt + 1]
+            segments.removeAt(bestAt + 1)
+        }
+        return segments.map {
+            activeByName[it]?.id ?: error("BPE phoneme token not in vocabulary")
+        }.toIntArray()
     }
 
     companion object {
@@ -213,12 +253,13 @@ internal class PocketPhonemeTokenizer private constructor(
                     else -> reader.skip(wire)
                 }
             }
-            if (modelType != 1 || tokens.isEmpty() || tokens.size > 100000) {
+            if (modelType !in 1..2 || tokens.isEmpty() || tokens.size > 100000) {
                 error("Unsupported SentencePiece model")
             }
             val unknown = tokens.indexOfFirst { it.piece.isEmpty() }
             val active = tokens.filter { it.piece.isNotEmpty() }
-            return PocketPhonemeTokenizer(active.groupBy { it.piece[0] }, unknown)
+            return PocketPhonemeTokenizer(active.groupBy { it.piece[0] }, unknown,
+                modelType, active.associateBy { it.piece })
         }
     }
 }

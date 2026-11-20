@@ -77,9 +77,12 @@ internal class PocketFarsiV2Probe(
 
     private fun inspectPackage(): Map<String, Any> {
         val files = listOf(
-            "manifest.json", "flow_lm_step.onnx", "mimi_encoder.onnx",
-            "mimi_decoder_step_kv.onnx", "g2p_encoder.onnx", "g2p_decoder.onnx",
-            "weights.npz", "decode_state_init.npz", "tokenizer_ph.model"
+            "manifest.json", "flow_lm_step.onnx", "flow_lm_step.onnx.data",
+            "mimi_encoder.onnx", "mimi_encoder.onnx.data",
+            "mimi_decoder_step_kv.onnx", "mimi_decoder_step_kv.onnx.data",
+            "g2p_encoder.onnx", "g2p_decoder.onnx", "g2p_decoder.onnx.data",
+            "weights.npz", "decode_state_init.npz", "tokenizer_ph.model",
+            "voice_reference.wav"
         )
         // The last file is separate from Nimaone's ONNX model package.
         val missing = files.filter { name ->
