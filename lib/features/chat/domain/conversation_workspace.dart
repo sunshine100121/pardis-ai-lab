@@ -167,6 +167,7 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
     required String messageId,
     required String note,
     required DateTime notedAt,
+    DateTime? expiresAt,
   }) => _change((s) {
     if (s.memberships[chatId] != projectId) {
       throw StateError('این گفتگو عضو پروژه انتخابی نیست.');
@@ -194,8 +195,13 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
       throw StateError('این یادداشت قبلاً در حافظه پروژه ثبت شده است.');
     }
     final origin = notedAt.toIso8601String();
+    // Expires metadata stays before the original chat/message suffix, so
+    // legacy ProjectMemoryEntry.belongsTo and edit/remove still work.
+    final expiry = expiresAt == null
+        ? ''
+        : '؛ انقضا: ${expiresAt.toUtc().toIso8601String()}';
     final entry =
-        '• $clean (تأیید مالک؛ تاریخ: $origin؛ '
+        '• $clean (تأیید مالک؛ تاریخ: $origin$expiry؛ '
         'گفتگو: $chatId؛ پیام: $messageId)';
     // Re-save the same message by replacing its previous fact, not adding
     // two conflicting copies to Qwen's persistent context.
@@ -380,6 +386,7 @@ class ProjectMemoryGate {
   };
 
   static bool relevant(String question, String ownerNotes) {
+    ownerNotes = ProjectMemoryEntry.activeNotes(ownerNotes);
     if (ownerNotes.trim().isEmpty || !_personal.hasMatch(question)) {
       return false;
     }
@@ -416,6 +423,21 @@ class ProjectMemoryGate {
 /// Find the owner-approved note for a particular user message in a project.
 /// Hand-written and older project notes keep their existing storage format.
 class ProjectMemoryEntry {
+  static final _expiry = RegExp(r'؛ انقضا: ([^؛)]+)');
+
+  /// Legacy owner-confirmed notes have no expiry and remain untouched.
+  /// Expired entries are excluded from BOTH Qwen prompts and relevance
+  /// checks; the original saved text remains available for owner editing.
+  static String activeNotes(String notes, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    return notes.split('\n').where((line) {
+      final match = _expiry.firstMatch(line);
+      if (match == null) return true;
+      final date = DateTime.tryParse(match[1]!.trim());
+      return date != null && date.isAfter(today);
+    }).join('\n');
+  }
+
   static bool belongsTo(String line, String chatId, String messageId) =>
       line.startsWith('• ') &&
       line.contains(' (تأیید مالک؛ تاریخ: ') &&

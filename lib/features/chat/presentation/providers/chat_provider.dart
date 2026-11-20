@@ -3499,8 +3499,10 @@ class ChatNotifier extends _ChatBase
     }
     // Project memories, like personal memories, must never be sent to a
     // remote model unless this remote profile explicitly permits sharing.
-    if (project != null &&
-        project.memoryNotes.isNotEmpty &&
+    final scopedProjectNotes = project == null
+        ? ''
+        : ProjectMemoryEntry.activeNotes(project.memoryNotes);
+    if (scopedProjectNotes.isNotEmpty &&
         ProjectMemoryGate.mayShareWithModel(
           usesRemote: settings.usesRemote,
           shareMemory: settings.activeRemoteProfile?.shareMemory == true,
@@ -3508,7 +3510,7 @@ class ChatNotifier extends _ChatBase
       baseSystem.write(
         '\nOwner-confirmed facts for this project only; these are not live '
         'sensor readings or current weather. Answer only what the stored '
-        'notes establish, and say when a detail is unknown:\n${project.memoryNotes}',
+        'notes establish, and say when a detail is unknown:\n$scopedProjectNotes',
       );
     }
     baseSystem.write('\n${settings.systemPrompt}');
