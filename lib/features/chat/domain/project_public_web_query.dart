@@ -18,9 +18,10 @@ abstract final class ProjectPublicWebQuery {
   );
   static final _word = RegExp(r'[\p{L}\p{N}]+', unicode: true);
   static final _privateReference = RegExp(
-    r'(?<![\p{L}])(?:آدرس|نشانی|موقعیت|مختصات|کد پستی|پلاک|'
-    r'نام واقعی|نام کامل|شماره تلفن|شماره موبایل|کدملی|'
-    r'شخصی(?:ت)?|محرمانه|خصوصی|private address|home address)'
+    r'(?<![\p{L}])(?:آدرس منزل|نشانی خانه|موقعیت دقیق منزل|'
+    r'مختصات منزل|کد پستی|پلاک منزل|'
+    r'نام واقعی من|نام کامل من|شماره تلفن من|شماره موبایل من|'
+    r'کدملی|اطلاعات محرمانه من|private address|home address)'
     r'(?![\p{L}])',
     caseSensitive: false,
     unicode: true,
@@ -31,6 +32,11 @@ abstract final class ProjectPublicWebQuery {
     r'(?:(?:شخصی|اختصاصی)\s+)?'
     r'(?:من|ما|خودم|خودمان)(?![\p{L}])',
     caseSensitive: false,
+    unicode: true,
+  );
+  static final _personalHomeLocation = RegExp(
+    r'(?<![\p{L}])(?:خانه|ویلا|باغ|ملک)\s+'
+    r'(?:من|ما|خودم|خودمان)\s+(?:در|نزدیک|کنار)\s+\S+',
     unicode: true,
   );
   static final _englishOwnerContext = RegExp(
@@ -52,7 +58,7 @@ abstract final class ProjectPublicWebQuery {
   );
   static final _instructions = RegExp(
     r'(?<![\p{L}])(?:کن|کنید|بکن|بکنید|لطفا|لطفاً|'
-    r'برام|برایم|لطفا|لطفاً|لطفاً)\s*',
+    r'برام|برایم|لطفا|لطفاً|لطفاً)(?![\p{L}])\s*',
     caseSensitive: false,
     unicode: true,
   );
@@ -75,6 +81,7 @@ abstract final class ProjectPublicWebQuery {
       OnlinePermissionPolicy.privateContent(input) ||
       _email.hasMatch(input) ||
       _ip.hasMatch(input) ||
+      _personalHomeLocation.hasMatch(input) ||
       _privateReference.hasMatch(input);
 
   /// Returns a safe, useful search query or null. No fixed subject list:

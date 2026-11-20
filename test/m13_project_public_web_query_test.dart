@@ -13,6 +13,8 @@ void main() {
       'آخرین مصاحبه نویسنده Haruki Murakami',
       'The latest research into battery degradation LiFePO4',
       'بانک مرکزی اروپا نرخ بهره امروز',
+      'شخصیت رستم در شاهنامه در منابع معتبر',
+      'آدرس وب سایت رسمی دانشگاه آکسفورد',
     ]) {
       final result = ProjectPublicWebQuery.fromMessage(question);
       expect(result, isNotNull, reason: question);
@@ -47,6 +49,7 @@ void main() {
       'تعمیر باتری 192.168.100.246',
       'کنه انجیر sk_abcdefghijklmnopqrstuvw123',
       'شماره موبایل من برای آبیاری قطره ای',
+      'در باغ من در شیراز چه درختی بکارم',
       'در اینترنت درباره باغ من بگرد',
     ]) {
       expect(ProjectPublicWebQuery.fromMessage(raw), isNull, reason: raw);
