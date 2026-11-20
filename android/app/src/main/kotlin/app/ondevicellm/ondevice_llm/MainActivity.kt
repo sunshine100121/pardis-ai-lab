@@ -138,6 +138,8 @@ class MainActivity : FlutterActivity() {
         PhoneActions(this, flutterEngine.dartExecutor.binaryMessenger)
         voiceAudio?.close()
         voiceAudio = VoiceAudio(this, flutterEngine.dartExecutor.binaryMessenger)
+        // Diagnostic-only native ONNX G2P; does not change any speaking engine.
+        PocketFarsiV2Probe(this, flutterEngine.dartExecutor.binaryMessenger)
         hostDiscovery?.close()
         hostDiscovery = HostDiscovery(this, flutterEngine.dartExecutor.binaryMessenger)
         // Read-only device facts used to size models and defaults. Nothing leaves the device.
