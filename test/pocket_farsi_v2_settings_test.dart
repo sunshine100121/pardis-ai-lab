@@ -27,5 +27,11 @@ void main() {
           .onPressed,
       isNull,
     );
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('pocket-conversation-opt-in')))
+          .onPressed,
+      isNull,
+    );
+    expect(find.byKey(const Key('pocket-conversation-restore')), findsOneWidget);
   });
 }

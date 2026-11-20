@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'pocket_farsi_v2_audio.dart';
 import 'pocket_farsi_v2_pack.dart';
 import 'pocket_farsi_v2_probe.dart';
+import 'voice_choice_storage.dart';
+import 'voice_engine_selection.dart';
 
 /// Collapsed ADVANCED panel only, never part of everyday voice selection.
 /// Import and test are explicit; Gyro/Qwen/HA choices are never changed.
@@ -21,6 +23,7 @@ class _PocketFarsiExperimentalSettingsState
     extends State<PocketFarsiExperimentalSettings> {
   bool _busy = false;
   bool _ready = false;
+  bool _samplePassed = false;
   String? _status;
 
   Future<void> _inspect() async {
@@ -116,6 +119,7 @@ class _PocketFarsiExperimentalSettingsState
       final rtf = audioMs > 0 ? (generated / audioMs).toStringAsFixed(2) : 'نامعلوم';
       if (mounted) {
         setState(() {
+          _samplePassed = true;
           _status = 'نمونه Pocket پخش شد؛ تولید: $generated میلی‌ثانیه؛ '
               'مدت صدا: $audioMs میلی‌ثانیه؛ RTF: $rtf. '
               'کیفیت باید با Gyro مقایسه شود.';
@@ -124,9 +128,50 @@ class _PocketFarsiExperimentalSettingsState
     } catch (_) {
       if (mounted) {
         setState(() {
+          _samplePassed = false;
           _status = 'آزمایش صدا ناموفق بود؛ صدای Gyro همچنان محفوظ است.';
         });
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _enablePocketConversation() async {
+    if (_busy || !_ready || !_samplePassed) return;
+    setState(() => _busy = true);
+    try {
+      await VoiceChoiceStorage.choose(
+        VoiceSelectionKind.tts,
+        'tts:pocket-farsi-v2:onnx',
+      );
+      if (mounted) {
+        setState(() {
+          _status = 'Pocket فقط برای مکالمه پالا انتخاب شد. '
+              'با «بازگشت به صدای قبلی» می‌توانید فوراً لغو کنید.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _status = 'فعال‌سازی Pocket ناموفق بود؛ تنظیم قبلی محفوظ است.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restorePreviousVoice() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      // Clears only the custom Pocket adapter. It does not overwrite or
+      // delete the already selected Android TTS engine / voice (Gyro).
+      await VoiceChoiceStorage.clear(VoiceSelectionKind.tts);
+      if (mounted) {
+        setState(() => _status = 'انتخاب Pocket لغو شد؛ صدای قبلی محفوظ است.');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _status = 'بازگشت به صدای قبلی ناموفق بود.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -167,6 +212,25 @@ class _PocketFarsiExperimentalSettingsState
             onPressed: _busy || !_ready ? null : _trySpeech,
             icon: const Icon(Icons.play_arrow),
             label: const Text('شنیدن نمونه'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.tonal(
+            key: const Key('pocket-conversation-opt-in'),
+            onPressed: _busy || !_ready || !_samplePassed
+                ? null
+                : _enablePocketConversation,
+            child: const Text('استفاده آزمایشی در مکالمه'),
+          ),
+          TextButton(
+            key: const Key('pocket-conversation-restore'),
+            onPressed: _busy ? null : _restorePreviousVoice,
+            child: const Text('بازگشت به صدای قبلی'),
           ),
         ],
       ),
