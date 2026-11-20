@@ -110,6 +110,7 @@ import '../../domain/turn_prompts.dart';
 import '../../domain/turn_policy.dart';
 import '../../domain/project_knowledge_policy.dart';
 import '../../domain/online_permission_policy.dart';
+import '../../domain/project_public_web_query.dart';
 import 'online_turn_permission.dart';
 import '../../domain/answer_checks.dart';
 import '../../domain/search_steps.dart';
@@ -937,12 +938,17 @@ class ChatNotifier extends _ChatBase
       settings = settings.copyWith(webMode: WebMode.auto);
     }
     if (_projectId != null) {
-      // Global memory and external retrieval are disabled: the owner-approved
-      // project notes below are separate. Existing data stays untouched.
+      // M13 extension: public web retrieval is allowed only through the
+      // locally generalized, allowlisted search query below. Project notes
+      // and histories never enter outbound searches or remote inference.
+      // Native web tools stay off even in WebMode.always.
       settings = settings.copyWith(
-        webMode: WebMode.off,
         memoryEnabled: false,
         toolsEnabled: false,
+        toolWeb: false,
+        researchLoop: false,
+        searchQueryPlanning: false,
+        remoteWebResearch: false,
         remoteEnabled: false,
         knowledgeCollection: project?.collection ?? '',
       );
@@ -1374,6 +1380,27 @@ class ChatNotifier extends _ChatBase
           urls: plan.urls,
           query: placed,
           wantsWeb: plan.wantsWeb,
+        );
+      }
+    }
+    // The outbound query in a project is built ONLY from the current
+    // user's public-topic words. Contextual rewrites, earlier messages,
+    // private notes, URLs, numerical IDs and model-generated terms are
+    // not allowed to become search-engine input.
+    if (_projectId != null && plan.mode != RetrievalMode.none) {
+      final publicQuery = ProjectPublicWebQuery.fromMessage(input);
+      if (publicQuery == null) {
+        plan = RetrievalPlan.of(input, webEnabled: false);
+        state = state.copyWith(
+          notice: 'عبارت عمومی و بی‌نام برای جست‌وجوی امن پیدا نشد؛ '
+              'اطلاعات پروژه به اینترنت ارسال نشد.',
+        );
+      } else {
+        plan = RetrievalPlan(
+          mode: RetrievalMode.search,
+          urls: const [],
+          query: publicQuery,
+          wantsWeb: true,
         );
       }
     }
@@ -1956,11 +1983,15 @@ class ChatNotifier extends _ChatBase
     } else if (projectSensorRequest) {
       t.sources = [];
       t.offlineRefusal = 'خواندن حسگر در محدوده پروژه هنوز آماده نیست؛ مقدار فعلی حدس زده نمی‌شود.';
-    } else if (projectExternalRequest) {
+    } else if (projectExternalRequest &&
+        !t.sources.any((s) =>
+            s.url.startsWith('https://') || s.url.startsWith('http://'))) {
+      // An explicit online request without usable public web evidence
+      // must never be answered with fabricated current references.
       t.sources = [];
       t.offlineRefusal =
-          'جست‌وجوی بیرون از منابع پروژه هنوز در این نسخه آماده نیست؛ '
-          'درخواست شما به اینترنت ارسال نشد.';
+          'برای این درخواست نتیجه اینترنتیِ مجاز و قابل‌استناد پیدا نشد. '
+          'می‌توانید موضوع را با عبارت عمومی‌تر بپرسید.';
     } else if (_projectId != null &&
         t.sources.isEmpty &&
         t.attachments.isEmpty &&
@@ -1970,8 +2001,8 @@ class ChatNotifier extends _ChatBase
         !RegExp(r'^\s*(سلام|درود|ممنون|متشکرم)\s*[!؟?]*\s*$').hasMatch(input)) {
       t.offlineRefusal =
           'در منابع متصل به این پروژه شاهد مرتبطی پیدا نشد. برای پاسخ مستند، '
-          'منابع پروژه را بررسی یا منابع مرتبط اضافه کنید. گسترش جست‌وجو به '
-          'منابع بیرون از پروژه در این نسخه هنوز آماده نیست.';
+          'منابع پروژه را بررسی کنید یا در صورت نیاز، '
+          'جست‌وجوی یک موضوع عمومی را درخواست کنید.';
     }
     if (t.offlineRead != null) {
       final supplied = t.sources.any(

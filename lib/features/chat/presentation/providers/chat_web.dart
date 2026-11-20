@@ -49,7 +49,13 @@ mixin _ChatWeb on _ChatBase {
     // Wikipedia lookups) pass the same permission/privacy boundary BEFORE
     // any network work or embedding warm-up begins.
     if (plan.mode != RetrievalMode.none) {
-      final deniedByScope = _projectId != null;
+      // A project search is eligible ONLY if its full outgoing query
+      // exactly equals the allowlisted extraction of the current turn.
+      final publicQuery = _projectId == null
+          ? null
+          : ProjectPublicWebQuery.fromMessage(message);
+      final deniedByScope = _projectId != null &&
+          (plan.mode != RetrievalMode.search || plan.query != publicQuery);
       final sensitive =
           OnlinePermissionPolicy.privateContent(message) ||
           OnlinePermissionPolicy.privateContent(plan.query) ||
@@ -125,7 +131,14 @@ mixin _ChatWeb on _ChatBase {
         }
       }
       final latestOwnerMode = ref.read(settingsProvider).webMode;
+      final workspace = ref.read(conversationWorkspaceProvider);
+      final projectMembershipChanged = originatingProjectId != null &&
+          (workspace.projects.every((p) => p.id != originatingProjectId) ||
+              (originatingChatId != null &&
+                  workspace.memberships[originatingChatId] !=
+                      originatingProjectId));
       final noLongerAllowed =
+          projectMembershipChanged ||
           state.chatId != originatingChatId ||
           _projectId != originatingProjectId ||
           !ref.read(conversationWorkspaceProvider).readable ||
@@ -151,7 +164,11 @@ mixin _ChatWeb on _ChatBase {
         );
       }
     }
-    final lock = subject != null && subject.isNotEmpty ? subject : null;
+    // A subject recovered from private chat context must not influence
+    // retries or online query expansion inside a project.
+    final lock = _projectId == null && subject != null && subject.isNotEmpty
+        ? subject
+        : null;
     String textOf(SearchResult r) =>
         '${r.title}\n${r.snippet}\n${r.pageText ?? ''}';
     var sponsoredSources = List.of(sponsored);
@@ -280,6 +297,7 @@ mixin _ChatWeb on _ChatBase {
                 : _t.noticeSearching,
           );
           final wantPlanner =
+              _projectId == null &&
               operationBudget == null &&
               settings.searchQueryPlanning &&
               (plan.query.split(' ').length > 8 || earlier != null);
