@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'persian_sherpa_models.dart';
 import 'sherpa_voice.dart';
 
+/// Offline Persian engine backend; never falls back to network inference.
 /// Real NeMo CTC adapter for the Shenava Persian models in sherpa-onnx.
 /// Config construction is independently testable without loading a model.
 sherpa.OfflineRecognizerConfig persianCtcConfig(
