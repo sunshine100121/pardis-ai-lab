@@ -90,7 +90,8 @@ abstract final class MemoryScopePolicy {
   static final _benign = RegExp(
     r'\b(?:prefer|prefers|speak|speaks|language|languages|'
     r'work|works|job|profession|favourite|favorite|'
-    r'likes|use|uses|hobby|hobbies)\b|'
+    r'likes|use|uses|hobby|hobbies|chef|cook|teacher|engineer|' +
+    r'developer|farmer|gardener|nurse)\b|'
     r'(?:ترجیح می‌دهم|دوست دارم|علاقه دارم|زبان|'
     r'کار می‌کنم|شغل|سرگرمی|کتاب مورد علاقه|سبک پاسخ)',
     caseSensitive: false,

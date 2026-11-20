@@ -159,7 +159,6 @@ class MemoryPage extends ConsumerWidget {
                         context.l10n.memoryStorageHint,
                         icon: Icons.lock_outline,
                       ),
-                      const MemoryPolicyControls(),
                       if (remote != null) ...[
                         SettingsSection(label: remote.name),
                         SettingsNote(context.l10n.memoryRemoteLocalHint),
@@ -211,6 +210,7 @@ class MemoryPage extends ConsumerWidget {
                           ],
                         ),
                       ],
+                      const MemoryPolicyControls(),
                       const MemoryPendingSuggestions(),
                       SettingsSection(
                         label: context.l10n.whatAssistantRemembers,

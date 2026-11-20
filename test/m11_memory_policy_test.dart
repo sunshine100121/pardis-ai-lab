@@ -111,7 +111,9 @@ void main() {
     expect(found.pinned, isTrue);
     expect(found.sourceChatId, 'c1');
     expect(found.sourceMessageId, 'm1');
-    expect(found.expiresAt, end);
+    // Drift stores DateTime values at whole-second resolution.
+    expect(found.expiresAt?.millisecondsSinceEpoch ~/ 1000,
+        end.millisecondsSinceEpoch ~/ 1000);
   });
 
   test('unapproved proposals are never added to durable memory', () async {
