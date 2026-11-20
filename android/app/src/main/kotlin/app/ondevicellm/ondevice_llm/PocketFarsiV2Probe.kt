@@ -111,7 +111,8 @@ internal class PocketFarsiV2Probe(
     internal fun phonemiseLocal(text: String): String = phonemise(text)
 
     private fun phonemise(text: String): String {
-        val normalized = text.replace('ي', 'ی').replace('ك', 'ک')
+        val normalized = PocketFarsiNumberWords.normalize(text)
+            .replace('ي', 'ی').replace('ك', 'ک')
             .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
             .replace(Regex("\\s+"), " ").trim()
         if (normalized.length > 300 || !normalized.any { it in '\u0600'..'\u06FF' }) {
