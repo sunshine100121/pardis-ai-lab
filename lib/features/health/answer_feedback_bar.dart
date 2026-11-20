@@ -116,10 +116,12 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
           if (disliked)
             TextButton(
               key: Key('pala-feedback-reason-' + widget.messageId),
-              onPressed: loading ? null : () => _reason(current),
-              child: Text(current.reasonCode == null
+              onPressed: loading || current == null
+                  ? null
+                  : () => _reason(current),
+              child: Text(current?.reasonCode == null
                   ? 'دلیل؟ (اختیاری)'
-                  : FeedbackReasons.labels[current.reasonCode] ??
+                  : FeedbackReasons.labels[current?.reasonCode] ??
                     'ویرایش دلیل'),
             ),
         ],
