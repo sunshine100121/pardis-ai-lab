@@ -368,12 +368,30 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                     for (final p in workspace.projects)
                       PopupMenuItem(value: p.id, child: Text(p.name)),
                   ],
-                  onSelected: (id) => _run(
-                    () => notifier.assign(
-                      _selected.toList(),
-                      id.isEmpty ? null : id,
-                    ),
-                  ),
+                  onSelected: (id) async {
+                    final destination = id.isEmpty ? null : id;
+                    final crossing = _selected.any(
+                      (chatId) => workspace.memberships[chatId] != destination,
+                    );
+                    if (crossing) {
+                      final approved = await confirmAction(
+                        context,
+                        title: 'انتقال گفت‌وگو بین پروژه‌ها',
+                        message: 'تاریخچه و تنظیمات گفتگو حفظ می‌شوند، '
+                            'اما برای حفاظت از حافظه خصوصی، پالا فقط '
+                            'پیام‌های پس از انتقال را در پاسخ‌های جدید '
+                            'استفاده می‌کند. ادامه می‌دهید؟',
+                        confirmLabel: 'انتقال',
+                      );
+                      if (!approved || !mounted) return;
+                    }
+                    await _run(
+                      () => notifier.assign(
+                        _selected.toList(),
+                        destination,
+                      ),
+                    );
+                  },
                   child: Padding(
                     padding: const EdgeInsets.all(AppDesign.md),
                     child: Text(t.project),

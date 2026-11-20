@@ -1,7 +1,10 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/data/network/web_search/search_models.dart';
 import 'package:ondevice_llm/features/chat/domain/conversation_workspace.dart';
 import 'package:ondevice_llm/features/chat/domain/project_knowledge_policy.dart';
@@ -168,4 +171,35 @@ void main() {
     expect(c.read(conversationWorkspaceProvider).projects.single
         .sharedCollections, ['general']);
   });
+  test('moving chat does not reset stored chat-specific settings', () async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await db.close();
+    });
+    final now = DateTime.utc(2026, 11, 20);
+    await db.upsertChat(ChatsCompanion.insert(
+      id: 'existing-chat',
+      title: 'گفتگوی شخصی آزمایشی',
+      createdAt: now,
+      updatedAt: now,
+      overridesJson: const Value('{"temperature":0.42,"thinkingModeEnabled":false}'),
+    ));
+    final manager = container.read(conversationWorkspaceProvider.notifier);
+    await manager.ready;
+    await manager.saveProject(name: 'باغبانی پردیس');
+    await manager.saveProject(name: 'برنامه‌نویسی');
+    final projects = container.read(conversationWorkspaceProvider).projects;
+    await manager.assign(['existing-chat'], projects.first.id);
+    await manager.assign(['existing-chat'], projects.last.id);
+    expect((await db.getChat('existing-chat'))!.overridesJson,
+        '{"temperature":0.42,"thinkingModeEnabled":false}');
+    expect(container.read(conversationWorkspaceProvider)
+        .mayUseInContext('existing-chat', now), isFalse);
+  });
+
 }
