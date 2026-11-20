@@ -42,7 +42,9 @@ jobs:
             test/m15_lan_probe_test.dart
       - name: Run same-condition unit, cancellation and regression tests
         run: |
-          flutter test \
+          # Serial execution avoids unrelated PDFium initialization races
+          # while keeping every existing test and assertion enabled.
+          flutter test --concurrency=1 \
             test/benchmark_test.dart \
             test/m15_lan_probe_test.dart \
             test/offline_folder_library_test.dart \
