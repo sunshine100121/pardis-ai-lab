@@ -54,6 +54,8 @@ jobs:
             test/import_projector_test.dart \
             test/hf_projector_persistence_test.dart \
             test/hosting_lifecycle_test.dart \
+            test/device_model_server_protocol_test.dart \
+            test/device_model_server_test.dart \
             test/owner_model_details_test.dart \
             test/audit_attachment_dialog_test.dart \
             test/turn_coordinator_test.dart
