@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -214,4 +216,75 @@ void main() {
     expect(r.prefillTps, 0);
     expect(BenchmarkResult.fromJson(r.toJson()).toJson(), r.toJson());
   });
+
+  test('M15: model-ready timing survives storage without claiming cold load', () {
+    final result = BenchmarkResult.fromSamples(
+      const {'backend': 'CPU', 'tokens': 30},
+      const [BenchmarkSample(
+        prefillMs: 2500, decodeTps: 15, peakRssMb: 1600,
+        promptTokens: 120, generated: 30,
+      )],
+      model: testModel, threads: 4, batchThreads: 4,
+      modelReadyMs: 24, didLoad: false,
+    );
+    final card = result.card();
+    expect(card, contains('Model ready: 24 ms'));
+    expect(card, contains('reuse / warm, not a cold load'));
+    final roundTrip = BenchmarkResult.fromJson(result.toJson());
+    expect(roundTrip.modelReadyMs, 24);
+    expect(roundTrip.didLoad, false);
+    expect(roundTrip.toJson(), result.toJson());
+    // Previous app versions lack these keys. Reading old cards must work.
+    final old = Map<String, dynamic>.from(result.toJson());
+    old.remove('didLoad');
+    old.remove('modelReadyMs');
+    final restored = BenchmarkResult.fromJson(old);
+    expect(restored.modelReadyMs, isNull);
+    expect(restored.didLoad, false);
+  });
+
+  test('M15: stop cancels the heavy run without discarding saved baseline',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final engine = TestEngine();
+    final container = ProviderContainer(overrides: [
+      appDatabaseProvider.overrideWithValue(db),
+      llamaEngineProvider.overrideWithValue(engine),
+      settingsProvider.overrideWith(TestSettings.new),
+      modelManagerProvider.overrideWith(TestModels.new),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await db.close();
+    });
+    final notifier = container.read(benchmarkProvider.notifier);
+    // One successful run is the old baseline to preserve.
+    engine.metrics = {
+      'promptTokens': 120, 'tokens': 30,
+      'firstTokenMs': 1000.0, 'tokensPerSecond': 20.0,
+      'peakRssMb': 1700.0,
+    };
+    final old = await notifier.run(testModel);
+    expect(old, isNotNull);
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    engine.pause = gate;
+    engine.beforeGenerate = () {
+      if (!started.isCompleted) started.complete();
+    };
+    final running = notifier.run(testModel);
+    await started.future;
+    expect(container.read(sessionBusyProvider), true);
+    notifier.cancel();
+    final cancelled = await running;
+    expect(cancelled, isNull);
+    expect(engine.stopped, true);
+    expect(container.read(sessionBusyProvider), false);
+    expect(container.read(benchmarkProvider).running, isNull);
+    expect(container.read(benchmarkProvider).error, isNull);
+    expect(container.read(benchmarkProvider).results['test']?.toJson(),
+        old?.toJson());
+  });
+
 }

@@ -1,0 +1,53 @@
+name: PALA M15 performance and LAN baseline (no APK)
+
+on:
+  push:
+    branches: [pala/m15-performance-2026-11-20]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  performance-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Format M15 files
+        run: |
+          dart format \
+            lib/features/benchmark/benchmark.dart \
+            lib/features/benchmark/benchmark_dialog.dart \
+            lib/features/hosting/lan_probe_runner.dart \
+            lib/features/knowledge/folder_library.dart \
+            lib/features/settings/presentation/screens/remote_profile_page.dart \
+            test/benchmark_test.dart \
+            test/m15_lan_probe_test.dart
+      - name: Analyze without suppressing errors
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/benchmark/benchmark.dart \
+            lib/features/benchmark/benchmark_dialog.dart \
+            lib/features/hosting/lan_probe_runner.dart \
+            lib/features/knowledge/folder_library.dart \
+            lib/features/settings/presentation/screens/remote_profile_page.dart \
+            test/benchmark_test.dart \
+            test/m15_lan_probe_test.dart
+      - name: Run same-condition unit, cancellation and regression tests
+        run: |
+          flutter test \
+            test/benchmark_test.dart \
+            test/m15_lan_probe_test.dart \
+            test/offline_folder_library_test.dart \
+            test/hosting_lifecycle_test.dart \
+            test/device_hosting_page_test.dart \
+            test/remote_server_settings_test.dart \
+            test/remote_server_page_test.dart \
+            test/battery_saver_test.dart

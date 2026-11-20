@@ -473,6 +473,9 @@ class FolderLibrary {
       // more relevant chapters. Reads are sparse and no full PDF is copied.
       if ((f['name'] as String).toLowerCase().endsWith('.pdf') &&
           terms.isNotEmpty) {
+        // M15: preserve every page and source-scope check, but time the
+        // complete PDF retrieval (including SAF/revalidation and close).
+        final pdfClock = Stopwatch()..start();
         try {
           final source = await access.open(f['uri'] as String);
           late ({
@@ -526,8 +529,8 @@ class FolderLibrary {
             });
             continue;
           }
+          final id = sourceId(f['uri'] as String);
           for (final hit in scan.matches) {
-            final id = sourceId(f['uri'] as String);
             found.add((
               hit.score,
               SearchResult(
@@ -553,6 +556,11 @@ class FolderLibrary {
           checks.add({'file': f['name'], 'code': 'pdf_page_scan_failed'});
           // No stale excerpts or unverified synthetic page labels.
           continue;
+        } finally {
+          pdfClock.stop();
+          if (checks.isNotEmpty && checks.last['file'] == f['name']) {
+            checks.last['elapsedMs'] = pdfClock.elapsedMilliseconds;
+          }
         }
       }
       for (final p in f['passages'] as List) {

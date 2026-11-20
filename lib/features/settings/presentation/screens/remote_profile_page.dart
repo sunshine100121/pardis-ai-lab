@@ -10,6 +10,7 @@ import '../../../../core/utils/external_links.dart';
 import '../../../../inference/remote/remote_engine.dart';
 import '../../../../inference/remote/remote_provider.dart';
 import '../providers/settings_provider.dart';
+import '../../../hosting/lan_probe_runner.dart';
 import '../widgets/settings_widgets.dart';
 import '../../../../core/island/status_island.dart';
 import '../../../../core/design/app_dialog.dart';
@@ -37,6 +38,9 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
   RemoteServerReport? _report;
   String? _probe;
   bool _probing = false, _showKey = false;
+  bool _linkTesting = false;
+  String? _linkResult;
+  LanProbeRunner? _linkRunner;
   ({int minute, int day})? _counts;
 
   RemoteProfile? get _profile => ref
@@ -125,6 +129,7 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
 
   @override
   void dispose() {
+    _linkRunner?.cancel();
     for (final c in [
       _name,
       _url,
@@ -247,6 +252,33 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
       }
     } finally {
       if (mounted) setState(() => _probing = false);
+    }
+  }
+
+  /// M15: run from the S25 Ultra while the tablet screen is on and again
+  /// after manually turning the tablet screen off. This tests LAN access,
+  /// not Qwen's ability to complete a response in Android background mode.
+  Future<void> _testLanStability() async {
+    final profile = _profile;
+    if (profile == null || !LanProbeRunner.isLocal(profile.uri)) return;
+    await _save();
+    if (!mounted) return;
+    setState(() {
+      _linkTesting = true;
+      _linkResult = null;
+    });
+    final runner = LanProbeRunner();
+    _linkRunner = runner;
+    try {
+      final settings = ref.read(settingsProvider);
+      final chosen = settings.copyWith(remoteProfileId: widget.profileId);
+      final summary = await runner.run(() async {
+        await ref.read(remoteEngineProvider).probe(chosen);
+      });
+      if (mounted) setState(() => _linkResult = summary.persian);
+    } finally {
+      if (mounted) setState(() => _linkTesting = false);
+      _linkRunner = null;
     }
   }
 
@@ -558,6 +590,34 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
                               ),
                           ],
                         ),
+                        if (LanProbeRunner.isLocal(p.uri)) ...[
+                          const SizedBox(height: AppDesign.md),
+                          Row(
+                            children: [
+                              OutlinedButton.icon(
+                                key: const Key('m15-lan-probe'),
+                                onPressed: _linkTesting || _probing
+                                    ? null : _testLanStability,
+                                icon: _linkTesting
+                                    ? const SizedBox.square(
+                                        dimension: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.wifi_tethering, size: 16),
+                                label: const Text('۵ بار آزمون اتصال محلی'),
+                              ),
+                              if (_linkTesting)
+                                TextButton(
+                                  onPressed: _linkRunner?.cancel,
+                                  child: const Text('توقف'),
+                                ),
+                            ],
+                          ),
+                          if (_linkResult != null)
+                            Text(_linkResult!, style: context.text.caption),
+                        ],
                       ],
                     ),
                   ),

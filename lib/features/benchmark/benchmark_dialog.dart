@@ -88,6 +88,14 @@ class _RunningDialogState extends State<_RunningDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     scrollable: true,
+    actions: [
+      TextButton.icon(
+        key: const Key('m15-stop-benchmark'),
+        onPressed: widget.notifier.cancel,
+        icon: const Icon(Icons.stop_circle_outlined),
+        label: const Text('توقف آزمون'),
+      ),
+    ],
     content: Row(
       spacing: AppDesign.md,
       children: [
@@ -171,6 +179,17 @@ class _ResultDialog extends StatelessWidget {
           if (result.engineSummary.isNotEmpty)
             row('Engine', result.engineSummary),
           row('Peak RSS', '${result.peakRssMb.round()} MB'),
+          if (result.modelReadyMs != null)
+            row('Model ready',
+                '${result.modelReadyMs} ms · ${result.didLoad ? 'loaded' : 'reused / warm'}'),
+          if (result.batteryBeforePct != null &&
+              result.batteryAfterPct != null)
+            row('Battery',
+                '${result.batteryBeforePct}% → ${result.batteryAfterPct}%'),
+          if (result.freeMemoryBeforeMb != null &&
+              result.freeMemoryAfterMb != null)
+            row('Free RAM',
+                '${result.freeMemoryBeforeMb!.round()} → ${result.freeMemoryAfterMb!.round()} MB'),
           row('Context', '${result.contextSize}'),
           if (result.thermalSummary.isNotEmpty)
             row('Thermal', result.thermalSummary),

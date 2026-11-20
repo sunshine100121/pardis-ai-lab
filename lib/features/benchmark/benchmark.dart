@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/device/thermal.dart';
+import '../../core/platform/device_info.dart';
 import '../../core/providers/shared_providers.dart';
 import '../../inference/engine/text_engine.dart';
 import '../knowledge/knowledge_store.dart';
@@ -85,6 +86,12 @@ class BenchmarkResult {
   final Map<String, dynamic> engine;
   final Map<String, double> thermalBefore, thermalAfter;
   final BenchmarkSample? chat, chatTools;
+  /// M15: model ready time is not necessarily a cold load (see didLoad).
+  final int? modelReadyMs;
+  final bool didLoad;
+  final int? batteryBeforePct, batteryAfterPct;
+  final bool? chargingBefore, chargingAfter;
+  final double? freeMemoryBeforeMb, freeMemoryAfterMb;
   const BenchmarkResult({
     required this.modelId,
     required this.modelName,
@@ -105,6 +112,14 @@ class BenchmarkResult {
     this.thermalAfter = const {},
     this.chat,
     this.chatTools,
+    this.modelReadyMs,
+    this.didLoad = false,
+    this.batteryBeforePct,
+    this.batteryAfterPct,
+    this.chargingBefore,
+    this.chargingAfter,
+    this.freeMemoryBeforeMb,
+    this.freeMemoryAfterMb,
   });
 
   /// Warm-up generations before the measured ones; the first run pays for
@@ -175,6 +190,19 @@ class BenchmarkResult {
     if (chat != null) b.writeln('Chat: ${chatLine(chat!)}');
     if (chatTools != null) b.writeln('Chat + tools: ${chatLine(chatTools!)}');
     b.writeln('Peak RSS: ${peakRssMb.round()} MB');
+    if (modelReadyMs != null) {
+      b.writeln('Model ready: ${modelReadyMs} ms (' +
+          (didLoad ? 'model loaded in this run' : 'reuse / warm, not a cold load') + ')');
+    }
+    if (batteryBeforePct != null && batteryAfterPct != null) {
+      b.writeln('Battery: ${batteryBeforePct}% → ${batteryAfterPct}% ' +
+          '(charging before: ${chargingBefore ?? 'unknown'}, after: ${chargingAfter ?? 'unknown'}); ' +
+          'rounded OS percentage, not energy consumption');
+    }
+    if (freeMemoryBeforeMb != null && freeMemoryAfterMb != null) {
+      b.writeln('Available RAM: ${freeMemoryBeforeMb!.round()} → ' +
+          '${freeMemoryAfterMb!.round()} MB (OS headroom, not model allocation)');
+    }
     if (thermalSummary.isNotEmpty) {
       b.writeln('Thermal: $thermalSummary (zone that ended hottest)');
     }
@@ -206,6 +234,14 @@ class BenchmarkResult {
     'engine': engine,
     'thermalBefore': thermalBefore,
     'thermalAfter': thermalAfter,
+    if (modelReadyMs != null) 'modelReadyMs': modelReadyMs,
+    'didLoad': didLoad,
+    if (batteryBeforePct != null) 'batteryBeforePct': batteryBeforePct,
+    if (batteryAfterPct != null) 'batteryAfterPct': batteryAfterPct,
+    if (chargingBefore != null) 'chargingBefore': chargingBefore,
+    if (chargingAfter != null) 'chargingAfter': chargingAfter,
+    if (freeMemoryBeforeMb != null) 'freeMemoryBeforeMb': freeMemoryBeforeMb,
+    if (freeMemoryAfterMb != null) 'freeMemoryAfterMb': freeMemoryAfterMb,
     if (chat != null) 'chat': chat!.toJson(),
     if (chatTools != null) 'chatTools': chatTools!.toJson(),
   };
@@ -233,6 +269,14 @@ class BenchmarkResult {
         : const {},
     thermalBefore: _zones(j['thermalBefore']),
     thermalAfter: _zones(j['thermalAfter']),
+    modelReadyMs: (j['modelReadyMs'] as num?)?.toInt(),
+    didLoad: j['didLoad'] == true,
+    batteryBeforePct: (j['batteryBeforePct'] as num?)?.toInt(),
+    batteryAfterPct: (j['batteryAfterPct'] as num?)?.toInt(),
+    chargingBefore: j['chargingBefore'] as bool?,
+    chargingAfter: j['chargingAfter'] as bool?,
+    freeMemoryBeforeMb: (j['freeMemoryBeforeMb'] as num?)?.toDouble(),
+    freeMemoryAfterMb: (j['freeMemoryAfterMb'] as num?)?.toDouble(),
     chat: j['chat'] is Map
         ? BenchmarkSample.fromJson(Map<String, dynamic>.from(j['chat'] as Map))
         : null,
@@ -278,6 +322,12 @@ class BenchmarkResult {
     Map<String, double> thermalAfter = const {},
     BenchmarkSample? chat,
     BenchmarkSample? chatTools,
+    int? modelReadyMs,
+    bool didLoad = false,
+    DevicePower? powerBefore,
+    DevicePower? powerAfter,
+    DeviceMemory? memoryBefore,
+    DeviceMemory? memoryAfter,
   }) {
     num n(String k) => m[k] is num ? m[k] as num : 0;
     final backend = (m['backend'] as String? ?? '—');
@@ -308,6 +358,16 @@ class BenchmarkResult {
       thermalAfter: thermalAfter,
       chat: chat,
       chatTools: chatTools,
+      modelReadyMs: modelReadyMs,
+      didLoad: didLoad,
+      batteryBeforePct: powerBefore?.level,
+      batteryAfterPct: powerAfter?.level,
+      chargingBefore: powerBefore?.charging,
+      chargingAfter: powerAfter?.charging,
+      freeMemoryBeforeMb: memoryBefore == null
+          ? null : memoryBefore.availableBytes / (1024 * 1024),
+      freeMemoryAfterMb: memoryAfter == null
+          ? null : memoryAfter.availableBytes / (1024 * 1024),
     );
   }
 }
@@ -359,6 +419,20 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
 
   late Future<void> ready;
   bool _alive = true;
+  bool _cancelRequested = false;
+  
+  /// Stop a heavy benchmark or an in-progress model load without changing
+  /// saved results. The next normal chat stays available after release.
+  void cancel() {
+    if (state.running == null) return;
+    _cancelRequested = true;
+    ref.read(modelManagerProvider.notifier).stopLoad();
+    ref.read(llamaEngineProvider).cancel();
+  }
+
+  void _checkStop() {
+    if (_cancelRequested) throw StateError('Benchmark cancelled by owner.');
+  }
 
   @override
   BenchmarkState build() {
@@ -418,12 +492,23 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
       throw StateError('Wait for the current response or benchmark.');
     }
     await ready;
+    _cancelRequested = false;
     state = state.copyWith(running: model.id, clearError: true);
     ref.read(sessionBusyProvider.notifier).state = true;
     try {
       final manager = ref.read(modelManagerProvider.notifier);
       await manager.ready;
+      _checkStop();
+      final powerBefore = await DevicePower.read();
+      final memoryBefore = await DeviceMemory.read();
+      final engineBefore = ref.read(llamaEngineProvider);
+      final loadCount = engineBefore.loadCount;
+      final loadClock = Stopwatch()..start();
       await manager.loadModel(model, forChat: true);
+      loadClock.stop();
+      _checkStop();
+      final modelReadyMs = loadClock.elapsedMilliseconds;
+      final didLoad = engineBefore.loadCount > loadCount;
       final settings = ref
           .read(settingsProvider)
           .copyWith(
@@ -447,6 +532,7 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
               settings: settings,
             )
             .drain<void>();
+        _checkStop();
         if (i >= BenchmarkResult.warmUps) {
           samples.add(BenchmarkSample.fromMetrics(engine.metrics));
         }
@@ -472,6 +558,7 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
               tools: tools,
             )
             .drain<void>();
+        _checkStop();
         return BenchmarkSample.fromMetrics(engine.metrics);
       }
 
@@ -493,6 +580,10 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
           native ? specs : const [],
         );
       }
+      _checkStop();
+      final powerAfter = await DevicePower.read();
+      final memoryAfter = await DeviceMemory.read();
+      _checkStop();
       final result = BenchmarkResult.fromSamples(
         metrics,
         samples,
@@ -503,7 +594,14 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
         thermalAfter: thermalAfter,
         chat: chat,
         chatTools: chatTools,
+        modelReadyMs: modelReadyMs,
+        didLoad: didLoad,
+        powerBefore: powerBefore,
+        powerAfter: powerAfter,
+        memoryBefore: memoryBefore,
+        memoryAfter: memoryAfter,
       );
+      _checkStop();
       if (_alive) {
         state = state.copyWith(
           results: {...state.results, model.id: result},
@@ -513,7 +611,11 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
       }
       return result;
     } catch (e) {
-      if (_alive) state = state.copyWith(error: '$e', clearRunning: true);
+      if (_alive) {
+        state = _cancelRequested
+            ? state.copyWith(clearRunning: true, clearError: true)
+            : state.copyWith(error: '$e', clearRunning: true);
+      }
       return null;
     } finally {
       ref.read(sessionBusyProvider.notifier).state = false;
