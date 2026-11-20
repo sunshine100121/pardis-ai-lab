@@ -5,10 +5,28 @@ BASE='b848d9920e59b0af7bed6d1d335ece6652987cc1'
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 def git(*args):
     return subprocess.check_output(['git',*args],cwd=ROOT)
-protected=['lib/inference','native','lib/data/local/database','lib/data/storage/model_storage.dart',
+# Keep the native inference engine, original model location and bridge byte-for-byte protected.
+# M11-M19 intentionally add DB tables and limited hosting/model/settings code.
+# Review only these five exact blobs; every further edit fails closed until re-reviewed.
+APPROVED_034_BLOBS = {
+    "lib/data/local/database/app_database.dart": "3bec0eda86149e6d7ad8583588ac99f6cada8c10",
+    "lib/features/hosting/lan_probe_runner.dart": "e72372428a07ff7ce12ae0e4b56f4b9b3c053b69",
+    "lib/features/hosting/presentation/device_hosting_provider.dart": "d53822ab495b544de9b5ef0521e7c3e391c39494",
+    "lib/features/models/presentation/providers/model_manager_provider.dart": "3fdd10fef6f518e253c01ad2529be1820738b850",
+    "lib/features/settings/domain/entities/inference_settings.dart": "6795ebe5d6a717c9bc809abdb8c2cb0d1c1fd726",
+}
+protected=['lib/inference','native','lib/data/storage/model_storage.dart',
            'lib/core/platform/device_info.dart','lib/core/storage/app_directories.dart',
-           'lib/features/hosting','android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/NativeBridge.kt']
+           'android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/NativeBridge.kt']
 assert not git('diff',BASE,'--',*protected).strip(), 'PROTECTED_RUNTIME_DRIFT'
+reviewed_paths=list(APPROVED_034_BLOBS)
+changed=set(git('diff','--name-only',BASE,'--',
+                'lib/data/local/database','lib/features/hosting',
+                'lib/features/models/presentation/providers/model_manager_provider.dart',
+                'lib/features/settings/domain/entities/inference_settings.dart').decode().splitlines())
+assert changed==set(reviewed_paths), 'UNREVIEWED_STORAGE_HOSTING_OR_SETTINGS_DIFF'
+for path,expected_blob in APPROVED_034_BLOBS.items():
+    assert git('hash-object',path).decode().strip()==expected_blob, 'REVIEWED_BLOB_CHANGED:'+path
 for name in ('PalaRuntime.kt','PalaHostService.kt','PalaDiagnostics.kt'):
     assert not list((ROOT/'android').rglob(name)), 'F1_CODE_PRESENT'
 activity=(ROOT/'android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/MainActivity.kt').read_text(encoding='utf-8')
@@ -30,6 +48,8 @@ compatibility_paths=git('ls-tree','-r','--name-only','5663b264afb77026014f81b69e
     'lib/features/backup/local_backup_service.dart','pubspec.lock').decode().splitlines()
 assert compatibility_paths
 for path in compatibility_paths:
+    if path in APPROVED_034_BLOBS:
+        continue  # Exact reviewed blob SHA pinned above; additive changes covered by dedicated tests.
     installed=git('show','5663b264afb77026014f81b69e04b1d00ab8a098:'+path)
     installed=installed.replace(b'\r\n',b'\n')
     if path == 'lib/features/settings/domain/entities/inference_settings.dart':
@@ -55,4 +75,5 @@ for path in compatibility_paths:
     assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed, 'INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:'+path
 print(json.dumps({'runtime_baseline':'PASS','f1_absent':'PASS','persian_334_keys':'PASS',
                   'installed_model_path_and_database_source_compatibility':'PASS',
+                  'reviewed_m11_m19_blobs':'PINNED',
                   'device_database_migration':'NOT_VERIFIED'}))
