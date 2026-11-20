@@ -58,6 +58,14 @@ class _RunDetailsSheet extends StatelessWidget {
       if (m['contextUsed'] != null && m['contextSize'] != null)
         ('context', '${m['contextUsed']} / ${m['contextSize']}'),
       if (m['peakRssMb'] is num) ('peak RSS', '${fmt(m['peakRssMb'])} MB'),
+      if (m['visionPhotoCount'] is num)
+        ('عکس‌های این نوبت', '${m['visionPhotoCount']}'),
+      if (m['visionRamFreeBeforeMb'] is num ||
+          m['visionRamFreeAfterMb'] is num)
+        ('RAM آزاد برای تصویر',
+            '${m['visionRamFreeBeforeMb'] is num ? fmt(m['visionRamFreeBeforeMb']) : 'نامعلوم'} → '
+            '${m['visionRamFreeAfterMb'] is num ? fmt(m['visionRamFreeAfterMb']) : 'نامعلوم'} MB'
+            ' (حافظه آزاد سیستم، نه مصرف مستقیم مدل)'),
       if (m['trimmedMessages'] is num && (m['trimmedMessages'] as num) > 0)
         ('trimmed turns', '${m['trimmedMessages']}'),
       if (run.sources > 0) ('sources', '${run.sources}'),

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/features/attachments/domain/attachment.dart';
 import 'package:ondevice_llm/features/chat/domain/entities/chat_message.dart';
 import 'package:ondevice_llm/features/chat/domain/photo_understanding_policy.dart';
+import 'package:ondevice_llm/features/chat/domain/entities/turn_run.dart';
 import 'package:ondevice_llm/features/chat/domain/turn_prompts.dart';
 
 Attachment imageFixture(String path, int bytes, {String mime = 'image/png'}) =>
@@ -81,6 +82,32 @@ void main() {
     )!;
     expect(answer, contains('سرور بیرونی'));
     expect(answer, contains('فرستاده نشد'));
+  });
+
+  test('saved vision metrics remain numeric and do not persist secrets', () {
+    final saved = TurnRun.safeMetrics({
+      'visionActive': true,
+      'visionPhotoCount': 1,
+      'visionRamFreeBeforeMb': 2048.0,
+      'visionRamFreeAfterMb': 1300.0,
+      'firstTokenMs': 1234,
+      'peakRssMb': 4500,
+      'imagePath': '/private/leaf.png',
+      'ownerToken': 'DO_NOT_LEAK',
+    });
+    expect(saved['visionPhotoCount'], 1);
+    expect(saved['visionRamFreeBeforeMb'], 2048.0);
+    expect(saved['visionRamFreeAfterMb'], 1300.0);
+    expect(saved['firstTokenMs'], 1234);
+    expect(saved['peakRssMb'], 4500);
+    expect(saved.containsKey('imagePath'), false);
+    expect(saved.containsKey('ownerToken'), false);
+    final invalid = TurnRun.safeMetrics({
+      'visionPhotoCount': 'private-name',
+      'visionRamFreeBeforeMb': 'do-not-leak',
+      'visionRamFreeAfterMb': double.infinity,
+    });
+    expect(invalid, isEmpty);
   });
 
   test('image RAM evidence includes only measured numeric OS readings', () {

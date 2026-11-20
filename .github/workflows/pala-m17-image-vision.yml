@@ -25,6 +25,9 @@ jobs:
           dart format \
             lib/features/chat/domain/photo_understanding_policy.dart \
             lib/features/chat/domain/turn_coordinator.dart \
+            lib/features/chat/domain/entities/turn_run.dart \
+            lib/features/chat/presentation/widgets/run_details_sheet.dart \
+            lib/features/settings/presentation/widgets/metrics_sheet.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/hosting/presentation/device_hosting_provider.dart \
             lib/features/models/presentation/providers/model_manager_provider.dart \
@@ -35,6 +38,9 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings \
             lib/features/chat/domain/photo_understanding_policy.dart \
             lib/features/chat/domain/turn_coordinator.dart \
+            lib/features/chat/domain/entities/turn_run.dart \
+            lib/features/chat/presentation/widgets/run_details_sheet.dart \
+            lib/features/settings/presentation/widgets/metrics_sheet.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             lib/features/hosting/presentation/device_hosting_provider.dart \
             lib/features/models/presentation/providers/model_manager_provider.dart \

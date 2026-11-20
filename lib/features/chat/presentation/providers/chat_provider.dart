@@ -3094,7 +3094,12 @@ class ChatNotifier extends _ChatBase
         // unavailable device readings or persist pixels/paths in metrics.
         if (t.vision &&
             t.settings?.usesRemote != true &&
-            t.attachments.any((a) => a.isImage)) {
+            t.attachments.any((a) => a.isImage) &&
+            t.generationRounds > 0 &&
+            t.failure == null &&
+            t.appAnswer == null &&
+            t.offlineRefusal == null &&
+            !_cancelled) {
           final memoryAfter = await DeviceMemory.read();
           t.metrics = {
             ...?t.metrics,

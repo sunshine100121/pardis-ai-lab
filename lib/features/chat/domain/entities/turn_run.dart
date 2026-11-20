@@ -87,6 +87,10 @@ class TurnRun {
     'contextUsed',
     'contextSize',
     'peakRssMb',
+    'visionActive',
+    'visionPhotoCount',
+    'visionRamFreeBeforeMb',
+    'visionRamFreeAfterMb',
     'trimmedMessages',
     'contextAudit',
     'evidenceAudit',
@@ -114,6 +118,29 @@ class TurnRun {
     'warning',
   };
 
+  /// Only existing safe keys may be persisted. Vision fields are strictly
+  /// numeric/boolean and bounded; no filenames, pixels or user prompts.
+  static bool _validMetric(String key, Object? value) {
+    if (value == null) return false;
+    if (key == 'visionActive') return value is bool;
+    if (key == 'visionPhotoCount') {
+      return value is int && value >= 1 && value <= 2;
+    }
+    if (key == 'visionRamFreeBeforeMb' ||
+        key == 'visionRamFreeAfterMb') {
+      return value is num &&
+          value.isFinite &&
+          value > 0 &&
+          value < 1024 * 1024;
+    }
+    return true;
+  }
+
+  static Map<String, dynamic> safeMetrics(Map<String, dynamic> values) => {
+    for (final key in _metricKeys)
+      if (_validMetric(key, values[key])) key: values[key],
+  };
+
   factory TurnRun.capture({
     required InferenceSettings settings,
     required Preset preset,
@@ -132,10 +159,7 @@ class TurnRun {
       engine: metrics['effectiveSettings'] is Map
           ? Map<String, dynamic>.from(metrics['effectiveSettings'] as Map)
           : const {},
-      metrics: {
-        for (final k in _metricKeys)
-          if (metrics[k] != null) k: metrics[k],
-      },
+      metrics: safeMetrics(metrics),
       modelId: model.id,
       modelName: model.displayName,
       presetId: preset.id,

@@ -241,6 +241,21 @@ class _Panel extends StatelessWidget {
           label: context.l10n.uiMetricsSheetPeakRSS,
           value: rss == null ? '—' : '${rss.round()} MB',
         ),
+        if (metrics['visionPhotoCount'] is num)
+          _Row(
+            label: 'تصاویر این پاسخ',
+            value: '${metrics['visionPhotoCount']}',
+            detail: 'فقط شمار عکس‌های نوبت تصویری؛ نه کیفیت تشخیص',
+          ),
+        if (_n('visionRamFreeBeforeMb') != null ||
+            _n('visionRamFreeAfterMb') != null)
+          _Row(
+            label: 'RAM آزاد هنگام تحلیل تصویر',
+            value: '${_n('visionRamFreeBeforeMb')?.round() ?? '—'} → '
+                '${_n('visionRamFreeAfterMb')?.round() ?? '—'} MB',
+            detail: 'حافظه آزاد سیستم قبل/بعد؛ کاهش آن معادل '
+                'Peak RSS یا مصرف انرژی مدل نیست.',
+          ),
         Divider(color: c.hairline, height: AppDesign.lg),
         _ModelRow(model: model),
         _Row(
