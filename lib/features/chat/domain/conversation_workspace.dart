@@ -360,14 +360,21 @@ class ConversationWorkspaceNotifier extends Notifier<ConversationWorkspace> {
           scopeStarts: s.scopeStarts,
         );
       });
-  Future<void> removeProject(String id) => _change(
-    (s) => ConversationWorkspace(
+  Future<void> removeProject(String id) => _change((s) {
+    // Deleting a project removes its scoped notes. Chats remain visible, but
+    // their former project's messages must never seed public inference.
+    final boundaries = {...s.scopeStarts};
+    final now = DateTime.now().toUtc().toIso8601String();
+    for (final entry in s.memberships.entries) {
+      if (entry.value == id) boundaries[entry.key] = now;
+    }
+    return ConversationWorkspace(
       projects: s.projects.where((p) => p.id != id).toList(),
       memberships: {...s.memberships}..removeWhere((_, v) => v == id),
       states: s.states,
-      scopeStarts: s.scopeStarts,
-    ),
-  );
+      scopeStarts: boundaries,
+    );
+  });
   Future<void> forget(String id) => _change(
     (s) => ConversationWorkspace(
       projects: s.projects,

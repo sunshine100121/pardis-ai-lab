@@ -1851,10 +1851,14 @@ class ChatNotifier extends _ChatBase
         .projects
         .where((p) => p.id == _projectId)
         .firstOrNull;
+    final activeProjectNotes = ProjectMemoryEntry.activeNotes(
+      activeProject?.memoryNotes ?? '',
+    );
     final ownerFactQuestion =
         activeProject != null &&
-        found.shared.system.contains(activeProject.memoryNotes) &&
-        ProjectMemoryGate.relevant(input, activeProject.memoryNotes);
+        activeProjectNotes.isNotEmpty &&
+        found.shared.system.contains(activeProjectNotes) &&
+        ProjectMemoryGate.relevant(input, activeProjectNotes);
     final projectExternalRequest =
         _projectId != null &&
         RegExp(

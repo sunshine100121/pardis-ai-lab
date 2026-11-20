@@ -100,6 +100,31 @@ void main() {
     expect(general.scopeStarts['move-chat'], isNot(moved.scopeStarts['move-chat']));
   });
 
+  test('deleting a project closes context for every formerly assigned chat',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final manager = c.read(conversationWorkspaceProvider.notifier);
+    await manager.ready;
+    await manager.saveProject(
+      name: 'باغبانی پردیس',
+      memoryNotes: 'در این باغ آزمایشی یک درخت انار وجود دارد.',
+    );
+    final garden = c.read(conversationWorkspaceProvider).projects.single;
+    await manager.assign(['old-garden-chat'], garden.id);
+    await manager.removeProject(garden.id);
+    final state = c.read(conversationWorkspaceProvider);
+    expect(state.projectFor('old-garden-chat'), isNull);
+    expect(state.projects, isEmpty);
+    expect(state.mayUseInContext(
+      'old-garden-chat', DateTime.utc(2020, 1, 1),
+    ), isFalse);
+    expect(state.mayUseInContext(
+      'old-garden-chat', DateTime.utc(2035, 1, 1),
+    ), isTrue);
+  });
+
   test('older project metadata loads without opting into shared knowledge',
       () async {
     SharedPreferences.setMockInitialValues({
