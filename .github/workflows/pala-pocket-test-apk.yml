@@ -44,6 +44,15 @@ jobs:
               forbidden=('flow_lm_step.onnx.data','weights.npz','decode_state_init.npz','voice_reference.wav')
               for entry in z.namelist():
                   assert not any(entry.endswith('/'+x) for x in forbidden), 'Model weights bundled'
+              import hashlib,os
+              binary=z.read('lib/arm64-v8a/libonnxruntime.so')
+              packaged=hashlib.sha256(binary).hexdigest()
+              cache=pathlib.Path.home()/'.gradle'/'caches'
+              candidates=list(cache.glob('**/onnxruntime-android-1.31.1/jni/arm64-v8a/libonnxruntime.so'))
+              if not candidates:
+                  raise AssertionError('Cannot verify packaged ORT runtime origin')
+              official={hashlib.sha256(p.read_bytes()).hexdigest() for p in candidates}
+              assert packaged in official, 'Wrong bundled ORT version; refuse to ship APK'
           print('Verified isolated APK:',f.stat().st_size,'bytes')
           PY
       - name: Upload ONLY the separate diagnostic APK

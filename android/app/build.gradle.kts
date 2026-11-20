@@ -125,6 +125,11 @@ android {
             // The OpenCL ICD loader under .tools is a link-time stub only. Shipping it
             // would shadow the vendor driver (uses-native-library) and report no GPU.
             excludes += "**/libOpenCL.so"
+            // Sherpa and the Pocket Java bridge both bring a library with
+            // this name. Include only one ORT shared library in the APK.
+            // CI verifies it is the 1.31.1 library needed by the Java API;
+            // never ship an unverified legacy Sherpa variant.
+            pickFirsts += "**/libonnxruntime.so"
         }
     }
 }
