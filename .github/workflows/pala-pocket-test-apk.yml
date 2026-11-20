@@ -5,6 +5,8 @@ on:
     branches: [pala/pocket-farsi-v2-android-proto-2026-11-20]
     paths:
       - '.github/workflows/pala-pocket-test-apk.yml'
+      - 'android/build.gradle.kts'
+      - 'android/app/build.gradle.kts'
 
 permissions:
   contents: read
