@@ -83,6 +83,29 @@ void main() {
     expect(answer, contains('فرستاده نشد'));
   });
 
+  test('image RAM evidence includes only measured numeric OS readings', () {
+    const unit = 1024 * 1024;
+    final known = PhotoUnderstandingPolicy.numericResourceEvidence(
+      photoCount: 1,
+      visionActive: true,
+      ramFreeBeforeBytes: 1800 * unit,
+      ramFreeAfterBytes: 1400 * unit,
+    );
+    expect(known['visionPhotoCount'], 1);
+    expect(known['visionActive'], true);
+    expect(known['visionRamFreeBeforeMb'], 1800.0);
+    expect(known['visionRamFreeAfterMb'], 1400.0);
+    expect(known.toString(), isNot(contains('leaf.png')));
+    final absent = PhotoUnderstandingPolicy.numericResourceEvidence(
+      photoCount: 1,
+      visionActive: false,
+      ramFreeBeforeBytes: 0,
+      ramFreeAfterBytes: null,
+    );
+    expect(absent.containsKey('visionRamFreeBeforeMb'), false);
+    expect(absent.containsKey('visionRamFreeAfterMb'), false);
+  });
+
   test('bounded photo allowed; excessive photos, bytes and low RAM refused',
       () {
     final a = imageFixture('/tmp/attachments/leaf.png', 40000);

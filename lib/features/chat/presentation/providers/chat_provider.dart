@@ -822,6 +822,9 @@ class ChatNotifier extends _ChatBase
           t.replaceAnswer(reason);
           return t.accepted;
         }
+        if (supported && !isRemote) {
+          t.visionRamFreeBeforeBytes = memory?.availableBytes;
+        }
       }
       final doctorQuestion = HaDoctorIntent.matches(t.input) &&
           resume == null &&
@@ -3085,6 +3088,24 @@ class ChatNotifier extends _ChatBase
                 grounding != _t.noticeCitationsMatched
             ? grounding
             : null;
+        // M17: capture real Android memory headroom for an accepted local
+        // visual turn. Existing model metrics already hold TTFT/tok/s and
+        // peak RSS when the native runtime reports them. Never fabricate
+        // unavailable device readings or persist pixels/paths in metrics.
+        if (t.vision &&
+            t.settings?.usesRemote != true &&
+            t.attachments.any((a) => a.isImage)) {
+          final memoryAfter = await DeviceMemory.read();
+          t.metrics = {
+            ...?t.metrics,
+            ...PhotoUnderstandingPolicy.numericResourceEvidence(
+              photoCount: t.attachments.where((a) => a.isImage).length,
+              visionActive: true,
+              ramFreeBeforeBytes: t.visionRamFreeBeforeBytes,
+              ramFreeAfterBytes: memoryAfter?.availableBytes,
+            ),
+          };
+        }
         await _saveAnswer(
           t,
           warning: warning,

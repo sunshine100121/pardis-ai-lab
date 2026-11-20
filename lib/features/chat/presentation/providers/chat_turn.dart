@@ -150,6 +150,8 @@ class _Turn {
 
   /// Whether this turn's engine can see photos.
   var vision = false;
+  // M17: Optional Android OS headroom, never attachment text or location.
+  int? visionRamFreeBeforeBytes;
 
   /// Facts given to the model this turn (Memory on); new ones are learned
   /// from the exchange after the answer.

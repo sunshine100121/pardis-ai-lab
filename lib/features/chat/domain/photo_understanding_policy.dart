@@ -76,6 +76,22 @@ abstract final class PhotoUnderstandingPolicy {
     return null;
   }
 
+  /// Small, privacy-safe performance evidence for a REAL on-device turn.
+  /// Missing OS data must stay missing, never interpreted as 0 MB.
+  static Map<String, Object> numericResourceEvidence({
+    required int photoCount,
+    required bool visionActive,
+    int? ramFreeBeforeBytes,
+    int? ramFreeAfterBytes,
+  }) => <String, Object>{
+    'visionActive': visionActive,
+    'visionPhotoCount': photoCount,
+    if (ramFreeBeforeBytes != null && ramFreeBeforeBytes > 0)
+      'visionRamFreeBeforeMb': ramFreeBeforeBytes / (1024 * 1024),
+    if (ramFreeAfterBytes != null && ramFreeAfterBytes > 0)
+      'visionRamFreeAfterMb': ramFreeAfterBytes / (1024 * 1024),
+  };
+
   /// Existing AttachmentStore has already normalized owner-selected photos.
   /// Do not let an old/tampered attachment silently reach a native engine.
   static Future<String?> verifyLocalFiles(
