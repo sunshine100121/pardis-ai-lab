@@ -310,6 +310,20 @@ class ReasoningSearchPage extends ConsumerWidget {
         SettingsSection(
           label: context.l10n.settingsSearchSection,
           children: [
+            SettingDropdown<WebMode>(
+              key: const Key('m13-internet-mode'),
+              icon: Icons.shield_outlined,
+              label: 'دسترسی به اینترنت',
+              hint: 'آفلاین‌اول؛ اتصال بدون اجازه مالک انجام نمی‌شود.',
+              value: s.webMode,
+              items: WebMode.values,
+              labelOf: (mode) => switch (mode) {
+                WebMode.off => 'فقط آفلاین',
+                WebMode.auto => 'آفلاین‌اول؛ پیشنهاد اجازه',
+                WebMode.always => 'استفاده مجاز هنگام نیاز',
+              },
+              onChanged: (mode) => n.update(s.copyWith(webMode: mode)),
+            ),
             SettingDropdown<String>(
               icon: Icons.language_rounded,
               key: const Key('search-region'),

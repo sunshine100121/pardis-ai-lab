@@ -109,6 +109,8 @@ import '../../../retrieval/domain/subject_terms.dart';
 import '../../domain/turn_prompts.dart';
 import '../../domain/turn_policy.dart';
 import '../../domain/project_knowledge_policy.dart';
+import '../../domain/online_permission_policy.dart';
+import 'online_turn_permission.dart';
 import '../../domain/answer_checks.dart';
 import '../../domain/search_steps.dart';
 import '../../domain/chat_titles.dart';
@@ -302,7 +304,16 @@ class ChatNotifier extends _ChatBase
             : {'knowledgeCollection': project.collection},
         projectLabel: project?.name ?? 'Project',
       ).effective;
-      if (state.temporary) settings = settings.copyWith(memoryEnabled: false);
+      // If a remote model was chosen, prevent secrets or HA credentials from
+    // entering the outbound model request at all. The owner can rephrase
+    // or choose a local model, but there is no silent automatic downgrade.
+    if (settings.usesRemote &&
+        OnlinePermissionPolicy.privateContent(input)) {
+      t.failure = 'این درخواست ممکن است حاوی رمز یا توکن خصوصی باشد؛ '
+          'برای حفاظت، به مدل اینترنتی ارسال نشد. از مدل محلی استفاده کنید.';
+      return null;
+    }
+    if (state.temporary) settings = settings.copyWith(memoryEnabled: false);
       if (settings.usesRemote || !settings.promptCache) return;
       _primedLoad = load;
       // No question-specific instructions, history or tool registrations.
@@ -942,6 +953,7 @@ class ChatNotifier extends _ChatBase
     // steps keep the app's planning.
     final remoteBrain = t.remoteBrain =
         settings.usesRemote &&
+        settings.webMode == WebMode.always &&
         settings.webSearchEnabled &&
         settings.remoteWebResearch &&
         RemoteEngine.acceptsTools(settings) &&
@@ -1076,6 +1088,12 @@ class ChatNotifier extends _ChatBase
     final webAllowed =
         settings.webSearchEnabled &&
         (!settings.usesRemote || settings.remoteWebResearch);
+    // Under Auto, early follow-up recall must not access the network
+    // without a one-turn grant. Explicit user searches are that grant.
+    final earlyWebAllowed = webAllowed &&
+        (settings.webMode == WebMode.always ||
+            OnlinePermissionPolicy.explicitlyAsked(input) ||
+            t.forceResearch);
     var plan = RetrievalPlan.of(
       input,
       // A continuation keeps its original context; no new retrieval. A
@@ -1086,13 +1104,9 @@ class ChatNotifier extends _ChatBase
           t.resume == null &&
           t.reuseSourcesJson == null &&
           t.promptOverride == null,
-      // Always searches every message except a greeting, which has no
-      // question in it.
-      always:
-          t.forceResearch ||
-          (settings.webMode == WebMode.always &&
-              !RetrievalPlan.greetingOnly(input) &&
-              !RetrievalPlan.aboutAssistant(input)),
+      // A standing grant is not a request to search for every message.
+      // Let the normal retrieval planner identify genuine web needs.
+      always: t.forceResearch,
     );
     if (_projectId == null && t.reuseSourcesJson != null) {
       final reused = t.reuseSourcesJson!;
@@ -1153,7 +1167,7 @@ class ChatNotifier extends _ChatBase
         input,
         previousQuestion: previousQuestion,
         settings: settings,
-        webAllowed: webAllowed,
+        webAllowed: earlyWebAllowed,
         operationBudget: t.budget,
       );
       if (_cancelled || !_alive) return null;
@@ -1161,7 +1175,7 @@ class ChatNotifier extends _ChatBase
       if (recalled.isNotEmpty) {
         t.sources = recalled;
         recalledTurn = true;
-        t.searchIfLacking = webAllowed;
+        t.searchIfLacking = earlyWebAllowed;
         plan = RetrievalPlan(
           mode: RetrievalMode.none,
           urls: const [],
@@ -1184,10 +1198,10 @@ class ChatNotifier extends _ChatBase
         );
       } else if (NewsIntent.of(previousQuestion) != null &&
           NewsIntent.of(contextual) != null &&
-          webAllowed) {
+          earlyWebAllowed) {
         // "What about sports?" after a briefing is still a news question.
         plan = RetrievalPlan.of(contextual, webEnabled: true, always: true);
-      } else if (webAllowed &&
+      } else if (earlyWebAllowed &&
           AnswerChecks.asksFact.hasMatch(input) &&
           // "What is 5 times that?" and "What's my name?" are the chat's.
           MathQuestion.expression(input) == null &&
@@ -1251,7 +1265,7 @@ class ChatNotifier extends _ChatBase
     // that was never handed sources truthfully says it cannot browse (tester
     // report). Not on the phone ([TurnPolicy.judgeLocalModels]).
     if (plan.mode == RetrievalMode.none &&
-        settings.webMode == WebMode.auto &&
+        settings.webMode == WebMode.always &&
         webAllowed &&
         (settings.usesRemote || TurnPolicy.judgeLocalModels) &&
         !remoteBrain &&
@@ -1322,6 +1336,7 @@ class ChatNotifier extends _ChatBase
     // searched goes to the tool loop instead; pasted links are still read
     // directly. The first round must call a tool.
     final researchTurn =
+        settings.webMode == WebMode.always &&
         settings.researchLoop &&
         settings.toolsEnabled &&
         settings.toolWeb &&
@@ -1357,6 +1372,8 @@ class ChatNotifier extends _ChatBase
       subjectAllowed: t.subjectAllowed,
       operationBudget: t.budget,
       earlier: planned.contextual == input ? null : planned.previousQuestion,
+      originalInput: input,
+      approvedByUserButton: t.forceResearch && !t.isolated,
     );
     if (web == null) return null;
     t.sources = web.sources;

@@ -27,6 +27,7 @@ import '../../../tools/presentation/tools_quick_panel.dart';
 import '../../../helper/helper_live_panel.dart';
 import '../../../helper/helper_web_approval.dart';
 import '../../../helper/agent_web_approval_card.dart';
+import '../providers/online_turn_permission.dart';
 import '../../../goals/goal_specialization.dart';
 import '../../../goals/presentation/goals_page.dart';
 import '../../../knowledge/knowledge_store.dart';
@@ -955,6 +956,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                 ],
+              ),
+            ),
+          if (ref.watch(onlineTurnPermissionProvider) case final request?)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDesign.md, vertical: 4,
+              ),
+              child: Card(
+                key: const Key('m13-online-permission-card'),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppDesign.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('اجازه جست‌وجوی اینترنتی',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(request.prompt),
+                      SelectableText(request.query, maxLines: 3),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          FilledButton(
+                            key: const Key('m13-approve-online'),
+                            onPressed: () => ref
+                                .read(onlineTurnPermissionProvider.notifier)
+                                .approve(),
+                            child: const Text('فقط این بار جست‌وجو کن'),
+                          ),
+                          TextButton(
+                            key: const Key('m13-deny-online'),
+                            onPressed: () => ref
+                                .read(onlineTurnPermissionProvider.notifier)
+                                .reject(),
+                            child: const Text('نه، آفلاین ادامه بده'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           if (ref.watch(agentWebQuestionsProvider)[state.chatId]

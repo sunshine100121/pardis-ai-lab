@@ -37,8 +37,97 @@ mixin _ChatWeb on _ChatBase {
     String subjectAllowed = '',
     TurnBudget? operationBudget,
     String? earlier,
+    String? originalInput,
+    bool approvedByUserButton = false,
   }) async {
     sources = List.of(sources);
+    final message = originalInput ?? plan.query;
+    // All external requests (including instant answers, news feeds and
+    // Wikipedia lookups) pass the same permission/privacy boundary BEFORE
+    // any network work or embedding warm-up begins.
+    if (plan.mode != RetrievalMode.none) {
+      final deniedByScope = _projectId != null;
+      final sensitive =
+          OnlinePermissionPolicy.privateContent(message) ||
+          OnlinePermissionPolicy.privateContent(plan.query);
+      if (settings.webMode == WebMode.off || deniedByScope || sensitive) {
+        state = state.copyWith(
+          notice: deniedByScope
+              ? 'جست‌وجوی عمومی در این پروژه مجاز نشده است؛ اطلاعات خصوصی ارسال نشد.'
+              : sensitive
+                  ? 'این درخواست شامل اطلاعات خصوصی است؛ به اینترنت ارسال نشد.'
+                  : 'حالت فقط آفلاین فعال است؛ چیزی به اینترنت ارسال نشد.',
+        );
+        return (
+          sources: sources,
+          sponsored: sponsored,
+          queries: const <String>[],
+          newsIntent: null,
+          newsTurn: false,
+        );
+      }
+      var approved = approvedByUserButton;
+      if (OnlinePermissionPolicy.requiresPermission(
+        mode: settings.webMode,
+        input: message,
+        insideProject: deniedByScope,
+      ) && !approved) {
+        // Offline-first: if trustworthy local documents answer a stable
+        // question, do not request network access or interrupt the user.
+        if (!RetrievalPlan.timeSensitive(message)) {
+          try {
+            final local = await ref.read(offlineKnowledgeProvider)
+                .searchDetailed(message);
+            if (_cancelled || !_alive) return null;
+            final terms = ProjectKnowledgePolicy.terms(message);
+            final hasUsefulLocal = local.sources.any((source) {
+              final body = source.pageText ?? '';
+              if (body.trim().length < 60 ||
+                  source.url.startsWith('pala-status:')) return false;
+              final matching = terms.where(
+                (w) => body.toLowerCase().contains(w),
+              ).length;
+              return matching >= 2;
+            });
+            if (hasUsefulLocal) {
+              state = state.copyWith(
+                notice: 'مدرک محلی پیدا شد؛ جست‌وجوی اینترنتی لازم نیست.',
+              );
+              return (
+                sources: sources,
+                sponsored: sponsored,
+                queries: const <String>[],
+                newsIntent: null,
+                newsTurn: false,
+              );
+            }
+          } catch (_) {
+            // A local read failure NEVER auto-approves an online request.
+          }
+        }
+        approved = await ref.read(onlineTurnPermissionProvider.notifier).ask(
+          query: plan.query,
+        );
+        if (_cancelled || !_alive) return null;
+      }
+      if (!OnlinePermissionPolicy.mayContact(
+        mode: settings.webMode,
+        input: message,
+        insideProject: deniedByScope,
+        approvedThisTurn: approved,
+      )) {
+        state = state.copyWith(
+          notice: 'جست‌وجوی آنلاین تأیید نشد؛ مسیر آفلاین فعال است.',
+        );
+        return (
+          sources: sources,
+          sponsored: sponsored,
+          queries: const <String>[],
+          newsIntent: null,
+          newsTurn: false,
+        );
+      }
+    }
     final lock = subject != null && subject.isNotEmpty ? subject : null;
     String textOf(SearchResult r) =>
         '${r.title}\n${r.snippet}\n${r.pageText ?? ''}';
