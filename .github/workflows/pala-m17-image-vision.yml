@@ -1,0 +1,53 @@
+name: PALA M17 Persian image understanding and vision safety (no APK)
+
+on:
+  push:
+    branches: [pala/m17-persian-image-understanding-2026-11-20]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-vision-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Resolve pinned Flutter dependencies
+        run: flutter pub get
+      - name: Format M17 reviewed files
+        run: |
+          dart format \
+            lib/features/chat/domain/photo_understanding_policy.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/hosting/presentation/device_hosting_provider.dart \
+            lib/features/models/presentation/providers/model_manager_provider.dart \
+            lib/features/models/presentation/screens/model_details_page.dart \
+            test/m17_vision_safety_test.dart
+      - name: Analyze local vision and unchanged chat integration
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/chat/domain/photo_understanding_policy.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/hosting/presentation/device_hosting_provider.dart \
+            lib/features/models/presentation/providers/model_manager_provider.dart \
+            lib/features/models/presentation/screens/model_details_page.dart \
+            test/m17_vision_safety_test.dart
+      - name: Exercise photos, projector, RAM guard and project regressions
+        run: |
+          flutter test --concurrency=1 \
+            test/m17_vision_safety_test.dart \
+            test/import_projector_test.dart \
+            test/hf_projector_persistence_test.dart \
+            test/hosting_lifecycle_test.dart \
+            test/remote_engine_test.dart \
+            test/owner_model_details_test.dart \
+            test/chat_test.dart \
+            test/m12_project_scope_test.dart \
+            test/m13_project_public_web_query_test.dart \
+            test/audit_attachment_dialog_test.dart

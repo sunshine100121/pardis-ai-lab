@@ -7,6 +7,8 @@ import '../../../../core/platform/desktop_host.dart';
 import '../../../../core/l10n/l10n.dart';
 import '../../domain/entities/model_catalog.dart';
 import '../../domain/entities/model_info.dart';
+import '../../../chat/domain/photo_understanding_policy.dart';
+import '../providers/model_manager_provider.dart';
 import '../../../settings/domain/setting_specs.dart';
 import '../../../settings/presentation/setting_labels.dart';
 import '../../../settings/presentation/providers/model_profiles_provider.dart';
@@ -57,7 +59,16 @@ class ModelDetailsPage extends ConsumerWidget {
         uri?.host == 'huggingface.co' && uri!.pathSegments.length >= 2
         ? uri.pathSegments.take(2).join('/')
         : t.modelUnknown;
-    final projector = model.projector ?? visionProjectors[model.id];
+    final current = ref.watch(modelManagerProvider).catalog
+        .where((m) => m.id == model.id).firstOrNull ?? model;
+    final projector = current.projector ?? visionProjectors[current.id];
+    final compatibleImported4b =
+        current.projector == null &&
+        current.isDownloaded &&
+        PhotoUnderstandingPolicy.isImportedQwen35FourB(
+          architecture: facts?.architecture,
+          parameterCount: facts?.parameterCount,
+        );
     Widget fact(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -125,6 +136,66 @@ class ModelDetailsPage extends ConsumerWidget {
             fact(
               t.hfVisionProjector,
               '${projector.fileName} · ${bytesLabel(projector.sizeBytes)}',
+            ),
+          if (compatibleImported4b)
+            OutlinedButton.icon(
+              key: const Key('m17-enable-qwen-vision'),
+              icon: const Icon(Icons.image_search_outlined),
+              label: const Text('فعال‌سازی بینایی برای Qwen موجود'),
+              onPressed: () async {
+                final projector = visionProjectors['qwen35-4b-iq4nl'];
+                if (projector == null) return;
+                final accept = await showDialog<bool>(
+                  context: context,
+                  builder: (dialog) => AlertDialog(
+                    title: const Text('فعال‌سازی تحلیل عکس'),
+                    content: Text(
+                      'مدل Qwen موجود حفظ می‌شود. فقط فایل بینایی '
+                      'سازگار با حجم حدود '
+                      '${(projector.sizeBytes / 1048576).round()} مگابایت '
+                      'از منبع مشخص بارگیری و بررسی می‌شود. '
+                      'این کار یک‌باره است؛ بدون موافقت شما دانلود آغاز نمی‌شود. '
+                      'بعد از آن مدل باید یک‌بار دوباره بارگذاری شود. '
+                      'مصرف RAM روی تبلت هنوز نیازمند آزمون است.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialog, false),
+                        child: const Text('انصراف'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(dialog, true),
+                        child: const Text('فعال‌سازی'),
+                      ),
+                    ],
+                  ),
+                );
+                if (accept != true || !context.mounted) return;
+                try {
+                  final paired = await ref.read(modelManagerProvider.notifier)
+                      .pairKnownQwen35FourBVision(current);
+                  await ref.read(modelManagerProvider.notifier)
+                      .downloadVision(paired);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text(
+                        'درخواست دریافت فایل بینایی ثبت شد. '
+                        'پس از تأیید دانلود و بارگذاری مجدد، '
+                        'می‌توانید عکس آزمایشی بفرستید.',
+                      )),
+                    );
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text(
+                        'فایل یا مدل بینایی تأیید نشد؛ '
+                        'مدل اصلی و اطلاعات شما محفوظ است.',
+                      )),
+                    );
+                  }
+                }
+              },
             ),
           if (projector != null)
             SwitchListTile(

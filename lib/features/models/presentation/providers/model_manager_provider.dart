@@ -36,6 +36,7 @@ import '../../../settings/presentation/providers/model_profiles_provider.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../../settings/presentation/widgets/settings_labels.dart';
 import '../../domain/entities/model_catalog.dart';
+import '../../../chat/domain/photo_understanding_policy.dart';
 import '../../domain/entities/model_info.dart';
 import 'retired_model_names.dart';
 
@@ -1311,6 +1312,41 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
   }
 
   /// Fetches the model's vision projector so photos can be attached.
+  /// M17: user-triggered one-time pairing of the *existing* Qwen3.5 4B
+  /// imported GGUF with the pinned 4B vision projector. Never infer the
+  /// model family from a filename alone and never download implicitly.
+  Future<ModelInfo> pairKnownQwen35FourBVision(ModelInfo info) async {
+    await ready;
+    if (info.projector != null) return info;
+    if (!info.isDownloaded || info.localPath == null) {
+      throw StateError('ابتدا مدل Qwen موجود را در برنامه آماده کنید.');
+    }
+    if (state.isLoadingModel || ref.read(sessionBusyProvider)) {
+      throw StateError('پس از پایان پردازش فعلی، دوباره اقدام کنید.');
+    }
+    final metadata = await GgufMetadata.inspect(info.localPath!);
+    if (!PhotoUnderstandingPolicy.isImportedQwen35FourB(
+      architecture: metadata.architecture,
+      parameterCount: metadata.parameterCount,
+    )) {
+      throw StateError('سازگاری این فایل GGUF با بینایی Qwen3.5 4B '
+          'به‌صورت محلی تأیید نشد؛ مدل اصلی تغییر نکرد.');
+    }
+    final projector = visionProjectors['qwen35-4b-iq4nl'];
+    if (projector == null ||
+        projector.sha256.length != 64 ||
+        projector.sizeBytes < 100 * 1024 * 1024) {
+      throw StateError('مرجع معتبر فایل بینایی موجود نیست.');
+    }
+    final paired = info.copyWith(projector: projector);
+    // Only metadata for the existing model is updated; neither its GGUF
+    // nor project/memory files are modified. The pinned hash is verified by
+    // downloadVision before an on-disk projector becomes eligible.
+    await save(paired);
+    await refreshVision();
+    return paired;
+  }
+
   Future<void> downloadVision(ModelInfo info) async {
     final projector = info.projector ?? visionProjectors[info.id];
     if (projector == null) return;

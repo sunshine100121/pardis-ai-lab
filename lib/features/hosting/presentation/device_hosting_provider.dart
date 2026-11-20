@@ -18,6 +18,7 @@ import '../../../data/storage/model_storage.dart';
 import '../../models/domain/entities/model_catalog.dart';
 import '../../../features/models/presentation/providers/model_manager_provider.dart';
 import '../device_model_server.dart';
+import '../../chat/domain/photo_understanding_policy.dart';
 import '../served_vector_engine.dart';
 import '../server_usage.dart';
 import '../host_discovery.dart';
@@ -305,8 +306,19 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
               id: id == embeddingModel.id ? 'embedding' : 'rerank',
           },
         ),
-        hasProjector: (id) =>
-            ref.read(modelManagerProvider).vision.contains(id),
+        hasProjector: (id) {
+          final filePresent = ref.read(modelManagerProvider).vision.contains(id);
+          if (!filePresent) return false;
+          // On Android the server shares the chat's current runtime.
+          // A disk-only projector cannot make a text-only runtime see
+          // the image. Desktop model pool retains its existing routing.
+          if (DesktopHost.active) return true;
+          return PhotoUnderstandingPolicy.hasActiveVision(
+            locallyLoaded: id == model.id && engine.isLoaded,
+            engineReportsVision: engine.metrics['supportsVision'] == true,
+            projectorReadyOnDisk: filePresent,
+          );
+        },
         isAvailable: () {
           final e = _server?.engine ?? engine;
           // Sharing the chat's runtime: only while it holds this model

@@ -53,6 +53,7 @@ import '../../domain/conversation_workspace.dart';
 import '../../domain/temporary_files.dart';
 import '../../domain/context_summary.dart';
 import '../../domain/turn_coordinator.dart';
+import '../../domain/photo_understanding_policy.dart';
 import '../../../memory/presentation/providers/memory_provider.dart';
 import '../../../memory/domain/memory_policy.dart';
 import '../../../memory/presentation/providers/memory_preferences.dart';
@@ -786,6 +787,33 @@ class ChatNotifier extends _ChatBase
     try {
       final asked = await _prepareTurn(t);
       if (asked == null) return t.accepted;
+      // M17: a text-only Qwen must NEVER invent what a photo shows.
+      // This check happens after saving the owner's message, and before
+      // retrieval, remote web tools or any answer generation.
+      if (t.attachments.any((a) => a.isImage) && t.resume == null) {
+        final isRemote = t.settings?.usesRemote == true;
+        final supported = isRemote
+            ? t.settings?.remoteVision == true
+            : t.engine.metrics['supportsVision'] == true;
+        final memory = isRemote ? null : await DeviceMemory.read();
+        final refusal = PhotoUnderstandingPolicy.refusal(
+          attachments: t.attachments,
+          visionAvailable: supported,
+          availableRamBytes: memory?.availableBytes,
+        );
+        final fileError = refusal == null
+            ? await PhotoUnderstandingPolicy.verifyLocalFiles(
+                t.attachments,
+                attachmentDirectory: await AttachmentStore.directory(),
+              )
+            : null;
+        final reason = refusal ?? fileError;
+        if (reason != null) {
+          t.appAnswer = reason;
+          t.replaceAnswer(reason);
+          return t.accepted;
+        }
+      }
       final doctorQuestion = HaDoctorIntent.matches(t.input) &&
           resume == null &&
           attachments.isEmpty &&
@@ -1695,7 +1723,12 @@ class ChatNotifier extends _ChatBase
     final carried = asks
         ? [if (note.isNotEmpty) note, ?clockLine].map((n) => '\n\n$n').join()
         : '';
-    final fitSystem = '$system$carried';
+    // M17: visual observations, document knowledge and diagnosis have
+    // distinct evidentiary weight; reply in natural Persian with caution.
+    final photoRules = t.attachments.any((a) => a.isImage) && vision
+        ? PhotoUnderstandingPolicy.instruction
+        : '';
+    final fitSystem = '$system$carried$photoRules';
     messages.first = {'role': 'system', 'content': fitSystem};
     if (t.attachments.any((a) => a.isImage) && !vision && t.resume == null) {
       state = state.copyWith(
