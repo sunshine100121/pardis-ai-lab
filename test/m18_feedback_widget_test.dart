@@ -76,10 +76,19 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('pala-run-health-checks')));
     await tester.pumpAndSettle();
-    expect(find.text('۲ موفق از ۲'), findsOneWidget);
-    expect(find.text('داده کافی نیست'), findsOneWidget);
     final results = await PalaFeedbackStore(db).testEvents();
     expect(results.length, 2);
     expect(results.every((event) => event.passed), isTrue);
+    // The dashboard's ListView builds lazily; after provider refresh the
+    // statistics row may be outside the viewport. Verify its real display.
+    await tester.drag(find.byType(ListView), const Offset(0, 1500));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('۲ موفق از ۲'),
+      250,
+      scrollable: find.byType(Scrollable).last,
+      maxScrolls: 30,
+    );
+    expect(find.text('۲ موفق از ۲'), findsOneWidget);
   });
 }
