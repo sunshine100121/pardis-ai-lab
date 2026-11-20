@@ -57,6 +57,10 @@ class _PocketFarsiExperimentalSettingsState
         });
       }
     } finally {
+      try {
+        // Free model memory before resuming Qwen/other speaking engines.
+        await PocketFarsiV2Audio.release();
+      } catch (_) { /* This remains an experimental Android channel. */ }
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -107,11 +111,14 @@ class _PocketFarsiExperimentalSettingsState
       final result = await PocketFarsiV2Audio.synthesizeAndPlay(
         'سلام، امروز هوا در باغ خوب است.',
       );
+      final generated = result['generationMs'] ?? 0;
+      final audioMs = result['audioMs'] ?? 0;
+      final rtf = audioMs > 0 ? (generated / audioMs).toStringAsFixed(2) : 'نامعلوم';
       if (mounted) {
         setState(() {
-          _status = 'نمونه Pocket پخش شد؛ تولید: ' +
-              result['generationMs'].toString() +
-              ' میلی‌ثانیه. کیفیت باید با Gyro مقایسه شود.';
+          _status = 'نمونه Pocket پخش شد؛ تولید: $generated میلی‌ثانیه؛ '
+              'مدت صدا: $audioMs میلی‌ثانیه؛ RTF: $rtf. '
+              'کیفیت باید با Gyro مقایسه شود.';
         });
       }
     } catch (_) {
