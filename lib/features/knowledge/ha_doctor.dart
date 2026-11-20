@@ -127,7 +127,7 @@ abstract final class HaDoctorDiagnosis {
       out.writeln('• آخرین تلاش بکاپ خودکار (UTC): ' +
           (system.lastAttemptedBackupUtc?.toIso8601String() ??
               'نامعلوم یا حسگر غیرفعال') + '.');
-      out.writeln('• حسگرهای بکاپ، نسخه‌های دستی و صحت فایل یا Restore را تأیید نمی‌کنند.');
+      out.writeln('• حسگرهای بکاپ، بکاپ‌های دستی، صحت فایل یا موفقیت Restore را تأیید نمی‌کنند.');
       out.writeln('• نسخه Supervisor به‌تنهایی به معنی سالم‌بودن سرویس نیست.');
     }
     out.writeln(s.componentCount == null
