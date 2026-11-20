@@ -42,31 +42,16 @@ void main() {
 
   test('only verified local Persian voices are selectable', () {
     final selected = offlinePersianVoiceOptions([
-      {
-        'name': 'fa-local-1',
-        'locale': 'fa-IR',
-        'network_required': '0',
-      },
-      {
-        'name': 'fa-cloud',
-        'locale': 'fa-IR',
-        'network_required': '1',
-      },
-      {
-        'name': 'en-local',
-        'locale': 'en-US',
-        'network_required': false,
-      },
+      {'name': 'fa-local-1', 'locale': 'fa-IR', 'network_required': '0'},
+      {'name': 'fa-cloud', 'locale': 'fa-IR', 'network_required': '1'},
+      {'name': 'en-local', 'locale': 'en-US', 'network_required': false},
       {
         'name': 'fa-not-installed',
         'locale': 'fa-IR',
         'network_required': false,
         'features': 'notInstalled',
       },
-      {
-        'name': 'fa-unknown',
-        'locale': 'fa-IR',
-      },
+      {'name': 'fa-unknown', 'locale': 'fa-IR'},
     ]);
     expect(selected, [
       {'name': 'fa-local-1', 'locale': 'fa-IR'},

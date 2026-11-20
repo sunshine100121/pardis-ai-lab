@@ -693,8 +693,10 @@ class VoiceNotifier extends Notifier<VoiceState> {
       final voice = candidates.first;
       final result = await _tts!.setVoice(voice);
       if (result != 1) return false;
-      return (await SharedPreferences.getInstance())
-          .setString(_androidTtsVoiceKey, name);
+      return (await SharedPreferences.getInstance()).setString(
+        _androidTtsVoiceKey,
+        name,
+      );
     } catch (_) {
       return false;
     }

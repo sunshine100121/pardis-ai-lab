@@ -40,8 +40,7 @@ abstract final class VoskLocalModels {
       if (!await present(name)) return false;
     }
     return await present('graph/HCLG.fst') ||
-        (await present('graph/Gr.fst') &&
-            await present('graph/HCLr.fst'));
+        (await present('graph/Gr.fst') && await present('graph/HCLr.fst'));
   }
 
   static Future<Directory> _root(Directory? provided) async {

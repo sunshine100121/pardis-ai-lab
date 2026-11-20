@@ -58,10 +58,7 @@ List<Map<String, String>> offlinePersianVoiceOptions(dynamic voices) {
     }
     final locale = voice['locale'] as String;
     if (locale.split(RegExp(r'[-_]')).first.toLowerCase() != 'fa') continue;
-    result.add({
-      'name': voice['name'] as String,
-      'locale': locale,
-    });
+    result.add({'name': voice['name'] as String, 'locale': locale});
   }
   return result;
 }

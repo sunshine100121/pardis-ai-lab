@@ -751,8 +751,8 @@ class _PersianTtsEnginesState extends ConsumerState<_PersianTtsEngines> {
             FutureBuilder<(List<Map<String, String>>, String?)>(
               future: _voices,
               builder: (context, voiceSnapshot) {
-                final voices = voiceSnapshot.data?.$1 ??
-                    const <Map<String, String>>[];
+                final voices =
+                    voiceSnapshot.data?.$1 ?? const <Map<String, String>>[];
                 if (voices.isEmpty) {
                   return const Text(
                     'هیچ صدای فارسی آفلاینِ تأییدشده‌ای از موتور فعال گزارش نشده است.',
