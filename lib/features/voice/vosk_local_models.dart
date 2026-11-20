@@ -26,12 +26,23 @@ abstract final class VoskLocalModels {
   static const _maxArchiveBytes = 1_500_000_000;
   static const _maxUnpackedBytes = 4_000_000_000;
   static final _idFormat = RegExp(r'^[a-f0-9]{16}$');
-  static const _required = [
-    'am/final.mdl',
-    'conf/model.conf',
-    'graph/Gr.fst',
-    'graph/HCLr.fst',
-  ];
+  static const _required = ['am/final.mdl', 'conf/model.conf'];
+
+  /// Vosk supports either a compact split graph or a compiled static graph.
+  /// Do not reject a valid large model solely because it uses HCLG.fst.
+  static Future<bool> _modelFilesPresent(Directory dir) async {
+    Future<bool> present(String relative) async {
+      final file = File(p.join(dir.path, relative));
+      return await file.exists() && await file.length() > 0;
+    }
+
+    for (final name in _required) {
+      if (!await present(name)) return false;
+    }
+    return await present('graph/HCLG.fst') ||
+        (await present('graph/Gr.fst') &&
+            await present('graph/HCLr.fst'));
+  }
 
   static Future<Directory> _root(Directory? provided) async {
     final root = provided ?? await ModelStorage.modelsDir();
@@ -41,11 +52,7 @@ abstract final class VoskLocalModels {
 
   static Future<bool> _ready(Directory dir) async {
     if (!await File(p.join(dir.path, _metadata)).exists()) return false;
-    for (final name in _required) {
-      final file = File(p.join(dir.path, name));
-      if (!await file.exists() || await file.length() == 0) return false;
-    }
-    return true;
+    return _modelFilesPresent(dir);
   }
 
   static Future<String?> pathFor(String id, {Directory? root}) async {
@@ -117,13 +124,10 @@ abstract final class VoskLocalModels {
     ).create();
     try {
       await Isolate.run(() => _extract(archiveFile.path, stage.path));
-      for (final name in _required) {
-        final file = File(p.join(stage.path, name));
-        if (!await file.exists() || await file.length() == 0) {
-          throw const FormatException(
-            'ساختار فایل Vosk کامل نیست؛ نصب انجام نشد.',
-          );
-        }
+      if (!await _modelFilesPresent(stage)) {
+        throw const FormatException(
+          'ساختار فایل Vosk کامل نیست؛ نصب انجام نشد.',
+        );
       }
       await File(p.join(stage.path, _metadata)).writeAsString(
         jsonEncode({'name': label, 'sha256': digest, 'archiveBytes': size}),

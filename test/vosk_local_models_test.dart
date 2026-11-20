@@ -14,12 +14,21 @@ void main() {
     if (await temp.exists()) await temp.delete(recursive: true);
   });
 
-  Future<File> makeZip(String name, {bool malicious = false}) async {
+  Future<File> makeZip(
+    String name, {
+    bool malicious = false,
+    bool staticGraph = false,
+  }) async {
     final archive = Archive()
       ..addFile(ArchiveFile.string('model/am/final.mdl', 'model'))
-      ..addFile(ArchiveFile.string('model/conf/model.conf', 'config'))
-      ..addFile(ArchiveFile.string('model/graph/Gr.fst', 'grammar'))
-      ..addFile(ArchiveFile.string('model/graph/HCLr.fst', 'hclr'));
+      ..addFile(ArchiveFile.string('model/conf/model.conf', 'config'));
+    if (staticGraph) {
+      archive.addFile(ArchiveFile.string('model/graph/HCLG.fst', 'static'));
+    } else {
+      archive
+        ..addFile(ArchiveFile.string('model/graph/Gr.fst', 'grammar'))
+        ..addFile(ArchiveFile.string('model/graph/HCLr.fst', 'hclr'));
+    }
     if (malicious) {
       archive.addFile(ArchiveFile.string('model/../../escape.txt', 'escape'));
     }
@@ -45,6 +54,14 @@ void main() {
     await VoskLocalModels.delete(result.id, root: root);
     expect(await VoskLocalModels.installed(root: root), isEmpty);
     expect(await zip.exists(), isTrue);
+  });
+
+  test('a larger Vosk model with HCLG graph also imports', () async {
+    final zip = await makeZip('persian-large.zip', staticGraph: true);
+    final root = Directory(p.join(temp.path, 'models'));
+    final model = await VoskLocalModels.importZip(zip, root: root);
+    expect(await VoskLocalModels.pathFor(model.id, root: root), model.path);
+    expect((await VoskLocalModels.installed(root: root)).single.id, model.id);
   });
 
   test(
