@@ -32,10 +32,7 @@ void main() {
       throwsFormatException,
     );
     await VoiceChoiceStorage.clear(VoiceSelectionKind.stt);
-    expect(
-      await VoiceChoiceStorage.current(VoiceSelectionKind.stt),
-      isNull,
-    );
+    expect(await VoiceChoiceStorage.current(VoiceSelectionKind.stt), isNull);
     expect(
       await VoiceChoiceStorage.current(VoiceSelectionKind.tts),
       'tts:piper:fa_ir-custom',

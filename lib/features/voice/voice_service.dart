@@ -245,12 +245,15 @@ class VoiceNotifier extends Notifier<VoiceState> {
   }) async {
     if (state.listening) return stop();
     final epoch = ++_listenEpoch;
-    final futureChoice = await VoiceChoiceStorage.current(VoiceSelectionKind.stt);
+    final futureChoice = await VoiceChoiceStorage.current(
+      VoiceSelectionKind.stt,
+    );
     if (!_alive || epoch != _listenEpoch) return;
     if (futureChoice != null) {
       state = state.copyWith(
         listening: false,
-        error: 'مدل STT انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
+        error:
+            'مدل STT انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
             'موتور دیگری به‌جای آن خودکار اجرا نشد.',
       );
       return;
@@ -269,7 +272,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
         !explicitVosk) {
       state = state.copyWith(
         listening: false,
-        error: 'مدل STT انتخابی در تنظیمات حفظ شده، اما آداپتور آن '
+        error:
+            'مدل STT انتخابی در تنظیمات حفظ شده، اما آداپتور آن '
             'آماده نیست. موتور دیگری خودکار اجرا نمی‌شود.',
       );
       return;
@@ -687,12 +691,15 @@ class VoiceNotifier extends Notifier<VoiceState> {
 
   /// Reads [markdown] aloud; tapping the same message again stops it.
   Future<void> speak(String markdown, {String? id, double? rate}) async {
-    final futureChoice = await VoiceChoiceStorage.current(VoiceSelectionKind.tts);
+    final futureChoice = await VoiceChoiceStorage.current(
+      VoiceSelectionKind.tts,
+    );
     if (futureChoice != null) {
       state = state.copyWith(
         speaking: false,
         clearSpeakingId: true,
-        error: 'مدل TTS انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
+        error:
+            'مدل TTS انتخابی حفظ شده اما آداپتور آن هنوز نصب نشده است؛ '
             'موتور دیگری به‌جای آن خودکار پخش نشد.',
       );
       return;
@@ -702,7 +709,8 @@ class VoiceNotifier extends Notifier<VoiceState> {
       state = state.copyWith(
         speaking: false,
         clearSpeakingId: true,
-        error: 'مدل TTS انتخابی در تنظیمات حفظ شده، اما آداپتور آن '
+        error:
+            'مدل TTS انتخابی در تنظیمات حفظ شده، اما آداپتور آن '
             'آماده نیست. صدای دیگری خودکار پخش نمی‌شود.',
       );
       return;
