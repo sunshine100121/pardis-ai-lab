@@ -15,7 +15,7 @@ internal object PocketFarsiNumberWords {
     private val pattern = Regex("(?<![\\p{L}\\p{N}])[-−]?[0-9۰-۹٠-٩]+(?:[.٫][0-9۰-۹٠-٩]+)?")
 
     fun normalize(text: String): String {
-        val unitsExpanded = text.replace('٪', ' ').replace("%", " درصد ")
+        val unitsExpanded = text.replace("٪", " درصد ").replace("%", " درصد ")
             .replace("°", " درجه ")
         return pattern.replace(unitsExpanded) { match -> spokenNumber(match.value) }
             .replace(Regex("\\s+"), " ").trim()
