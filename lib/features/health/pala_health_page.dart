@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'pala_feedback_store.dart';
 import 'pala_health_report.dart';
+import '../learning/pala_learning_page.dart';
 
 /// Local, honest operational report: a sample index is never a measurement
 /// of intelligence, correctness of every answer, or medical/home safety.
@@ -159,6 +160,19 @@ class _PalaHealthPageState extends ConsumerState<PalaHealthPage> {
                 label: Text(checking ? 'در حال بررسی...' :
                     'اجرای دو آزمون سبک محلی'),
               ),
+              const Divider(height: 32),
+              OutlinedButton.icon(
+                key: const Key('m19-learning-health-entry'),
+                icon: const Icon(Icons.psychology_alt_outlined),
+                label: const Text('اصلاح‌های من و خطاهای تکرارشونده'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PalaLearningPage(),
+                  ),
+                ),
+              ),
+              const Text('پیشنهادها تا قبل از تأیید مالک '
+                  'هیچ اثری بر پاسخ‌ها ندارند.'),
               const Divider(height: 32),
               Text('روند روزانه ' + days.toString() + ' روز اخیر',
                   style: theme.textTheme.titleMedium),

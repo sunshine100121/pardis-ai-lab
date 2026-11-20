@@ -1,0 +1,46 @@
+name: PALA M19 controlled owner learning and rollback (no APK)
+on:
+  push:
+    branches: [pala/m19-controlled-learning-2026-11-20]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  controlled-learning:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - run: flutter pub get
+      - name: Format M19 sources and tests
+        run: |
+          dart format \
+            lib/data/local/database/app_database.dart \
+            lib/features/learning \
+            lib/features/health/answer_feedback_bar.dart \
+            lib/features/health/pala_health_page.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            test/m19_controlled_learning_test.dart
+      - name: Analyze code without hiding blocking errors
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/data/local/database/app_database.dart \
+            lib/features/learning \
+            lib/features/health/answer_feedback_bar.dart \
+            lib/features/health/pala_health_page.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            test/m19_controlled_learning_test.dart
+      - name: Verify approval, restart, similar answer and reversible rollback
+        run: |
+          flutter test --concurrency=1 \
+            test/m19_controlled_learning_test.dart \
+            test/m18_feedback_health_test.dart \
+            test/m18_feedback_widget_test.dart \
+            test/m17_vision_safety_test.dart \
+            test/turn_coordinator_test.dart \
+            test/chat_widgets_test.dart \
+            test/offline_upgrade_compatibility_test.dart

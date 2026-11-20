@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'pala_feedback_store.dart';
 import 'pala_health_report.dart';
+import '../learning/pala_learning_store.dart';
 
 /// Compact response footer; no repeated confirmation and no identity
 /// requirements. Only the owner chooses whether to give a reason.
@@ -81,6 +82,74 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
     }
   }
 
+  Future<void> _proposeCorrection() async {
+    if (saving) return;
+    final controller = TextEditingController();
+    try {
+      final correction = await showDialog<String>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('پیشنهاد اصلاح پاسخ'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('اصلاح معتبر خود را بنویسید. فقط پس از بررسی '
+                  'و تأیید شما در «سلامت و عملکرد PALA» فعال می‌شود؛ '
+                  'نپسندیدن به‌تنهایی باعث یادگیری نمی‌شود.'),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('m19-owner-correction-field'),
+                controller: controller,
+                maxLines: 4,
+                maxLength: 450,
+                decoration: const InputDecoration(
+                  hintText: 'پاسخ صحیح از دید شما...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('انصراف'),
+            ),
+            FilledButton(
+              key: const Key('m19-submit-correction'),
+              onPressed: () => Navigator.pop(dialog, controller.text.trim()),
+              child: const Text('ثبت پیشنهاد'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || correction == null || correction.isEmpty) return;
+      setState(() => saving = true);
+      await ref.read(palaLearningStoreProvider).propose(
+        sourceAnswerId: widget.messageId,
+        correction: correction,
+      );
+      ref.invalidate(palaLearningListProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('پیشنهاد ذخیره شد و هنوز فعال نیست. '
+              'از «سلامت و عملکرد PALA ← اصلاح‌های من» آن را '
+              'آزمایش و تأیید کنید.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('پیشنهاد ثبت نشد. '
+              'فقط اصلاح‌های کم‌خطر برای پاسخ ذخیره‌شده '
+              'و نپسندیده قابل پذیرش‌اند.')),
+        );
+      }
+    } finally {
+      controller.dispose();
+      if (mounted && saving) setState(() => saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final feedback = ref.watch(answerFeedbackProvider(widget.messageId));
@@ -91,8 +160,8 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
     final accent = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           IconButton(
             key: Key('pala-like-' + widget.messageId),
@@ -123,6 +192,12 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
                   ? 'دلیل؟ (اختیاری)'
                   : FeedbackReasons.labels[current?.reasonCode] ??
                     'ویرایش دلیل'),
+            ),
+          if (disliked)
+            TextButton(
+              key: Key('m19-propose-correction-' + widget.messageId),
+              onPressed: loading ? null : _proposeCorrection,
+              child: const Text('اصلاح پاسخ'),
             ),
         ],
       ),

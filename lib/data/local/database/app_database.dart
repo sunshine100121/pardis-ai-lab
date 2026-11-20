@@ -118,6 +118,26 @@ class AppDatabase extends _$AppDatabase {
         'CREATE INDEX IF NOT EXISTS idx_pala_health_test_time '
         'ON pala_health_test_events(at_ms)',
       );
+      // M19: reversible, owner-approved corrections. No schema rebuild,
+      // model fine-tuning, background migrations or deletion of old chats.
+      await customStatement(
+        'CREATE TABLE IF NOT EXISTS pala_owner_learning ('
+        'id TEXT PRIMARY KEY NOT NULL, '
+        'chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE, '
+        'source_answer_id TEXT NOT NULL '
+        'REFERENCES messages(id) ON DELETE CASCADE, '
+        'question TEXT NOT NULL, normalized_question TEXT NOT NULL, '
+        'correction TEXT NOT NULL, '
+        "state TEXT NOT NULL CHECK(state IN ('proposed','active','disabled')), "
+        'before_pass INTEGER NOT NULL DEFAULT 0, '
+        'after_pass INTEGER NOT NULL DEFAULT 0, '
+        'tested_ms INTEGER, created_ms INTEGER NOT NULL, '
+        'updated_ms INTEGER NOT NULL)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_pala_learning_chat_state '
+        'ON pala_owner_learning(chat_id,state,updated_ms)',
+      );
       await _ensureFts(freshlyCreated: details.wasCreated);
     },
   );

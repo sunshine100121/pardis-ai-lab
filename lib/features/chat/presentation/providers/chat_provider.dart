@@ -35,6 +35,7 @@ import '../../../knowledge/knowledge_store.dart';
 import '../../../knowledge/offline_knowledge.dart';
 import '../../../knowledge/ha_sensor_language.dart';
 import '../../../knowledge/ha_doctor.dart';
+import '../../../learning/pala_learning_store.dart';
 import '../../../zim/zim_wikipedia.dart';
 import '../../../zim/zim_index_storage.dart';
 import '../../../zim/zim_indexed_project_search.dart';
@@ -870,6 +871,37 @@ class ChatNotifier extends _ChatBase
         t.appAnswer = result;
         t.replaceAnswer(result);
         return t.accepted;
+      }
+      // M19: use ONLY an owner-confirmed, test-replayed correction in the
+      // very same local chat, never in a temporary/project/remote turn,
+      // live-sensor action, explicit web investigation or altered prompt.
+      // This is direct retrieval, NOT a base-model modification and NOT
+      // automatically promoted from a dislike or a model suggestion.
+      final replayAllowed = !state.temporary &&
+          _projectId == null &&
+          state.chatId != null &&
+          t.settings?.memoryEnabled == true &&
+          t.settings?.usesRemote != true &&
+          t.settings?.webMode != WebMode.always &&
+          t.insertUser &&
+          t.resume == null &&
+          t.attachments.isEmpty &&
+          compareWith == null &&
+          reuseSourcesJson == null &&
+          promptOverride == null &&
+          answerSources == null &&
+          !forceResearch &&
+          !isolated;
+      if (replayAllowed) {
+        final confirmed = await ref.read(palaLearningStoreProvider).match(
+          state.chatId!, t.input,
+        );
+        if (confirmed != null) {
+          final answer = confirmed.ownerMarkedAnswer;
+          t.appAnswer = answer;
+          t.replaceAnswer(answer);
+          return t.accepted;
+        }
       }
       final planned = await _planRetrieval(t, asked.user);
       if (planned == null) return t.accepted;
