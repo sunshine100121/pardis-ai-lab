@@ -88,8 +88,11 @@ mixin _ChatWeb on _ChatBase {
       }
       // Pasting a public link is itself the owner's one-turn request
       // to read that link, not a standing permission for other searches.
-      var approved = approvedByUserButton ||
-          (_projectId != null && scopedLinks);
+      // The owner's own public HTTPS link is an explicit, one-turn
+      // request to read that page, whether in a project or normal chat.
+      // Only sanitized public URLs qualify; private/LAN URLs, credentials
+      // and arbitrary inferred searches retain the existing safety gate.
+      var approved = approvedByUserButton || scopedLinks;
       if (OnlinePermissionPolicy.requiresPermission(
         mode: settings.webMode,
         input: message,
