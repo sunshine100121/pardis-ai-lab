@@ -1,6 +1,10 @@
 name: PALA M16 integrated 0.3.4 release gate (source only; no APK)
 on:
-  # Single deliberate run per reviewed release commit; documentation-only commits cost no CI.
+  # One-shot source validation. Future source/docs changes do not trigger CI again.
+  push:
+    branches: [pala/m16-release-gate-034-2026-11-21]
+    paths:
+      - docs/PALA_M16_ONE_SHOT_CI_2026-11-21.trigger
   workflow_dispatch:
 permissions:
   contents: read
