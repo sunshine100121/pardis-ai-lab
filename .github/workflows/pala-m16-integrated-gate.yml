@@ -6,6 +6,7 @@ on:
     paths:
       - docs/PALA_M16_ONE_SHOT_CI_2026-11-21.trigger
       - docs/PALA_M16_FORMAT_ONLY_2026-11-21.trigger
+      - docs/PALA_M16_SIGN_ONLY_2026-11-21.trigger
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   integrated-source-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
@@ -226,3 +227,32 @@ jobs:
           git fetch origin pala/m16-release-gate-034-2026-11-21
           git rebase origin/pala/m16-release-gate-034-2026-11-21
           git push origin HEAD:refs/heads/pala/m16-release-gate-034-2026-11-21
+
+  owner-signer-preflight-only:
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[m16-sign-only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prove existing owner private key and expected certificate; no APK
+        env:
+          PALA_F1_KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          PALA_F1_KEYSTORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          PALA_F1_KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          PALA_F1_KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # This script only loads the keystore in memory and signs a random
+          # challenge; no keystore, password or private key is written to disk.
+          java scripts/CheckUpgradeSigner.java
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.3+6'
+          grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
+          echo 'SIGNER_PRIVATE_KEY_AND_HISTORICAL_OWNER_CERTIFICATE=PASS'
+          echo 'INSTALLED_0.3.3_CODE6_DEVICE_CERTIFICATE=NOT_VERIFIED'
+          echo 'APK_BUILD=NO; INSTALL=NO; RELEASE_APPROVAL=BLOCKED_PENDING_BACKUP_AND_DEVICE_CHECK'
