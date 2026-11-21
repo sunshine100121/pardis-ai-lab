@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/data/storage/download_manager.dart';
+import 'package:ondevice_llm/data/storage/model_storage.dart';
 
 class Adapter implements HttpClientAdapter {
   final ResponseBody Function(RequestOptions) respond;
@@ -53,6 +54,21 @@ void main() {
       expectedSize: bytes.length,
     );
   }
+
+  test('verified Vosk ZIP .part is hashed as archive, not parsed as GGUF', () async {
+    expect(ModelStorage.fileExtensions, contains('.zip'));
+    final file = File('${dir.path}/vosk-model-small-fa-0.42.zip.part');
+    final archiveBytes = [80, 75, 3, 4, ...List.generate(64, (i) => i)];
+    await file.writeAsBytes(archiveBytes);
+    expect(
+      await ModelStorage.validateAndHash(file.path),
+      sha256.convert(archiveBytes).toString(),
+    );
+    expect(
+      ModelStorage.modelFile('../outside.zip'),
+      throwsFormatException,
+    );
+  });
 
   test('resumes only when Content-Range agrees with local offset', () async {
     await File(
