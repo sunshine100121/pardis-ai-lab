@@ -165,3 +165,9 @@
 - مقایسه رسمی شاخه با Commit آزمون قبلی `0b6d77c3eca74be5f836ce7963df68ebffd37b14` قبل از Trigger تأیید کرد فقط **`test/chat_test.dart` و همین مرجع Checkpoint** تغییر کرده‌اند؛ هیچ سورس اجرایی `lib/`، اسکریپت نصب یا فایل مدل عوض نشده است.
 - Trigger یک‌باره Source CI با Commit `3315ba4c06f250770854d93a793ed4b8f0d1f567` ثبت شد. این Workflow فقط تست و Android host compilation دارد و `flutter build apk` یا `adb install` در آن نیست.
 - وضعیت Run و آزمون جدید در زمان ثبت گزارش **NOT_VERIFIED** است. در صورت شکست فقط همان خطاها بررسی شوند، بدون حذف safeguard یا چشم‌پوشی از آزمون. Build/Sign/Install و پذیرش روی تبلت همچنان BLOCKED هستند.
+
+## نتیجه اجرای ۱۳ — ۲۳۹ PASS و ۱ FAIL — ۲۱ نوامبر ۲۰۲۶
+- گزارش مستقیم GitHub: Run `44888552897`، Job `136799101169`، Commit Trigger `3315ba4c06f250770854d93a793ed4b8f0d1f567`؛ **۸ دقیقه و ۲۵ ثانیه، ۲۳۹ آزمون موفق، فقط یک آزمون ناموفق**. `FORMAT=success ANALYZE=success TESTS=failure ANDROID=success`. مدل/داده/اپ و بسته APK تغییر نکرده‌اند.
+- نام یگانه آزمون ناموفق: `test/chat_test.dart: research loop: a searchable question goes to the tools, not the pipeline` (خط ۳۰۰۷). پاسخ واقعی fixture `The answer is 42`، ولی آزمون به‌اشتباه وجود اجباری `Sources last updated` را نیز انتظار داشت. مسیر تحقیق با فراخوانی ابزار متنی از مسیر جداگانهٔ retrieval وب متفاوت است و افزودن تاریخ منابع در پاسخ متن‌ابزاری این سناریو الزامی نیست.
+- **اصلاح دقیق فقط در Test Fixture، Commit `5198a8a8d57ad67068488d843fb83771d597428e`:** آزمون انتظار پاسخ دقیق `The answer is 42` را دارد. بررسی مستقلِ تازه‌بودن منابع در سایر سناریوهای `chat_test.dart` حفظ شد. تغییر Runtime، حذف آزمون، تغییر داده، تغییر مجوز آنلاین، انتشار یا نصب انجام نشد.
+- پیش‌بینی: این اصلاح باید خطای واحد را برطرف کند، ولی **PASS جدید تا اجرای بعدی تأیید نشده**. فقط یک درخواست اجرای source-only CI پس از بازبینی تغییر ثبت شود. حتی در صورت سبزشدن GitHub، امضا، بکاپ واقعی، بازگشت و آزمون تبلت/Pocket Farsi همچنان گیت جداگانه دارند.
