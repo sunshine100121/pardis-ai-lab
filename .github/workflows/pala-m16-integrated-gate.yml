@@ -5,6 +5,7 @@ on:
     branches: [pala/m16-release-gate-034-2026-11-21]
     paths:
       - docs/PALA_M16_ONE_SHOT_CI_2026-11-21.trigger
+      - docs/PALA_M16_FORMAT_ONLY_2026-11-21.trigger
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,6 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   integrated-source-gate:
+    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
@@ -132,3 +134,69 @@ jobs:
             fi
           done
           echo 'M16_SOURCE_GATE=PASS; RELEASE_STILL_BLOCKED_BY_DEVICE_AND_SIGNING_GATES'
+
+  format-reviewed-source-once:
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[m16-format-only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Ensure original owner's installed-data and native contracts
+        run: |
+          python3 scripts/check_offline_baseline.py
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+      - name: Only Dart-format reviewed integrated changes, then repin reviewed blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only cae3ac12b0719212109c7b0fd6c0fe85c85c19c3 HEAD -- '*.dart' | grep -E '^(lib/|test/)' | grep -v '^lib/l10n/app_localizations' || true)
+          if ((${#changed[@]} == 0)); then echo 'NO_REVIEWED_DART_FILES'; exit 1; fi
+          dart format "${changed[@]}"
+          git diff --exit-code -- pubspec.lock
+          python3 - <<'PY'
+          import pathlib, subprocess, ast
+          p=pathlib.Path('scripts/check_offline_baseline.py')
+          s=p.read_text()
+          tree=ast.parse(s)
+          expr=next(n.value for n in tree.body if isinstance(n,ast.Assign) and
+              any(isinstance(t,ast.Name) and t.id=='APPROVED_034_BLOBS' for t in n.targets))
+          approved=ast.literal_eval(expr)
+          for name,old in approved.items():
+              new=subprocess.check_output(['git','hash-object',name],text=True).strip()
+              if new!=old:
+                  needle=f'"{name}": "{old}"'
+                  assert s.count(needle)==1, f'PIN_MISMATCH:{name}'
+                  s=s.replace(needle,f'"{name}": "{new}"',1)
+          p.write_text(s)
+          PY
+          python3 scripts/check_offline_baseline.py
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+          changes=subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()
+          allowed=lambda p: (p.startswith('lib/') or p.startswith('test/')) and p.endswith('.dart') or p=='scripts/check_offline_baseline.py'
+          assert changes and all(map(allowed,changes)),f'UNEXPECTED_CHANGE:{changes}'
+          assert all(not p.startswith('lib/l10n/app_localizations') for p in changes),'GENERATED_L10N_EDIT'
+          print('FORMATTED_SOURCE_FILES:',sum(p.endswith('.dart') for p in changes))
+          PY
+      - name: Commit reviewed formatter-only changes to the same branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- lib/ test/ scripts/check_offline_baseline.py
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'style(pala-m16): one-time Dart format plus repinned reviewed blobs [skip ci]'
+          git push origin HEAD:refs/heads/pala/m16-release-gate-034-2026-11-21
