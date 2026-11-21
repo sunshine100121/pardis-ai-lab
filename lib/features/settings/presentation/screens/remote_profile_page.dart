@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../../core/l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -597,7 +598,8 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
                               OutlinedButton.icon(
                                 key: const Key('m15-lan-probe'),
                                 onPressed: _linkTesting || _probing
-                                    ? null : _testLanStability,
+                                    ? null
+                                    : _testLanStability,
                                 icon: _linkTesting
                                     ? const SizedBox.square(
                                         dimension: 14,
@@ -605,7 +607,10 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Icon(Icons.wifi_tethering, size: 16),
+                                    : const Icon(
+                                        Icons.wifi_tethering,
+                                        size: 16,
+                                      ),
                                 label: const Text('۵ بار آزمون اتصال محلی'),
                               ),
                               if (_linkTesting)
@@ -774,8 +779,7 @@ class _RemoteProfilePageState extends ConsumerState<RemoteProfilePage> {
                       style: context.text.mono,
                       decoration: InputDecoration(
                         labelText: context.l10n.uiRemoteProfilePageExtraHeaders,
-                        hintText:
-                            'HTTP-Referer: https://example.app\nX-Title: My app',
+                        hintText: 'HTTP-Referer: https://example.app\nX-Title: My app',
                         helperText: context.l10n.remoteExtraHeadersHelp,
                         helperMaxLines: 3,
                         alignLabelWithHint: true,

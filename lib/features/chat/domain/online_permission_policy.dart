@@ -33,8 +33,7 @@ abstract final class OnlinePermissionPolicy {
     caseSensitive: false,
   );
 
-  static bool explicitlyAsked(String input) =>
-      _explicit.hasMatch(input.trim());
+  static bool explicitlyAsked(String input) => _explicit.hasMatch(input.trim());
 
   static bool privateContent(String input) =>
       _private.hasMatch(input) || _credential.hasMatch(input);
@@ -51,9 +50,7 @@ abstract final class OnlinePermissionPolicy {
       mode != WebMode.off &&
       !insideProject &&
       !privateContent(input) &&
-      (mode == WebMode.always ||
-          explicitlyAsked(input) ||
-          approvedThisTurn);
+      (mode == WebMode.always || explicitlyAsked(input) || approvedThisTurn);
 
   static bool requiresPermission({
     required WebMode mode,

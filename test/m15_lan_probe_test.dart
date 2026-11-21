@@ -25,10 +25,7 @@ void main() {
   });
 
   test('same formula for median, worst and partial failure', () {
-    final run = LanProbeRunner.summarize(
-      [64, 52, 99, 41],
-      attempts: 5,
-    );
+    final run = LanProbeRunner.summarize([64, 52, 99, 41], attempts: 5);
     expect(run.successes, 4);
     expect(run.failures, 1);
     expect(run.medianMs, 58);
@@ -39,10 +36,14 @@ void main() {
   test('a failed probe never becomes a fabricated latency value', () async {
     var calls = 0;
     final runner = LanProbeRunner();
-    final summary = await runner.run(() async {
-      calls++;
-      throw StateError('fake private failure token must not be printed');
-    }, samples: 3, spacing: Duration.zero);
+    final summary = await runner.run(
+      () async {
+        calls++;
+        throw StateError('fake private failure token must not be printed');
+      },
+      samples: 3,
+      spacing: Duration.zero,
+    );
     expect(calls, 3);
     expect(summary.attempts, 3);
     expect(summary.successes, 0);
@@ -52,24 +53,30 @@ void main() {
     expect(summary.persian, isNot(contains('private failure token')));
   });
 
-  test('stop prevents any further request and does not export a token',
-      () async {
-    final firstStarted = Completer<void>();
-    final gate = Completer<void>();
-    var calls = 0;
-    final runner = LanProbeRunner();
-    final pending = runner.run(() async {
-      calls++;
-      if (!firstStarted.isCompleted) firstStarted.complete();
-      await gate.future;
-    }, samples: 5, spacing: Duration.zero);
-    await firstStarted.future;
-    runner.cancel();
-    gate.complete();
-    final summary = await pending;
-    expect(summary.stopped, isTrue);
-    expect(summary.attempts, 1);
-    expect(summary.successes, 0);
-    expect(calls, 1);
-  });
+  test(
+    'stop prevents any further request and does not export a token',
+    () async {
+      final firstStarted = Completer<void>();
+      final gate = Completer<void>();
+      var calls = 0;
+      final runner = LanProbeRunner();
+      final pending = runner.run(
+        () async {
+          calls++;
+          if (!firstStarted.isCompleted) firstStarted.complete();
+          await gate.future;
+        },
+        samples: 5,
+        spacing: Duration.zero,
+      );
+      await firstStarted.future;
+      runner.cancel();
+      gate.complete();
+      final summary = await pending;
+      expect(summary.stopped, isTrue);
+      expect(summary.attempts, 1);
+      expect(summary.successes, 0);
+      expect(calls, 1);
+    },
+  );
 }

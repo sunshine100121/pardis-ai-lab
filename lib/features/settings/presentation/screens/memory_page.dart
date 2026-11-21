@@ -46,7 +46,10 @@ class MemoryPage extends ConsumerWidget {
     if (existing == null) {
       await store.add(
         text,
-        expiresAt: ref.read(memoryPreferencesProvider).retention.expiresFrom(DateTime.now()),
+        expiresAt: ref
+            .read(memoryPreferencesProvider)
+            .retention
+            .expiresFrom(DateTime.now()),
       );
     } else {
       await store.edit(existing, text);
@@ -289,18 +292,34 @@ class MemoryPage extends ConsumerWidget {
                                   case 'confirm':
                                     await store.edit(m, m.content);
                                   case 'expiry7':
-                                    await store.expire(m, MemoryRetention.sevenDays.expiresFrom(DateTime.now()));
+                                    await store.expire(
+                                      m,
+                                      MemoryRetention.sevenDays.expiresFrom(
+                                        DateTime.now(),
+                                      ),
+                                    );
                                   case 'expiry30':
-                                    await store.expire(m, MemoryRetention.thirtyDays.expiresFrom(DateTime.now()));
+                                    await store.expire(
+                                      m,
+                                      MemoryRetention.thirtyDays.expiresFrom(
+                                        DateTime.now(),
+                                      ),
+                                    );
                                   case 'expiry90':
-                                    await store.expire(m, MemoryRetention.ninetyDays.expiresFrom(DateTime.now()));
+                                    await store.expire(
+                                      m,
+                                      MemoryRetention.ninetyDays.expiresFrom(
+                                        DateTime.now(),
+                                      ),
+                                    );
                                   case 'expiryNone':
                                     await store.expire(m, null);
                                   case 'delete':
                                     final ok = await confirmAction(
                                       context,
                                       title: 'حذف خاطره',
-                                      message: 'این خاطره از حافظه محلی حذف شود؟',
+                                      message:
+                                          'این خاطره از حافظه محلی حذف شود؟',
                                       confirmLabel: 'حذف',
                                       destructive: true,
                                     );
@@ -326,11 +345,26 @@ class MemoryPage extends ConsumerWidget {
                                   value: 'confirm',
                                   child: Text(context.l10n.memoryReconfirm),
                                 ),
-                                const PopupMenuItem(value: 'expiry7', child: Text('نگهداری ۷ روز')),
-                                const PopupMenuItem(value: 'expiry30', child: Text('نگهداری ۳۰ روز')),
-                                const PopupMenuItem(value: 'expiry90', child: Text('نگهداری ۹۰ روز')),
-                                const PopupMenuItem(value: 'expiryNone', child: Text('تا حذف دستی')),
-                                const PopupMenuItem(value: 'delete', child: Text('حذف این خاطره')),
+                                const PopupMenuItem(
+                                  value: 'expiry7',
+                                  child: Text('نگهداری ۷ روز'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'expiry30',
+                                  child: Text('نگهداری ۳۰ روز'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'expiry90',
+                                  child: Text('نگهداری ۹۰ روز'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'expiryNone',
+                                  child: Text('تا حذف دستی'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('حذف این خاطره'),
+                                ),
                               ],
                             ),
                           ),

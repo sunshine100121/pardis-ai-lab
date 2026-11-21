@@ -11,6 +11,7 @@ class PalaAnswerObservation {
   final String status;
   final AnswerVote? vote;
   final double? firstTokenMs, tokensPerSecond, recallMs;
+
   /// Null means no structured retrieval observation.
   final bool? retrievalError;
   const PalaAnswerObservation({
@@ -70,8 +71,7 @@ class PalaHealthWindow {
   double? get failedRate => answers == 0 ? null : failures / answers;
   double? get retrievalErrorRate =>
       retrievalObserved == 0 ? null : retrievalErrors / retrievalObserved;
-  double? get testPassRate =>
-      testCount == 0 ? null : testPasses / testCount;
+  double? get testPassRate => testCount == 0 ? null : testPasses / testCount;
 }
 
 abstract final class PalaHealthCalculator {
@@ -79,7 +79,9 @@ abstract final class PalaHealthCalculator {
     if (numbers.isEmpty) return null;
     numbers.sort();
     final n = numbers.length;
-    return n.isOdd ? numbers[n ~/ 2] : (numbers[n ~/ 2 - 1] + numbers[n ~/ 2]) / 2;
+    return n.isOdd
+        ? numbers[n ~/ 2]
+        : (numbers[n ~/ 2 - 1] + numbers[n ~/ 2]) / 2;
   }
 
   static double? _mean(List<double> numbers) =>
@@ -96,16 +98,25 @@ abstract final class PalaHealthCalculator {
     final utc = now.toUtc();
     // Calendar-day windows match the 7/30 daily bars, including the
     // entire oldest day instead of mixing rolling-hours and daily counts.
-    final since = DateTime.utc(utc.year, utc.month, utc.day)
-        .subtract(Duration(days: days - 1));
-    final current = answers.where((a) =>
-        !a.at.toUtc().isBefore(since) &&
-        !a.at.toUtc().isAfter(utc) &&
-        a.status != 'generating' &&
-        a.status != 'superseded').toList();
-    final localTests = tests.where((t) =>
-        !t.at.toUtc().isBefore(since) &&
-        !t.at.toUtc().isAfter(utc)).toList();
+    final since = DateTime.utc(
+      utc.year,
+      utc.month,
+      utc.day,
+    ).subtract(Duration(days: days - 1));
+    final current = answers
+        .where(
+          (a) =>
+              !a.at.toUtc().isBefore(since) &&
+              !a.at.toUtc().isAfter(utc) &&
+              a.status != 'generating' &&
+              a.status != 'superseded',
+        )
+        .toList();
+    final localTests = tests
+        .where(
+          (t) => !t.at.toUtc().isBefore(since) && !t.at.toUtc().isAfter(utc),
+        )
+        .toList();
     final liked = current.where((a) => a.vote == AnswerVote.liked).length;
     final disliked = current.where((a) => a.vote == AnswerVote.disliked).length;
     final failures = current.where((a) => a.failed).length;
@@ -115,13 +126,15 @@ abstract final class PalaHealthCalculator {
     final latency = <double>[
       for (final a in current)
         if (a.firstTokenMs != null &&
-            a.firstTokenMs!.isFinite && a.firstTokenMs! > 0)
+            a.firstTokenMs!.isFinite &&
+            a.firstTokenMs! > 0)
           a.firstTokenMs!,
     ];
     final speed = <double>[
       for (final a in current)
         if (a.tokensPerSecond != null &&
-            a.tokensPerSecond!.isFinite && a.tokensPerSecond! > 0)
+            a.tokensPerSecond!.isFinite &&
+            a.tokensPerSecond! > 0)
           a.tokensPerSecond!,
     ];
     final recall = <double>[
@@ -130,8 +143,11 @@ abstract final class PalaHealthCalculator {
           a.recallMs!,
     ];
     final daily = List<PalaDailyHealth>.generate(days, (i) {
-      final day = DateTime.utc(utc.year, utc.month, utc.day)
-          .subtract(Duration(days: days - 1 - i));
+      final day = DateTime.utc(
+        utc.year,
+        utc.month,
+        utc.day,
+      ).subtract(Duration(days: days - 1 - i));
       final selected = current.where((a) {
         final t = a.at.toUtc();
         return t.year == day.year && t.month == day.month && t.day == day.day;
@@ -147,23 +163,35 @@ abstract final class PalaHealthCalculator {
     final activeDays = daily.where((d) => d.answers > 0).length;
     final missing = <String>[
       if (truncated) 'نمونه پاسخ‌ها از سقف گزارش بیشتر است',
-      if (current.length < 20) 'حداقل ۲۰ پاسخ (فعلاً ' + current.length.toString() + ')',
-      if (liked + disliked < 10) 'حداقل ۱۰ رأی (فعلاً ' + (liked + disliked).toString() + ')',
-      if (retrieval.length < 5) 'حداقل ۵ گزارش بازیابی (فعلاً ' + retrieval.length.toString() + ')',
-      if (localTests.length < 4) 'حداقل ۴ نتیجه آزمون محلی (فعلاً ' + localTests.length.toString() + ')',
+      if (current.length < 20)
+        'حداقل ۲۰ پاسخ (فعلاً ' + current.length.toString() + ')',
+      if (liked + disliked < 10)
+        'حداقل ۱۰ رأی (فعلاً ' + (liked + disliked).toString() + ')',
+      if (retrieval.length < 5)
+        'حداقل ۵ گزارش بازیابی (فعلاً ' + retrieval.length.toString() + ')',
+      if (localTests.length < 4)
+        'حداقل ۴ نتیجه آزمون محلی (فعلاً ' + localTests.length.toString() + ')',
       if (activeDays < (days == 7 ? 3 : 7))
-        'فعالیت در ' + (days == 7 ? '۳' : '۷') + ' روز متفاوت (فعلاً ' + activeDays.toString() + ')',
+        'فعالیت در ' +
+            (days == 7 ? '۳' : '۷') +
+            ' روز متفاوت (فعلاً ' +
+            activeDays.toString() +
+            ')',
     ];
     // A transparent operational/sample index, NOT an intelligence score.
     // 40% rating, 30% non-error, 15% no explicit retrieval error,
     // 15% passed user-invoked on-device checks. No missing denominator.
     final int? index = missing.isEmpty
         ? (100 *
-            (0.40 * liked / (liked + disliked) +
-             0.30 * (1 - failures / current.length) +
-             0.15 * (1 - retrievalErrors / retrieval.length) +
-             0.15 * localTests.where((t) => t.passed).length /
-                 localTests.length)).round().clamp(0, 100).toInt()
+                  (0.40 * liked / (liked + disliked) +
+                      0.30 * (1 - failures / current.length) +
+                      0.15 * (1 - retrievalErrors / retrieval.length) +
+                      0.15 *
+                          localTests.where((t) => t.passed).length /
+                          localTests.length))
+              .round()
+              .clamp(0, 100)
+              .toInt()
         : null;
     return PalaHealthWindow(
       days: days,
@@ -203,12 +231,14 @@ abstract final class PalaHealthCalculator {
           (entry['code'] as String).toLowerCase(),
     ];
     if (codes.isEmpty) return null;
-    return codes.any((code) =>
-        code.contains('failed') ||
-        code.contains('unavailable') ||
-        code.contains('timeout') ||
-        code.contains('denied') ||
-        code.contains('error'));
+    return codes.any(
+      (code) =>
+          code.contains('failed') ||
+          code.contains('unavailable') ||
+          code.contains('timeout') ||
+          code.contains('denied') ||
+          code.contains('error'),
+    );
   }
 
   static PalaAnswerObservation fromRun({
@@ -217,13 +247,16 @@ abstract final class PalaHealthCalculator {
     required AnswerVote? vote,
     String? runJson,
   }) {
-    final metrics = TurnRun.decode(runJson)?.metrics ?? const <String, dynamic>{};
+    final metrics =
+        TurnRun.decode(runJson)?.metrics ?? const <String, dynamic>{};
     final stages = metrics['stages'];
     return PalaAnswerObservation(
       at: timestamp,
       status: status.startsWith('alternative:')
           ? status.substring('alternative:'.length)
-          : status.startsWith('superseded:') ? 'superseded' : status,
+          : status.startsWith('superseded:')
+          ? 'superseded'
+          : status,
       vote: vote,
       firstTokenMs: _numeric(metrics, 'firstTokenMs'),
       tokensPerSecond: _numeric(metrics, 'tokensPerSecond'),
@@ -238,7 +271,11 @@ abstract final class PalaHealthCalculator {
 class PalaHealthReport {
   final PalaHealthWindow week, month;
   final bool limited;
-  const PalaHealthReport({required this.week, required this.month, required this.limited});
+  const PalaHealthReport({
+    required this.week,
+    required this.month,
+    required this.limited,
+  });
 }
 
 class PalaHealthRepository {
@@ -248,8 +285,11 @@ class PalaHealthRepository {
 
   Future<PalaHealthReport> load({DateTime? now}) async {
     final at = (now ?? DateTime.now()).toUtc();
-    final since = DateTime.utc(at.year, at.month, at.day)
-        .subtract(const Duration(days: 29));
+    final since = DateTime.utc(
+      at.year,
+      at.month,
+      at.day,
+    ).subtract(const Duration(days: 29));
     // Project only metadata: no large assistant text, image or prompt.
     final q = db.selectOnly(db.messages)
       ..addColumns([
@@ -258,8 +298,10 @@ class PalaHealthRepository {
         db.messages.status,
         db.messages.runJson,
       ])
-      ..where(db.messages.role.equals('assistant') &
-          db.messages.timestamp.isBiggerOrEqualValue(since))
+      ..where(
+        db.messages.role.equals('assistant') &
+            db.messages.timestamp.isBiggerOrEqualValue(since),
+      )
       ..orderBy([OrderingTerm.desc(db.messages.timestamp)])
       ..limit(5001);
     final rows = await q.get();
@@ -277,12 +319,18 @@ class PalaHealthRepository {
     final tests = await feedback.testEvents();
     return PalaHealthReport(
       week: PalaHealthCalculator.summarize(
-        days: 7, now: at, answers: observations,
-        tests: tests, truncated: limited,
+        days: 7,
+        now: at,
+        answers: observations,
+        tests: tests,
+        truncated: limited,
       ),
       month: PalaHealthCalculator.summarize(
-        days: 30, now: at, answers: observations,
-        tests: tests, truncated: limited,
+        days: 30,
+        now: at,
+        answers: observations,
+        tests: tests,
+        truncated: limited,
       ),
       limited: limited,
     );

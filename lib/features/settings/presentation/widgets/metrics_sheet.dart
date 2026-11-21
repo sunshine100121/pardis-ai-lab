@@ -1,6 +1,7 @@
 import '../../../../desktop/engine_files_panel.dart';
 import '../../../../core/l10n/cpu_variant_labels.dart';
 import '../../../../core/l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -251,9 +252,11 @@ class _Panel extends StatelessWidget {
             _n('visionRamFreeAfterMb') != null)
           _Row(
             label: 'RAM آزاد هنگام تحلیل تصویر',
-            value: '${_n('visionRamFreeBeforeMb')?.round() ?? '—'} → '
+            value:
+                '${_n('visionRamFreeBeforeMb')?.round() ?? '—'} → '
                 '${_n('visionRamFreeAfterMb')?.round() ?? '—'} MB',
-            detail: 'حافظه آزاد سیستم قبل/بعد؛ کاهش آن معادل '
+            detail:
+                'حافظه آزاد سیستم قبل/بعد؛ کاهش آن معادل '
                 'Peak RSS یا مصرف انرژی مدل نیست.',
           ),
         Divider(color: c.hairline, height: AppDesign.lg),

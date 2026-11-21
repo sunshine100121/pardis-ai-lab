@@ -67,7 +67,12 @@ class HaReadClient {
       throw const FormatException('حداقل یک حسگر مجاز و معتبر لازم است.');
     }
   }
-  Future<dynamic> _get(String path, [Map<String, String>? query, bool textOnly = false, int? maxBytes]) async {
+  Future<dynamic> _get(
+    String path, [
+    Map<String, String>? query,
+    bool textOnly = false,
+    int? maxBytes,
+  ]) async {
     final client = createClient()
       ..connectionTimeout = const Duration(seconds: 8)
       ..findProxy = (_) => 'DIRECT';
@@ -84,13 +89,16 @@ class HaReadClient {
         );
       final bytes = <int>[];
       await for (final part in response) {
-        if (bytes.length + part.length > (maxBytes ?? (textOnly ? 128 * 1024 : 2 * 1024 * 1024)))
+        if (bytes.length + part.length >
+            (maxBytes ?? (textOnly ? 128 * 1024 : 2 * 1024 * 1024)))
           throw const FormatException(
             'پاسخ تاریخچه بیش از سقف مجاز است؛ بازه کوتاه‌تر لازم است.',
           );
         bytes.addAll(part);
       }
-      return textOnly ? utf8.decode(bytes, allowMalformed: true) : jsonDecode(utf8.decode(bytes));
+      return textOnly
+          ? utf8.decode(bytes, allowMalformed: true)
+          : jsonDecode(utf8.decode(bytes));
     }
 
     try {
@@ -150,16 +158,17 @@ class HaReadClient {
     HaDoctorSystemReadout? system;
     try {
       final response = await _get(
-        '/api/config/config_entries/entry', null, false, 768 * 1024,
+        '/api/config/config_entries/entry',
+        null,
+        false,
+        768 * 1024,
       );
       integrations = HaDoctorReadouts.integrations(response);
     } catch (_) {
       // Denied, oversized or unsupported => unknown, not healthy.
     }
     try {
-      final response = await _get(
-        '/api/states', null, false, 5 * 1024 * 1024,
-      );
+      final response = await _get('/api/states', null, false, 5 * 1024 * 1024);
       system = HaDoctorReadouts.system(response, clock().toUtc());
     } catch (_) {
       // Optional system-monitor or backup sensors may be disabled.

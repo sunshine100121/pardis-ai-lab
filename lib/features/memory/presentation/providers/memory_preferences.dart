@@ -156,7 +156,10 @@ class MemorySuggestionsNotifier extends Notifier<List<MemorySuggestion>> {
   }
 
   void discard(MemorySuggestion suggestion) {
-    state = [for (final s in state) if (!identical(s, suggestion)) s];
+    state = [
+      for (final s in state)
+        if (!identical(s, suggestion)) s,
+    ];
   }
 
   void clear() => state = const [];

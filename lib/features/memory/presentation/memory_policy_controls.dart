@@ -18,7 +18,10 @@ class MemoryPolicyControls extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('یادگیری حافظه', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'یادگیری حافظه',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
           DropdownButton<MemoryLearningMode>(
             key: const Key('memory-learning-mode'),
@@ -43,8 +46,10 @@ class MemoryPolicyControls extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 12),
-          const Text('مدت نگهداری خاطرات جدید',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'مدت نگهداری خاطرات جدید',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
           DropdownButton<MemoryRetention>(
             key: const Key('memory-retention'),
@@ -63,7 +68,10 @@ class MemoryPolicyControls extends ConsumerWidget {
             style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
-          const Text('سبک پاسخ‌گویی', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'سبک پاسخ‌گویی',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
           DropdownButton<MemoryResponseStyle>(
             key: const Key('memory-response-style'),
@@ -104,8 +112,10 @@ class MemoryPendingSuggestions extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('پیشنهادهای تأییدنشده',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'پیشنهادهای تأییدنشده',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           for (final proposal in pending)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -121,26 +131,38 @@ class MemoryPendingSuggestions extends ConsumerWidget {
                     spacing: 8,
                     children: [
                       TextButton(
-                        key: Key('memory-proposal-approve-' +
-                            proposal.content.hashCode.toString()),
+                        key: Key(
+                          'memory-proposal-approve-' +
+                              proposal.content.hashCode.toString(),
+                        ),
                         onPressed: () async {
-                          final retention = ref.read(memoryPreferencesProvider).retention;
-                          await ref.read(memoryStoreProvider).add(
-                            proposal.content,
-                            sourceChatId: proposal.sourceChatId,
-                            sourceMessageId: proposal.sourceMessageId,
-                            expiresAt: retention.expiresFrom(DateTime.now()),
-                          );
-                          ref.read(memorySuggestionsProvider.notifier).discard(proposal);
+                          final retention = ref
+                              .read(memoryPreferencesProvider)
+                              .retention;
+                          await ref
+                              .read(memoryStoreProvider)
+                              .add(
+                                proposal.content,
+                                sourceChatId: proposal.sourceChatId,
+                                sourceMessageId: proposal.sourceMessageId,
+                                expiresAt: retention.expiresFrom(
+                                  DateTime.now(),
+                                ),
+                              );
+                          ref
+                              .read(memorySuggestionsProvider.notifier)
+                              .discard(proposal);
                         },
                         child: const Text('تأیید و ذخیره'),
                       ),
                       TextButton(
-                        key: Key('memory-proposal-dismiss-' +
-                            proposal.content.hashCode.toString()),
-                        onPressed: () =>
-                            ref.read(memorySuggestionsProvider.notifier)
-                                .discard(proposal),
+                        key: Key(
+                          'memory-proposal-dismiss-' +
+                              proposal.content.hashCode.toString(),
+                        ),
+                        onPressed: () => ref
+                            .read(memorySuggestionsProvider.notifier)
+                            .discard(proposal),
                         child: const Text('رد کردن'),
                       ),
                     ],

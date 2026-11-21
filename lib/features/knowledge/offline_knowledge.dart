@@ -162,10 +162,9 @@ class OfflineKnowledge {
       final snapshot = await client.doctorSnapshot();
       final localTitles = <String>[];
       try {
-        final local = await library.searchDetailed(
-          question,
-          sourceIds: projectSourceIds,
-        ).timeout(const Duration(seconds: 5));
+        final local = await library
+            .searchDetailed(question, sourceIds: projectSourceIds)
+            .timeout(const Duration(seconds: 5));
         for (final evidence in local.sources) {
           if (evidence.title.trim().isNotEmpty &&
               (evidence.pageText?.trim().isNotEmpty ?? false)) {
@@ -178,9 +177,7 @@ class OfflineKnowledge {
       }
       return HaDoctorDiagnosis.report(
         snapshot,
-        labels: {
-          for (final e in names.entries) e.key: e.value as String,
-        },
+        labels: {for (final e in names.entries) e.key: e.value as String},
         documentTitles: localTitles,
       );
     } catch (_) {

@@ -17,10 +17,18 @@ class LanProbeSummary {
     this.stopped = false,
   });
   int get failures => attempts - successes;
-  String get persian => 'ارتباط محلی: ' + successes.toString() +
-      ' از ' + attempts.toString() + ' پاسخ موفق؛ ' +
-      'میانه تأخیر: ' + (medianMs?.round().toString() ?? 'نامعلوم') + ' ms؛ ' +
-      'بیشینه تأخیر: ' + (worstMs?.toString() ?? 'نامعلوم') + ' ms. ' +
+  String get persian =>
+      'ارتباط محلی: ' +
+      successes.toString() +
+      ' از ' +
+      attempts.toString() +
+      ' پاسخ موفق؛ ' +
+      'میانه تأخیر: ' +
+      (medianMs?.round().toString() ?? 'نامعلوم') +
+      ' ms؛ ' +
+      'بیشینه تأخیر: ' +
+      (worstMs?.toString() ?? 'نامعلوم') +
+      ' ms. ' +
       (stopped ? 'آزمون متوقف شد. ' : '') +
       'این فقط آزمون اتصال است؛ کارکرد Qwen با صفحه خاموش نیاز به آزمایش واقعی دارد.';
 }
@@ -33,7 +41,8 @@ class LanProbeRunner {
   static bool isLocal(Uri? endpoint) {
     if (endpoint == null ||
         !{'http', 'https'}.contains(endpoint.scheme) ||
-        endpoint.userInfo.isNotEmpty) return false;
+        endpoint.userInfo.isNotEmpty)
+      return false;
     final host = endpoint.host.toLowerCase();
     if (host.endsWith('.local') && host.length > 6) return true;
     final address = InternetAddress.tryParse(host);

@@ -1,4 +1,5 @@
 import '../../core/l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -180,24 +181,28 @@ class _ResultDialog extends StatelessWidget {
             row('Engine', result.engineSummary),
           row('Peak RSS', '${result.peakRssMb.round()} MB'),
           if (result.modelReadyMs != null)
-            row('Model ready',
-                '${result.modelReadyMs} ms · ${result.didLoad ? 'loaded' : 'reused / warm'}'),
-          if (result.batteryBeforePct != null &&
-              result.batteryAfterPct != null)
-            row('Battery',
-                '${result.batteryBeforePct}% → ${result.batteryAfterPct}%'),
+            row(
+              'Model ready',
+              '${result.modelReadyMs} ms · ${result.didLoad ? 'loaded' : 'reused / warm'}',
+            ),
+          if (result.batteryBeforePct != null && result.batteryAfterPct != null)
+            row(
+              'Battery',
+              '${result.batteryBeforePct}% → ${result.batteryAfterPct}%',
+            ),
           if (result.freeMemoryBeforeMb != null &&
               result.freeMemoryAfterMb != null)
-            row('Free RAM',
-                '${result.freeMemoryBeforeMb!.round()} → ${result.freeMemoryAfterMb!.round()} MB'),
+            row(
+              'Free RAM',
+              '${result.freeMemoryBeforeMb!.round()} → ${result.freeMemoryAfterMb!.round()} MB',
+            ),
           row('Context', '${result.contextSize}'),
           if (result.thermalSummary.isNotEmpty)
             row('Thermal', result.thermalSummary),
           Text(
             context.l10n.benchmarkMeasuredAt(
-              MaterialLocalizations.of(
-                context,
-              ).formatMediumDate(result.runAt.toLocal()),
+              MaterialLocalizations.of(context)
+                  .formatMediumDate(result.runAt.toLocal()),
             ),
             style: context.text.label.copyWith(color: c.textFaint),
           ),

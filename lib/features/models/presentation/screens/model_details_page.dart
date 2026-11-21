@@ -120,9 +120,8 @@ class ModelDetailsPage extends ConsumerWidget {
           if (model.downloadedAt case final date?)
             fact(
               t.desktopHfDownloaded,
-              MaterialLocalizations.of(
-                context,
-              ).formatMediumDate(date.toLocal()),
+              MaterialLocalizations.of(context)
+                  .formatMediumDate(date.toLocal()),
             ),
           const Divider(),
           Text(t.modelFiles, style: context.text.title),
@@ -174,28 +173,38 @@ class ModelDetailsPage extends ConsumerWidget {
                 );
                 if (accept != true || !context.mounted) return;
                 try {
-                  final paired = await ref.read(modelManagerProvider.notifier)
+                  final paired = await ref
+                      .read(modelManagerProvider.notifier)
                       .pairKnownQwen35FourBVision(current);
-                  await ref.read(modelManagerProvider.notifier)
+                  await ref
+                      .read(modelManagerProvider.notifier)
                       .downloadVision(paired);
                   if (context.mounted) {
-                    final ready = ref.read(modelManagerProvider)
-                        .vision.contains(current.id);
+                    final ready = ref
+                        .read(modelManagerProvider)
+                        .vision
+                        .contains(current.id);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(ready
-                          ? 'فایل بینایی تأیید شد. برای تحلیل عکس، '
-                              'مدل را یک بار دوباره بارگذاری کنید.'
-                          : 'فایل بینایی هنوز آماده نشده است؛ '
-                              'وضعیت دانلود را در بخش مدل‌ها بررسی کنید.')),
+                      SnackBar(
+                        content: Text(
+                          ready
+                              ? 'فایل بینایی تأیید شد. برای تحلیل عکس، '
+                                    'مدل را یک بار دوباره بارگذاری کنید.'
+                              : 'فایل بینایی هنوز آماده نشده است؛ '
+                                    'وضعیت دانلود را در بخش مدل‌ها بررسی کنید.',
+                        ),
+                      ),
                     );
                   }
                 } catch (_) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text(
-                        'فایل یا مدل بینایی تأیید نشد؛ '
-                        'مدل اصلی و اطلاعات شما محفوظ است.',
-                      )),
+                      const SnackBar(
+                        content: Text(
+                          'فایل یا مدل بینایی تأیید نشد؛ '
+                          'مدل اصلی و اطلاعات شما محفوظ است.',
+                        ),
+                      ),
                     );
                   }
                 }

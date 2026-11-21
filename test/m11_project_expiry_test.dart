@@ -33,8 +33,10 @@ void main() {
       expiresAt: DateTime.utc(2026, 12, 20),
     );
 
-    final gardenNotes = first.read(conversationWorkspaceProvider)
-        .projectFor('garden-chat')!.memoryNotes;
+    final gardenNotes = first
+        .read(conversationWorkspaceProvider)
+        .projectFor('garden-chat')!
+        .memoryNotes;
     final today = DateTime.utc(2026, 11, 20);
     final visible = ProjectMemoryEntry.activeNotes(gardenNotes, now: today);
     expect(visible, contains('متن دستی بدون انقضا'));
@@ -42,7 +44,9 @@ void main() {
     expect(visible, isNot(contains('درخت گردو')));
     expect(
       ProjectMemoryEntry.noteFor(
-        gardenNotes, chatId: 'garden-chat', messageId: 'old',
+        gardenNotes,
+        chatId: 'garden-chat',
+        messageId: 'old',
       ),
       'درخت گردو آبیاری قطره‌ای دارد.',
     );

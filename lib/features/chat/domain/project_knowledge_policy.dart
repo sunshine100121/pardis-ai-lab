@@ -5,9 +5,26 @@ import '../../../data/network/web_search/search_models.dart';
 abstract final class ProjectKnowledgePolicy {
   static final _words = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true);
   static const _stop = <String>{
-    'است', 'هست', 'برای', 'چرا', 'چگونه', 'درمورد', 'درباره',
-    'what', 'about', 'which', 'where', 'this', 'that', 'from',
-    'the', 'and', 'are', 'was', 'with', 'لطفا',
+    'است',
+    'هست',
+    'برای',
+    'چرا',
+    'چگونه',
+    'درمورد',
+    'درباره',
+    'what',
+    'about',
+    'which',
+    'where',
+    'this',
+    'that',
+    'from',
+    'the',
+    'and',
+    'are',
+    'was',
+    'with',
+    'لطفا',
   };
 
   static Set<String> terms(String input) => {
@@ -32,18 +49,22 @@ abstract final class ProjectKnowledgePolicy {
     final seen = <String>{};
     var index = 0;
     for (final source in candidates) {
-      if (source.sponsored || source.url.trim().isEmpty ||
+      if (source.sponsored ||
+          source.url.trim().isEmpty ||
           !seen.add(source.url)) {
         continue;
       }
       final body = source.pageText?.trim() ?? '';
       if (body.isEmpty && source.snippet.trim().isEmpty) continue;
-      final excerpt = source.title + ' ' +
-          (body.isNotEmpty ? body : source.snippet);
-      final haystack = excerpt.toLowerCase()
-          .replaceAll('ي', 'ی').replaceAll('ك', 'ک');
+      final excerpt =
+          source.title + ' ' + (body.isNotEmpty ? body : source.snippet);
+      final haystack = excerpt
+          .toLowerCase()
+          .replaceAll('ي', 'ی')
+          .replaceAll('ك', 'ک');
       final coverage = query.where(haystack.contains).length;
-      final specialist = specialistCollection.trim().isNotEmpty &&
+      final specialist =
+          specialistCollection.trim().isNotEmpty &&
           source.source == 'Knowledge · ' + specialistCollection.trim();
       scored.add((
         source: source,

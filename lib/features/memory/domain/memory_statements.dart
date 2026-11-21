@@ -428,9 +428,8 @@ class MemoryStatements {
       return false;
     }
     if (text.contains('allergic') && !has(_allergy)) return false;
-    final job = _pattern(
-      r'^(?:the )?user (?:is|works as) (?:a|an) (.+)$',
-    ).firstMatch(text);
+    final job = _pattern(r'^(?:the )?user (?:is|works as) (?:a|an) (.+)$')
+        .firstMatch(text);
     if (job != null &&
         occupations.any((o) => job[1] == o || job[1]!.startsWith('$o '))) {
       return statements.any(
@@ -498,9 +497,8 @@ class MemoryStatements {
     final project = _project.firstMatch(clause);
     if (project != null &&
         _value(project[2]!, words: 18) &&
-        _pattern(
-          r'\b(?:apps?|applications?|software|websites?|projects?)\b',
-        ).hasMatch(project[2]!)) {
+        _pattern(r'\b(?:apps?|applications?|software|websites?|projects?)\b')
+            .hasMatch(project[2]!)) {
       return 'The user is ${project[1]} ${project[2]}';
     }
     var match = _employment.firstMatch(clause);
@@ -584,7 +582,6 @@ class MemoryStatements {
     return null;
   }
 
-
   /// Explicit Persian first-person declarations without model inference.
   /// Hypothetical, quoted, temporary and negated sentences never qualify.
   static List<String> _persianExplicitFacts(String message) {
@@ -609,28 +606,23 @@ class MemoryStatements {
           .firstMatch(text);
       if (m != null) fact = 'نام کاربر ' + m[1]!;
       if (fact == null) {
-        m = RegExp(r'^من\s+به\s+(.+?)\s+علاقه\s+دارم$')
-            .firstMatch(text);
+        m = RegExp(r'^من\s+به\s+(.+?)\s+علاقه\s+دارم$').firstMatch(text);
         if (m != null) fact = 'کاربر به ' + m[1]! + ' علاقه دارد';
       }
       if (fact == null) {
-        m = RegExp(r'^من\s+ترجیح\s+می[‌ ]?دهم\s+(.+)$')
-            .firstMatch(text);
+        m = RegExp(r'^من\s+ترجیح\s+می[‌ ]?دهم\s+(.+)$').firstMatch(text);
         if (m != null) fact = 'کاربر ترجیح می‌دهد ' + m[1]!;
       }
       if (fact == null) {
-        m = RegExp(r'^زبان من\s+(.+?)\s+(?:است|هست)$')
-            .firstMatch(text);
+        m = RegExp(r'^زبان من\s+(.+?)\s+(?:است|هست)$').firstMatch(text);
         if (m != null) fact = 'زبان کاربر ' + m[1]!;
       }
       if (fact == null) {
-        m = RegExp(r'^شغل من\s+(.+?)\s+(?:است|هست)$')
-            .firstMatch(text);
+        m = RegExp(r'^شغل من\s+(.+?)\s+(?:است|هست)$').firstMatch(text);
         if (m != null) fact = 'شغل کاربر ' + m[1]!;
       }
       if (fact == null) {
-        m = RegExp(r'^من\s+در\s+(.+?)\s+زندگی\s+می[‌ ]?کنم$')
-            .firstMatch(text);
+        m = RegExp(r'^من\s+در\s+(.+?)\s+زندگی\s+می[‌ ]?کنم$').firstMatch(text);
         if (m != null) fact = 'کاربر در ' + m[1]! + ' زندگی می‌کند';
       }
       if (fact != null &&

@@ -43,6 +43,7 @@ class ChatBubble extends StatelessWidget {
   final String sourceImageQuestion;
   final bool streaming;
   final Widget? helperChip;
+
   /// Optional, persisted local rating controls supplied by ChatScreen.
   /// Other consumers and existing tests need no database provider.
   final Widget? feedbackBar;

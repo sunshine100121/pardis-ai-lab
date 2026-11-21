@@ -38,7 +38,8 @@ abstract final class HaDoctorReadouts {
     var configured = 0, loaded = 0, problems = 0;
     var retrying = 0, disabled = 0, other = 0;
     for (final item in raw) {
-      if (item is! Map || item['state'] is! String ||
+      if (item is! Map ||
+          item['state'] is! String ||
           item['domain'] is! String) {
         return null;
       }
@@ -64,8 +65,12 @@ abstract final class HaDoctorReadouts {
       }
     }
     return HaDoctorIntegrationReadout(
-      configured: configured, loaded: loaded, problems: problems,
-      retrying: retrying, disabled: disabled, other: other,
+      configured: configured,
+      loaded: loaded,
+      problems: problems,
+      retrying: retrying,
+      disabled: disabled,
+      other: other,
     );
   }
 
@@ -77,7 +82,8 @@ abstract final class HaDoctorReadouts {
   static String? _validVersion(Object? input) {
     if (input is! String || !_version.hasMatch(input.trim())) return null;
     if (input.trim().toLowerCase() == 'unknown' ||
-        input.trim().toLowerCase() == 'unavailable') return null;
+        input.trim().toLowerCase() == 'unavailable')
+      return null;
     return input.trim();
   }
 
@@ -86,7 +92,8 @@ abstract final class HaDoctorReadouts {
         ? input.toDouble()
         : double.tryParse(input?.toString() ?? '');
     return value != null && value.isFinite && value >= min && value <= max
-        ? value : null;
+        ? value
+        : null;
   }
 
   static DateTime? _timestamp(Object? input, DateTime now) {
@@ -94,7 +101,8 @@ abstract final class HaDoctorReadouts {
     final date = DateTime.tryParse(input)?.toUtc();
     if (date == null ||
         date.isAfter(now.toUtc().add(const Duration(minutes: 5))) ||
-        date.isBefore(DateTime.utc(2020))) return null;
+        date.isBefore(DateTime.utc(2020)))
+      return null;
     return date;
   }
 
@@ -144,13 +152,22 @@ abstract final class HaDoctorReadouts {
         backupTry ??= _timestamp(state, now);
       } else if (id == 'sensor.backup_backup_manager_state') {
         final value = state?.toString().trim().toLowerCase();
-        if (const {'idle', 'creating', 'receiving', 'restoring', 'blocked'}
-            .contains(value)) backupState ??= value;
+        if (const {
+          'idle',
+          'creating',
+          'receiving',
+          'restoring',
+          'blocked',
+        }.contains(value))
+          backupState ??= value;
       }
     }
     return HaDoctorSystemReadout(
-      osVersion: osVersion, supervisorVersion: supervisorVersion,
-      processorPercent: cpu, memoryPercent: memory, diskFreeGb: disk,
+      osVersion: osVersion,
+      supervisorVersion: supervisorVersion,
+      processorPercent: cpu,
+      memoryPercent: memory,
+      diskFreeGb: disk,
       lastAutomaticBackupUtc: backupOk,
       lastAttemptedBackupUtc: backupTry,
       backupManagerState: backupState,

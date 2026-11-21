@@ -11,50 +11,63 @@ const originalNotes =
     'گفتگو: garden-chat؛ پیام: second)';
 
 void main() {
-  test('per-note expiration edits only exact approved line, not manual notes', () {
-    final approved = ProjectMemoryEntry.approvedLines(originalNotes);
-    expect(approved, hasLength(2));
-    expect(ProjectMemoryEntry.contentOf(approved.first), 'درخت سیب باغ ۵ عدد است.');
-    final expires = DateTime.utc(2026, 11, 27);
-    final changed = ProjectMemoryEntry.changeExpiry(
-      originalNotes,
-      line: approved.first,
-      expiresAt: expires,
-    );
-    expect(changed, contains('انقضا: 2026-11-27T00:00:00.000Z'));
-    expect(changed, contains('یادداشت دستی بدون زمان.'));
-    expect(changed, contains(approved.last));
-    expect(ProjectMemoryEntry.approvedLines(changed), hasLength(2));
-    final updatedFirst = ProjectMemoryEntry.approvedLines(changed).first;
-    expect(ProjectMemoryEntry.expiresAtOf(updatedFirst), expires);
-    expect(
-      ProjectMemoryEntry.activeNotes(changed, now: DateTime.utc(2026, 11, 28)),
-      isNot(contains('درخت سیب باغ ۵ عدد است.')),
-    );
-    expect(
-      ProjectMemoryEntry.activeNotes(changed, now: DateTime.utc(2026, 11, 28)),
-      contains('گلخانه کاکتوس دارد.'),
-    );
-    expect(
-      ProjectMemoryEntry.changeExpiry(
-        changed,
-        line: updatedFirst,
-        expiresAt: null,
-      ),
-      originalNotes,
-    );
-    expect(
-      () => ProjectMemoryEntry.changeExpiry(
+  test(
+    'per-note expiration edits only exact approved line, not manual notes',
+    () {
+      final approved = ProjectMemoryEntry.approvedLines(originalNotes);
+      expect(approved, hasLength(2));
+      expect(
+        ProjectMemoryEntry.contentOf(approved.first),
+        'درخت سیب باغ ۵ عدد است.',
+      );
+      final expires = DateTime.utc(2026, 11, 27);
+      final changed = ProjectMemoryEntry.changeExpiry(
         originalNotes,
-        line: 'یادداشت دستی بدون زمان.',
+        line: approved.first,
         expiresAt: expires,
-      ),
-      throwsFormatException,
-    );
-  });
+      );
+      expect(changed, contains('انقضا: 2026-11-27T00:00:00.000Z'));
+      expect(changed, contains('یادداشت دستی بدون زمان.'));
+      expect(changed, contains(approved.last));
+      expect(ProjectMemoryEntry.approvedLines(changed), hasLength(2));
+      final updatedFirst = ProjectMemoryEntry.approvedLines(changed).first;
+      expect(ProjectMemoryEntry.expiresAtOf(updatedFirst), expires);
+      expect(
+        ProjectMemoryEntry.activeNotes(
+          changed,
+          now: DateTime.utc(2026, 11, 28),
+        ),
+        isNot(contains('درخت سیب باغ ۵ عدد است.')),
+      );
+      expect(
+        ProjectMemoryEntry.activeNotes(
+          changed,
+          now: DateTime.utc(2026, 11, 28),
+        ),
+        contains('گلخانه کاکتوس دارد.'),
+      );
+      expect(
+        ProjectMemoryEntry.changeExpiry(
+          changed,
+          line: updatedFirst,
+          expiresAt: null,
+        ),
+        originalNotes,
+      );
+      expect(
+        () => ProjectMemoryEntry.changeExpiry(
+          originalNotes,
+          line: 'یادداشت دستی بدون زمان.',
+          expiresAt: expires,
+        ),
+        throwsFormatException,
+      );
+    },
+  );
 
-  testWidgets('one popup sets and clears expiry without editing other notes',
-      (tester) async {
+  testWidgets('one popup sets and clears expiry without editing other notes', (
+    tester,
+  ) async {
     final controller = TextEditingController(text: originalNotes);
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -66,15 +79,24 @@ void main() {
         ),
       ),
     );
-    expect(find.byKey(const Key('project-memory-expiry-menu-0')), findsOneWidget);
-    expect(find.byKey(const Key('project-memory-expiry-menu-1')), findsOneWidget);
+    expect(
+      find.byKey(const Key('project-memory-expiry-menu-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('project-memory-expiry-menu-1')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('project-memory-expiry-menu-0')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('۷ روز').last);
     await tester.pumpAndSettle();
     expect(controller.text, contains('؛ انقضا: '));
     expect(controller.text, contains('یادداشت دستی بدون زمان.'));
-    expect(controller.text, contains(ProjectMemoryEntry.approvedLines(originalNotes).last));
+    expect(
+      controller.text,
+      contains(ProjectMemoryEntry.approvedLines(originalNotes).last),
+    );
     final first = ProjectMemoryEntry.approvedLines(controller.text).first;
     expect(ProjectMemoryEntry.expiresAtOf(first), isNotNull);
     await tester.tap(find.byKey(const Key('project-memory-expiry-menu-0')));

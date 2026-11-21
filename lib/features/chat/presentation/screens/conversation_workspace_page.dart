@@ -45,8 +45,9 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
       List<Map<String, dynamic>> sources = [];
       List<String> availableCollections = [];
       try {
-        availableCollections =
-            await ref.read(knowledgeStoreProvider).collections();
+        availableCollections = await ref
+            .read(knowledgeStoreProvider)
+            .collections();
       } catch (_) {
         // Never clear an existing project if a library is inaccessible.
       }
@@ -98,7 +99,8 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                     maxLength: 200,
                     decoration: const InputDecoration(
                       labelText: 'دانشنامه تخصصی این پروژه (اختیاری)',
-                      helperText: 'نام یکی از مجموعه‌های دانش موجود را انتخاب کنید',
+                      helperText:
+                          'نام یکی از مجموعه‌های دانش موجود را انتخاب کنید',
                     ),
                   ),
                   if (selectableCollections.isNotEmpty)
@@ -149,8 +151,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                       helperText: 'فقط اطلاعات ثابت و تأییدشده؛ نه داده زنده',
                     ),
                   ),
-                  if (project != null)
-                    ProjectMemoryExpiryEditor(notes: notes),
+                  if (project != null) ProjectMemoryExpiryEditor(notes: notes),
                   const Text('منابع پوشه دانش این پروژه'),
                   const Text(
                     'یادداشت‌های این پروژه در پروژه‌های دیگر استفاده نمی‌شوند.',
@@ -377,7 +378,8 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                       final approved = await confirmAction(
                         context,
                         title: 'انتقال گفت‌وگو بین پروژه‌ها',
-                        message: 'تاریخچه و تنظیمات گفتگو حفظ می‌شوند، '
+                        message:
+                            'تاریخچه و تنظیمات گفتگو حفظ می‌شوند، '
                             'اما برای حفاظت از حافظه خصوصی، پالا فقط '
                             'پیام‌های پس از انتقال را در پاسخ‌های جدید '
                             'استفاده می‌کند. ادامه می‌دهید؟',
@@ -386,10 +388,7 @@ class _WorkspacePageState extends ConsumerState<ConversationWorkspacePage> {
                       if (!approved || !mounted) return;
                     }
                     await _run(
-                      () => notifier.assign(
-                        _selected.toList(),
-                        destination,
-                      ),
+                      () => notifier.assign(_selected.toList(), destination),
                     );
                   },
                   child: Padding(

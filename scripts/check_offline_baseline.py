@@ -9,10 +9,10 @@ def git(*args):
 # M11-M19 intentionally add DB tables and limited hosting/model/settings code.
 # Review only these five exact blobs; every further edit fails closed until re-reviewed.
 APPROVED_034_BLOBS = {
-    "lib/data/local/database/app_database.dart": "3bec0eda86149e6d7ad8583588ac99f6cada8c10",
-    "lib/features/hosting/lan_probe_runner.dart": "e72372428a07ff7ce12ae0e4b56f4b9b3c053b69",
-    "lib/features/hosting/presentation/device_hosting_provider.dart": "d53822ab495b544de9b5ef0521e7c3e391c39494",
-    "lib/features/models/presentation/providers/model_manager_provider.dart": "3fdd10fef6f518e253c01ad2529be1820738b850",
+    "lib/data/local/database/app_database.dart": "b32a76ac58fb6a17b8e7bd2bcd5541ea72dc8a75",
+    "lib/features/hosting/lan_probe_runner.dart": "55dbb6a58ad449bbd05525e4a08aa524fb5145dd",
+    "lib/features/hosting/presentation/device_hosting_provider.dart": "dfe7df4f80d738b362c699083bf1b9bfa318b456",
+    "lib/features/models/presentation/providers/model_manager_provider.dart": "5dc5ab12ceef1f96144cf096d344b8c420728361",
     "lib/features/settings/domain/entities/inference_settings.dart": "6795ebe5d6a717c9bc809abdb8c2cb0d1c1fd726",
 }
 protected=['lib/inference','native','lib/data/storage/model_storage.dart',

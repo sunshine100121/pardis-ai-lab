@@ -71,8 +71,8 @@ class UserMemory {
     }
     if (ask(r'زبان') && fact.contains('زبان کاربر')) return 10;
     if (ask(r'(?:شغل|چه کاره)') && fact.contains('شغل کاربر')) return 10;
-    if (ask(r'(?:کجا زندگی|محل زندگی|ساکن)') &&
-        fact.contains('زندگی می‌کند')) return 10;
+    if (ask(r'(?:کجا زندگی|محل زندگی|ساکن)') && fact.contains('زندگی می‌کند'))
+      return 10;
     return 0;
   }
 
@@ -132,8 +132,7 @@ class UserMemory {
     return [
       {
         'role': 'system',
-        'content':
-            'You keep short long-term notes about the user for their personal assistant. You output facts only, never commentary, and you never invent or infer.',
+        'content': 'You keep short long-term notes about the user for their personal assistant. You output facts only, never commentary, and you never invent or infer.',
       },
       {
         'role': 'user',
@@ -240,9 +239,9 @@ class UserMemory {
     if (!MemoryStatements.relationMatches(fact, source)) return false;
     final personal = MemoryStatements.groundingSource(source, fact: fact);
     final src = _words(personal).map(_stem).toSet();
-    final words = _words(
-      fact,
-    ).where((w) => w.length > 1 && !_stop.contains(w)).toList();
+    final words = _words(fact)
+        .where((w) => w.length > 1 && !_stop.contains(w))
+        .toList();
     if (words.isEmpty) return false;
     final hits = words.where((w) => src.contains(_stem(w))).length;
     return hits == words.length;

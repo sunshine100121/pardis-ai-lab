@@ -17,120 +17,117 @@ import 'chat_test.dart'
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'a run folds the engine metrics into a persisted, shareable card',
-    () async {
-      SharedPreferences.setMockInitialValues({});
-      final db = AppDatabase.forTesting(NativeDatabase.memory());
-      final engine = TestEngine();
-      final container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(TestSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-        ],
-      );
-      addTearDown(() async {
-        container.dispose();
-        await db.close();
-      });
-      // Every generation reports slightly different numbers; the warm-up
-      // (first) is the slowest and must not count.
-      var generation = 0;
-      // What each generation was asked (the engine keeps the last one).
-      final asked = <List<Map<String, Object>>?>[];
-      engine.beforeGenerate = () {
-        asked.add(engine.receivedMessages);
-        generation++;
-        engine.metrics = {
-          'backend': 'CPU (OpenCL available, not auto-selected)',
-          'nativeLibrary': 'libondevice_llm_opencl.so',
-          'contextSize': 4096,
-          'promptTokens': 310,
-          'tokens': 128,
-          'firstTokenMs': generation == 1 ? 9000.0 : 2000.0 + generation * 100,
-          'tokensPerSecond': generation == 1 ? 12.0 : 30.0 + generation,
-          'peakRssMb': 2000.0 + generation,
-          'effectiveSettings': {
-            'threads': 6,
-            'batchThreads': 8,
-            'batchSize': 512,
-            'microBatchSize': 512,
-            'kvCacheType': 'f16',
-            'vCacheType': 'f16',
-            'flashAttentionPolicy': 'auto',
-            'requestedGpuLayers': 0,
-          },
-        };
+  test('a run folds the engine metrics into a persisted, shareable card', () async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final engine = TestEngine();
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(TestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await db.close();
+    });
+    // Every generation reports slightly different numbers; the warm-up
+    // (first) is the slowest and must not count.
+    var generation = 0;
+    // What each generation was asked (the engine keeps the last one).
+    final asked = <List<Map<String, Object>>?>[];
+    engine.beforeGenerate = () {
+      asked.add(engine.receivedMessages);
+      generation++;
+      engine.metrics = {
+        'backend': 'CPU (OpenCL available, not auto-selected)',
+        'nativeLibrary': 'libondevice_llm_opencl.so',
+        'contextSize': 4096,
+        'promptTokens': 310,
+        'tokens': 128,
+        'firstTokenMs': generation == 1 ? 9000.0 : 2000.0 + generation * 100,
+        'tokensPerSecond': generation == 1 ? 12.0 : 30.0 + generation,
+        'peakRssMb': 2000.0 + generation,
+        'effectiveSettings': {
+          'threads': 6,
+          'batchThreads': 8,
+          'batchSize': 512,
+          'microBatchSize': 512,
+          'kvCacheType': 'f16',
+          'vCacheType': 'f16',
+          'flashAttentionPolicy': 'auto',
+          'requestedGpuLayers': 0,
+        },
       };
-      final result = await container
-          .read(benchmarkProvider.notifier)
-          .run(testModel);
-      expect(result, isNotNull);
-      asked
-        ..removeAt(0)
-        ..add(engine.receivedMessages);
-      // The run asked for the fixed prompt with the prompt cache off.
-      for (final messages in asked.take(4)) {
-        expect(messages!.single['content'], BenchmarkNotifier.prompt);
-      }
-      // One warm-up plus three measured samples; medians, taken separately.
-      // Then the chat row (tools are off in these settings).
-      expect(generation, 5);
-      final chat = asked.last!;
-      expect(chat.first['role'], 'system');
-      expect(
-        chat.first['content'] as String,
-        startsWith(AppConstants.defaultSystemPrompt),
-      );
-      expect(chat.last['content'], BenchmarkNotifier.chatQuestion);
-      expect(result!.chat!.prefillMs, 2500.0);
-      expect(result.chat!.decodeTps, 35.0);
-      expect(result.chatTools, isNull);
-      expect(result.samples, hasLength(3));
-      expect(result.prefillMs, 2300.0);
-      expect(result.decodeTps, 33.0);
-      expect(result.peakRssMb, 2004.0);
-      expect(result.library, 'ondevice_llm_opencl');
-      expect(result.engine['threads'], 6);
-      expect(
-        result.engineSummary,
-        'threads 6/8 · batch 512/512 · kv f16 · fa auto · gpu layers 0',
-      );
-      expect(container.read(benchmarkProvider).results['test'], isNotNull);
-      expect(container.read(sessionBusyProvider), false);
-      final card = result.card(device: 'Test phone');
-      expect(card, contains('Model: Test'));
-      expect(card, contains('Device: Test phone'));
-      expect(card, contains('Engine: threads 6/8'));
-      expect(
-        card,
-        contains(
-          'Decode: 33.0 tok/s over 128 tokens (median of 3, first run discarded)',
-        ),
-      );
-      expect(card, contains('Samples: 141/32.0, 135/33.0, 129/34.0 tok/s'));
-      expect(card, contains('Chat: 310 tok · first token 2.50 s · 35.0 tok/s'));
-      // Persisted for the next launch.
-      final again = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(TestSettings.new),
-          modelManagerProvider.overrideWith(TestModels.new),
-        ],
-      );
-      await again.read(benchmarkProvider.notifier).ready;
-      expect(again.read(benchmarkProvider).results.keys, ['test']);
-      final restored = again.read(benchmarkProvider).results['test']!;
-      expect(restored.samples, hasLength(3));
-      expect(restored.engine['kvCacheType'], 'f16');
-      expect(restored.chat!.prefillMs, 2500.0);
-      expect(restored.chatTools, isNull);
-      again.dispose();
-    },
-  );
+    };
+    final result = await container
+        .read(benchmarkProvider.notifier)
+        .run(testModel);
+    expect(result, isNotNull);
+    asked
+      ..removeAt(0)
+      ..add(engine.receivedMessages);
+    // The run asked for the fixed prompt with the prompt cache off.
+    for (final messages in asked.take(4)) {
+      expect(messages!.single['content'], BenchmarkNotifier.prompt);
+    }
+    // One warm-up plus three measured samples; medians, taken separately.
+    // Then the chat row (tools are off in these settings).
+    expect(generation, 5);
+    final chat = asked.last!;
+    expect(chat.first['role'], 'system');
+    expect(
+      chat.first['content'] as String,
+      startsWith(AppConstants.defaultSystemPrompt),
+    );
+    expect(chat.last['content'], BenchmarkNotifier.chatQuestion);
+    expect(result!.chat!.prefillMs, 2500.0);
+    expect(result.chat!.decodeTps, 35.0);
+    expect(result.chatTools, isNull);
+    expect(result.samples, hasLength(3));
+    expect(result.prefillMs, 2300.0);
+    expect(result.decodeTps, 33.0);
+    expect(result.peakRssMb, 2004.0);
+    expect(result.library, 'ondevice_llm_opencl');
+    expect(result.engine['threads'], 6);
+    expect(
+      result.engineSummary,
+      'threads 6/8 · batch 512/512 · kv f16 · fa auto · gpu layers 0',
+    );
+    expect(container.read(benchmarkProvider).results['test'], isNotNull);
+    expect(container.read(sessionBusyProvider), false);
+    final card = result.card(device: 'Test phone');
+    expect(card, contains('Model: Test'));
+    expect(card, contains('Device: Test phone'));
+    expect(card, contains('Engine: threads 6/8'));
+    expect(
+      card,
+      contains(
+        'Decode: 33.0 tok/s over 128 tokens (median of 3, first run discarded)',
+      ),
+    );
+    expect(card, contains('Samples: 141/32.0, 135/33.0, 129/34.0 tok/s'));
+    expect(card, contains('Chat: 310 tok · first token 2.50 s · 35.0 tok/s'));
+    // Persisted for the next launch.
+    final again = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        llamaEngineProvider.overrideWithValue(engine),
+        settingsProvider.overrideWith(TestSettings.new),
+        modelManagerProvider.overrideWith(TestModels.new),
+      ],
+    );
+    await again.read(benchmarkProvider.notifier).ready;
+    expect(again.read(benchmarkProvider).results.keys, ['test']);
+    final restored = again.read(benchmarkProvider).results['test']!;
+    expect(restored.samples, hasLength(3));
+    expect(restored.engine['kvCacheType'], 'f16');
+    expect(restored.chat!.prefillMs, 2500.0);
+    expect(restored.chatTools, isNull);
+    again.dispose();
+  });
 
   test('with tools on, a second chat row adds the tool descriptions', () async {
     SharedPreferences.setMockInitialValues({});
@@ -217,74 +214,92 @@ void main() {
     expect(BenchmarkResult.fromJson(r.toJson()).toJson(), r.toJson());
   });
 
-  test('M15: model-ready timing survives storage without claiming cold load', () {
-    final result = BenchmarkResult.fromSamples(
-      const {'backend': 'CPU', 'tokens': 30},
-      const [BenchmarkSample(
-        prefillMs: 2500, decodeTps: 15, peakRssMb: 1600,
-        promptTokens: 120, generated: 30,
-      )],
-      model: testModel, threads: 4, batchThreads: 4,
-      modelReadyMs: 24, didLoad: false,
-    );
-    final card = result.card();
-    expect(card, contains('Model ready: 24 ms'));
-    expect(card, contains('reuse / warm, not a cold load'));
-    final roundTrip = BenchmarkResult.fromJson(result.toJson());
-    expect(roundTrip.modelReadyMs, 24);
-    expect(roundTrip.didLoad, false);
-    expect(roundTrip.toJson(), result.toJson());
-    // Previous app versions lack these keys. Reading old cards must work.
-    final old = Map<String, dynamic>.from(result.toJson());
-    old.remove('didLoad');
-    old.remove('modelReadyMs');
-    final restored = BenchmarkResult.fromJson(old);
-    expect(restored.modelReadyMs, isNull);
-    expect(restored.didLoad, false);
-  });
+  test(
+    'M15: model-ready timing survives storage without claiming cold load',
+    () {
+      final result = BenchmarkResult.fromSamples(
+        const {'backend': 'CPU', 'tokens': 30},
+        const [
+          BenchmarkSample(
+            prefillMs: 2500,
+            decodeTps: 15,
+            peakRssMb: 1600,
+            promptTokens: 120,
+            generated: 30,
+          ),
+        ],
+        model: testModel,
+        threads: 4,
+        batchThreads: 4,
+        modelReadyMs: 24,
+        didLoad: false,
+      );
+      final card = result.card();
+      expect(card, contains('Model ready: 24 ms'));
+      expect(card, contains('reuse / warm, not a cold load'));
+      final roundTrip = BenchmarkResult.fromJson(result.toJson());
+      expect(roundTrip.modelReadyMs, 24);
+      expect(roundTrip.didLoad, false);
+      expect(roundTrip.toJson(), result.toJson());
+      // Previous app versions lack these keys. Reading old cards must work.
+      final old = Map<String, dynamic>.from(result.toJson());
+      old.remove('didLoad');
+      old.remove('modelReadyMs');
+      final restored = BenchmarkResult.fromJson(old);
+      expect(restored.modelReadyMs, isNull);
+      expect(restored.didLoad, false);
+    },
+  );
 
-  test('M15: stop cancels the heavy run without discarding saved baseline',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final engine = TestEngine();
-    final container = ProviderContainer(overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-      llamaEngineProvider.overrideWithValue(engine),
-      settingsProvider.overrideWith(TestSettings.new),
-      modelManagerProvider.overrideWith(TestModels.new),
-    ]);
-    addTearDown(() async {
-      container.dispose();
-      await db.close();
-    });
-    final notifier = container.read(benchmarkProvider.notifier);
-    // One successful run is the old baseline to preserve.
-    engine.metrics = {
-      'promptTokens': 120, 'tokens': 30,
-      'firstTokenMs': 1000.0, 'tokensPerSecond': 20.0,
-      'peakRssMb': 1700.0,
-    };
-    final old = await notifier.run(testModel);
-    expect(old, isNotNull);
-    final gate = Completer<void>();
-    final started = Completer<void>();
-    engine.pause = gate;
-    engine.beforeGenerate = () {
-      if (!started.isCompleted) started.complete();
-    };
-    final running = notifier.run(testModel);
-    await started.future;
-    expect(container.read(sessionBusyProvider), true);
-    notifier.cancel();
-    final cancelled = await running;
-    expect(cancelled, isNull);
-    expect(engine.stopped, true);
-    expect(container.read(sessionBusyProvider), false);
-    expect(container.read(benchmarkProvider).running, isNull);
-    expect(container.read(benchmarkProvider).error, isNull);
-    expect(container.read(benchmarkProvider).results['test']?.toJson(),
-        old?.toJson());
-  });
-
+  test(
+    'M15: stop cancels the heavy run without discarding saved baseline',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final engine = TestEngine();
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          llamaEngineProvider.overrideWithValue(engine),
+          settingsProvider.overrideWith(TestSettings.new),
+          modelManagerProvider.overrideWith(TestModels.new),
+        ],
+      );
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+      final notifier = container.read(benchmarkProvider.notifier);
+      // One successful run is the old baseline to preserve.
+      engine.metrics = {
+        'promptTokens': 120,
+        'tokens': 30,
+        'firstTokenMs': 1000.0,
+        'tokensPerSecond': 20.0,
+        'peakRssMb': 1700.0,
+      };
+      final old = await notifier.run(testModel);
+      expect(old, isNotNull);
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      engine.pause = gate;
+      engine.beforeGenerate = () {
+        if (!started.isCompleted) started.complete();
+      };
+      final running = notifier.run(testModel);
+      await started.future;
+      expect(container.read(sessionBusyProvider), true);
+      notifier.cancel();
+      final cancelled = await running;
+      expect(cancelled, isNull);
+      expect(engine.stopped, true);
+      expect(container.read(sessionBusyProvider), false);
+      expect(container.read(benchmarkProvider).running, isNull);
+      expect(container.read(benchmarkProvider).error, isNull);
+      expect(
+        container.read(benchmarkProvider).results['test']?.toJson(),
+        old?.toJson(),
+      );
+    },
+  );
 }

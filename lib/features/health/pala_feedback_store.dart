@@ -47,12 +47,14 @@ class PalaFeedbackStore {
   const PalaFeedbackStore(this.db);
 
   Future<AnswerFeedback?> read(String messageId) async {
-    final rows = await db.customSelect(
-      'SELECT message_id, vote, reason_code, updated_ms '
-      'FROM pala_answer_feedback WHERE message_id = ?',
-      variables: [Variable.withString(messageId)],
-      readsFrom: {db.messages},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT message_id, vote, reason_code, updated_ms '
+          'FROM pala_answer_feedback WHERE message_id = ?',
+          variables: [Variable.withString(messageId)],
+          readsFrom: {db.messages},
+        )
+        .get();
     if (rows.isEmpty) return null;
     final r = rows.single;
     final v = r.read<int>('vote');
@@ -81,10 +83,12 @@ class PalaFeedbackStore {
       throw ArgumentError.value(reasonCode, 'reasonCode');
     }
     await db.transaction(() async {
-      final rows = await db.customSelect(
-        'SELECT role, status FROM messages WHERE id = ?',
-        variables: [Variable.withString(messageId)],
-      ).get();
+      final rows = await db
+          .customSelect(
+            'SELECT role, status FROM messages WHERE id = ?',
+            variables: [Variable.withString(messageId)],
+          )
+          .get();
       if (rows.isEmpty ||
           rows.single.read<String>('role') != 'assistant' ||
           rows.single.read<String>('status').contains('generating')) {
@@ -114,11 +118,13 @@ class PalaFeedbackStore {
   }
 
   Future<Map<String, AnswerFeedback>> allVotes() async {
-    final rows = await db.customSelect(
-      'SELECT message_id, vote, reason_code, updated_ms '
-      'FROM pala_answer_feedback',
-      readsFrom: {db.messages},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT message_id, vote, reason_code, updated_ms '
+          'FROM pala_answer_feedback',
+          readsFrom: {db.messages},
+        )
+        .get();
     return {
       for (final r in rows)
         r.read<String>('message_id'): AnswerFeedback(
@@ -136,10 +142,12 @@ class PalaFeedbackStore {
   }
 
   Future<List<PalaHealthTestEvent>> testEvents() async {
-    final rows = await db.customSelect(
-      'SELECT check_id, passed, at_ms FROM pala_health_test_events '
-      'ORDER BY at_ms DESC LIMIT 2000',
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT check_id, passed, at_ms FROM pala_health_test_events '
+          'ORDER BY at_ms DESC LIMIT 2000',
+        )
+        .get();
     return [
       for (final r in rows)
         PalaHealthTestEvent(
@@ -155,9 +163,7 @@ class PalaFeedbackStore {
 
   /// Explicit, quick, local checks; they do not run in the background,
   /// access Home Assistant or consume the Work quota.
-  Future<List<PalaHealthTestEvent>> runQuickChecks({
-    DateTime? now,
-  }) async {
+  Future<List<PalaHealthTestEvent>> runQuickChecks({DateTime? now}) async {
     final at = (now ?? DateTime.now()).toUtc();
     final out = <PalaHealthTestEvent>[];
     final checks = <(String, Future<bool> Function())>[
@@ -171,12 +177,14 @@ class PalaFeedbackStore {
       (
         'feedback_integrity',
         () async {
-          final row = await db.customSelect(
-            'SELECT COUNT(*) AS broken FROM pala_answer_feedback f '
-            'LEFT JOIN messages m ON m.id = f.message_id '
-            'WHERE m.id IS NULL OR m.role != ?',
-            variables: [Variable.withString('assistant')],
-          ).getSingle();
+          final row = await db
+              .customSelect(
+                'SELECT COUNT(*) AS broken FROM pala_answer_feedback f '
+                'LEFT JOIN messages m ON m.id = f.message_id '
+                'WHERE m.id IS NULL OR m.role != ?',
+                variables: [Variable.withString('assistant')],
+              )
+              .getSingle();
           return row.read<int>('broken') == 0;
         },
       ),
@@ -188,11 +196,7 @@ class PalaFeedbackStore {
       } catch (_) {
         passed = false;
       }
-      out.add(PalaHealthTestEvent(
-        checkId: check.$1,
-        passed: passed,
-        at: at,
-      ));
+      out.add(PalaHealthTestEvent(checkId: check.$1, passed: passed, at: at));
       // If the database itself failed, report the failed test without
       // pretending its result was durably saved.
       await db.customStatement(
@@ -209,6 +213,6 @@ final palaFeedbackStoreProvider = Provider<PalaFeedbackStore>(
   (ref) => PalaFeedbackStore(ref.watch(appDatabaseProvider)),
 );
 
-final answerFeedbackProvider =
-    FutureProvider.family<AnswerFeedback?, String>((ref, messageId) =>
-        ref.watch(palaFeedbackStoreProvider).read(messageId));
+final answerFeedbackProvider = FutureProvider.family<AnswerFeedback?, String>(
+  (ref, messageId) => ref.watch(palaFeedbackStoreProvider).read(messageId),
+);

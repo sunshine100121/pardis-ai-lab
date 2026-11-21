@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+
 import '../../../core/storage/app_directories.dart';
 
 import '../../../core/utils/search_terms.dart';
@@ -208,9 +209,12 @@ class AppDatabase extends _$AppDatabase {
   /// FTS5 query for retrieval: any word may match (OR), as a prefix; the
   /// bm25 rank decides. Recall matters more than precision here because the
   /// chat re-ranks the passages it is given.
-  static String ftsAnyQuery(String text) => unicodeWords(
-    text,
-  ).where((w) => w.length > 1).toSet().map((w) => '"$w"*').join(' OR ');
+  static String ftsAnyQuery(String text) =>
+      unicodeWords(text)
+          .where((w) => w.length > 1)
+          .toSet()
+          .map((w) => '"$w"*')
+          .join(' OR ');
 
   // ----- Knowledge library -----
   Stream<List<KnowledgeDoc>> watchKnowledgeDocs() =>

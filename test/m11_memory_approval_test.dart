@@ -11,8 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('owner approval persists one proposed memory with expiry',
-      (tester) async {
+  testWidgets('owner approval persists one proposed memory with expiry', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final container = ProviderContainer(
@@ -23,14 +24,16 @@ void main() {
       await db.close();
     });
     await container.read(memoryPreferencesProvider.notifier).ready;
-    await container.read(memoryPreferencesProvider.notifier).update(
-      const MemoryPreferences(retention: MemoryRetention.sevenDays),
-    );
-    container.read(memorySuggestionsProvider.notifier).propose(
-      'The user prefers concise Persian answers',
-      sourceChatId: 'c42',
-      sourceMessageId: 'm7',
-    );
+    await container
+        .read(memoryPreferencesProvider.notifier)
+        .update(const MemoryPreferences(retention: MemoryRetention.sevenDays));
+    container
+        .read(memorySuggestionsProvider.notifier)
+        .propose(
+          'The user prefers concise Persian answers',
+          sourceChatId: 'c42',
+          sourceMessageId: 'm7',
+        );
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -49,13 +52,17 @@ void main() {
     expect(saved.sourceChatId, 'c42');
     expect(saved.sourceMessageId, 'm7');
     expect(saved.expiresAt, isNotNull);
-    expect(saved.expiresAt!.difference(DateTime.now()).inDays, inInclusiveRange(6, 7));
+    expect(
+      saved.expiresAt!.difference(DateTime.now()).inDays,
+      inInclusiveRange(6, 7),
+    );
     expect(container.read(memorySuggestionsProvider), isEmpty);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('owner rejection keeps the durable memory table unchanged',
-      (tester) async {
+  testWidgets('owner rejection keeps the durable memory table unchanged', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final container = ProviderContainer(
@@ -65,9 +72,9 @@ void main() {
       container.dispose();
       await db.close();
     });
-    container.read(memorySuggestionsProvider.notifier).propose(
-      'The model thinks the user owns a motorcycle',
-    );
+    container
+        .read(memorySuggestionsProvider.notifier)
+        .propose('The model thinks the user owns a motorcycle');
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,

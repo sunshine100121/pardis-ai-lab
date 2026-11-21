@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+
 import '../../attachments/domain/attachment.dart';
 
 /// M17: keeps photos on the existing local model and attachment path.
@@ -61,8 +62,10 @@ abstract final class PhotoUnderstandingPolicy {
       return 'حجم عکس‌های انتخاب‌شده برای تحلیل محلی زیاد است. '
           'عکس کوچک‌تری انتخاب کنید؛ هیچ فایلی حذف نشده است.';
     }
-    if (photos.any((a) => a.mime != 'image/png' ||
-        p.extension(a.path).toLowerCase() != '.png')) {
+    if (photos.any(
+      (a) =>
+          a.mime != 'image/png' || p.extension(a.path).toLowerCase() != '.png',
+    )) {
       return 'عکس با قالب موردانتظار آماده نشده است. '
           'آن را دوباره از دوربین یا گالری اضافه کنید.';
     }

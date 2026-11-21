@@ -30,12 +30,15 @@ Widget app(AppDatabase db, Widget child) => ProviderScope(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('tap like, change to dislike, give optional reason, undo',
-      (tester) async {
+  testWidgets('tap like, change to dislike, give optional reason, undo', (
+    tester,
+  ) async {
     final db = await fixture();
     addTearDown(db.close);
     final store = PalaFeedbackStore(db);
-    await tester.pumpWidget(app(db, const AnswerFeedbackBar(messageId: 'answer')));
+    await tester.pumpWidget(
+      app(db, const AnswerFeedbackBar(messageId: 'answer')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pala-like-answer')));
     await tester.pumpAndSettle();
@@ -57,38 +60,40 @@ void main() {
     expect((await store.read('answer'))?.reasonCode, null);
   });
 
-  testWidgets('health page refuses fake score and runs two actual local checks',
-      (tester) async {
-    final db = await fixture();
-    addTearDown(db.close);
-    await tester.pumpWidget(app(db, const PalaHealthPage()));
-    await tester.pumpAndSettle();
-    expect(find.text('داده کافی نیست'), findsOneWidget);
-    expect(find.byKey(const Key('pala-health-index')), findsOneWidget);
-    await tester.tap(find.text('۳۰ روز'));
-    await tester.pumpAndSettle();
-    expect(find.text('داده کافی نیست'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('pala-run-health-checks')),
-      300,
-      scrollable: find.byType(Scrollable).last,
-      maxScrolls: 25,
-    );
-    await tester.tap(find.byKey(const Key('pala-run-health-checks')));
-    await tester.pumpAndSettle();
-    final results = await PalaFeedbackStore(db).testEvents();
-    expect(results.length, 2);
-    expect(results.every((event) => event.passed), isTrue);
-    // The dashboard's ListView builds lazily; after provider refresh the
-    // statistics row may be outside the viewport. Verify its real display.
-    await tester.drag(find.byType(ListView), const Offset(0, 1500));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('۲ موفق از ۲'),
-      250,
-      scrollable: find.byType(Scrollable).last,
-      maxScrolls: 30,
-    );
-    expect(find.text('۲ موفق از ۲'), findsOneWidget);
-  });
+  testWidgets(
+    'health page refuses fake score and runs two actual local checks',
+    (tester) async {
+      final db = await fixture();
+      addTearDown(db.close);
+      await tester.pumpWidget(app(db, const PalaHealthPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('داده کافی نیست'), findsOneWidget);
+      expect(find.byKey(const Key('pala-health-index')), findsOneWidget);
+      await tester.tap(find.text('۳۰ روز'));
+      await tester.pumpAndSettle();
+      expect(find.text('داده کافی نیست'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('pala-run-health-checks')),
+        300,
+        scrollable: find.byType(Scrollable).last,
+        maxScrolls: 25,
+      );
+      await tester.tap(find.byKey(const Key('pala-run-health-checks')));
+      await tester.pumpAndSettle();
+      final results = await PalaFeedbackStore(db).testEvents();
+      expect(results.length, 2);
+      expect(results.every((event) => event.passed), isTrue);
+      // The dashboard's ListView builds lazily; after provider refresh the
+      // statistics row may be outside the viewport. Verify its real display.
+      await tester.drag(find.byType(ListView), const Offset(0, 1500));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('۲ موفق از ۲'),
+        250,
+        scrollable: find.byType(Scrollable).last,
+        maxScrolls: 30,
+      );
+      expect(find.text('۲ موفق از ۲'), findsOneWidget);
+    },
+  );
 }

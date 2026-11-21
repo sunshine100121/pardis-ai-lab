@@ -44,8 +44,10 @@ abstract final class HaDoctorIntent {
     r'(?:recorder|ریکوردر|mqtt|zigbee2mqtt|پایگاه داده).{0,40}(?:خطا|خرابی|مشکل|قطع|error|failed)',
     caseSensitive: false,
   );
-  static bool matches(String q) => _doctor.hasMatch(q) ||
-      (_target.hasMatch(q) && _problem.hasMatch(q)) || _subsystem.hasMatch(q);
+  static bool matches(String q) =>
+      _doctor.hasMatch(q) ||
+      (_target.hasMatch(q) && _problem.hasMatch(q)) ||
+      _subsystem.hasMatch(q);
 }
 
 abstract final class HaDoctorDiagnosis {
@@ -77,101 +79,164 @@ abstract final class HaDoctorDiagnosis {
     final io = s.logRead ? count(_io) : 0;
     final mqtt = s.logRead ? count(_mqtt) : 0;
     final zigbee = s.logRead ? count(_zigbee) : 0;
-    final unavailable = s.sensors.where((e) =>
-        const {'unavailable', 'unknown', 'read_error'}
-            .contains(e.state.toLowerCase())).toList();
+    final unavailable = s.sensors
+        .where(
+          (e) => const {
+            'unavailable',
+            'unknown',
+            'read_error',
+          }.contains(e.state.toLowerCase()),
+        )
+        .toList();
     final recorder = db + io > 0;
     final integrationProblems = s.integrations?.problems ?? 0;
     final integrationRetries = s.integrations?.retrying ?? 0;
-    final other = mqtt + zigbee > 0 || unavailable.isNotEmpty ||
-        integrationProblems > 0 || integrationRetries > 0;
+    final other =
+        mqtt + zigbee > 0 ||
+        unavailable.isNotEmpty ||
+        integrationProblems > 0 ||
+        integrationRetries > 0;
     final headline = recorder
         ? 'در لاگ خوانده‌شده نشانه خطای Recorder یا ذخیره‌سازی دیده شد.'
         : integrationProblems > 0
-            ? 'در وضعیت Config Entry یک یا چند Integration خطای راه‌اندازی دارند.'
-            : other ? 'چند نشانه نیازمند بررسی در نمونه محدود دیده شد.'
+        ? 'در وضعیت Config Entry یک یا چند Integration خطای راه‌اندازی دارند.'
+        : other
+        ? 'چند نشانه نیازمند بررسی در نمونه محدود دیده شد.'
         : !s.configRead && !s.logRead
-            ? 'داده تشخیصی کافی دریافت نشد؛ سلامت سیستم نامعلوم است.'
-            : 'در نمونه محدود خطای مشخصی پیدا نشد؛ سلامت کامل تأیید نیست.';
+        ? 'داده تشخیصی کافی دریافت نشد؛ سلامت سیستم نامعلوم است.'
+        : 'در نمونه محدود خطای مشخصی پیدا نشد؛ سلامت کامل تأیید نیست.';
     final confidence = recorder
         ? 'بالا برای مشاهده پیام خطا؛ نامعلوم برای علت ریشه‌ای و وضعیت فعلی'
-        : other ? 'متوسط برای نشانه‌ها؛ پایین برای علت احتمالی'
+        : other
+        ? 'متوسط برای نشانه‌ها؛ پایین برای علت احتمالی'
         : 'پایین؛ پوشش بررسی محدود است';
     final out = StringBuffer('HA Doctor — بررسی اولیه فقط‌خواندنی\n');
     out.writeln('نتیجه: $headline');
     out.writeln('درجه اطمینان: $confidence');
     out.writeln('زمان نمونه‌برداری UTC: ' + s.checkedAtUtc.toIso8601String());
     out.writeln('\nشواهد واقعی Home Assistant (نه دانشنامه):');
-    out.writeln(s.configRead
-        ? '• نسخه Core: ' + (s.coreVersion ?? 'نامشخص') + '.'
-        : '• نسخه Core: دریافت نشد.');
+    out.writeln(
+      s.configRead
+          ? '• نسخه Core: ' + (s.coreVersion ?? 'نامشخص') + '.'
+          : '• نسخه Core: دریافت نشد.',
+    );
     if (s.system == null) {
       out.writeln('• نسخه OS و Supervisor: داده معتبر دریافت نشد؛ نامعلوم.');
     } else {
       final system = s.system!;
-      out.writeln('• نسخه OS و Supervisor از حسگرهای رسمی: ' +
-          (system.osVersion ?? 'OS نامعلوم') + ' / ' +
-          (system.supervisorVersion ?? 'Supervisor نامعلوم') + '.');
+      out.writeln(
+        '• نسخه OS و Supervisor از حسگرهای رسمی: ' +
+            (system.osVersion ?? 'OS نامعلوم') +
+            ' / ' +
+            (system.supervisorVersion ?? 'Supervisor نامعلوم') +
+            '.',
+      );
       String metric(String title, double? value, String unit) =>
-          '• $title: ' + (value == null ? 'نامعلوم یا حسگر غیرفعال'
-            : value.toStringAsFixed(1) + ' ' + unit) +
-            ' (تازگی مستقل نمونه تأیید نشده).';
+          '• $title: ' +
+          (value == null
+              ? 'نامعلوم یا حسگر غیرفعال'
+              : value.toStringAsFixed(1) + ' ' + unit) +
+          ' (تازگی مستقل نمونه تأیید نشده).';
       out.writeln(metric('CPU', system.processorPercent, '%'));
       out.writeln(metric('RAM', system.memoryPercent, '%'));
       out.writeln(metric('فضای آزاد دیسک', system.diskFreeGb, 'GB/GiB'));
-      out.writeln('• وضعیت مدیر بکاپ: ' +
-          (system.backupManagerState ?? 'نامعلوم یا حسگر غیرفعال') + '.');
-      out.writeln('• آخرین بکاپ خودکار موفق (UTC): ' +
-          (system.lastAutomaticBackupUtc?.toIso8601String() ??
-              'نامعلوم یا حسگر غیرفعال') + '.');
-      out.writeln('• آخرین تلاش بکاپ خودکار (UTC): ' +
-          (system.lastAttemptedBackupUtc?.toIso8601String() ??
-              'نامعلوم یا حسگر غیرفعال') + '.');
-      out.writeln('• حسگرهای بکاپ، بکاپ‌های دستی، صحت فایل یا موفقیت Restore را تأیید نمی‌کنند.');
+      out.writeln(
+        '• وضعیت مدیر بکاپ: ' +
+            (system.backupManagerState ?? 'نامعلوم یا حسگر غیرفعال') +
+            '.',
+      );
+      out.writeln(
+        '• آخرین بکاپ خودکار موفق (UTC): ' +
+            (system.lastAutomaticBackupUtc?.toIso8601String() ??
+                'نامعلوم یا حسگر غیرفعال') +
+            '.',
+      );
+      out.writeln(
+        '• آخرین تلاش بکاپ خودکار (UTC): ' +
+            (system.lastAttemptedBackupUtc?.toIso8601String() ??
+                'نامعلوم یا حسگر غیرفعال') +
+            '.',
+      );
+      out.writeln(
+        '• حسگرهای بکاپ، بکاپ‌های دستی، صحت فایل یا موفقیت Restore را تأیید نمی‌کنند.',
+      );
       out.writeln('• نسخه Supervisor به‌تنهایی به معنی سالم‌بودن سرویس نیست.');
     }
-    out.writeln(s.componentCount == null
-        ? '• فهرست اجزا: نامشخص.'
-        : '• تعداد اجزای پیکربندی: ' + s.componentCount.toString() +
-          '؛ این عدد سلامت Integrationها را نشان نمی‌دهد.');
-    out.writeln(s.logRead
-        ? '• لاگ خوانده شد؛ زمان وقوع پیام‌ها الزاماً زمان فعلی نیست.'
-        : '• لاگ در دسترس نبود؛ این به معنی سالم‌بودن نیست.');
+    out.writeln(
+      s.componentCount == null
+          ? '• فهرست اجزا: نامشخص.'
+          : '• تعداد اجزای پیکربندی: ' +
+                s.componentCount.toString() +
+                '؛ این عدد سلامت Integrationها را نشان نمی‌دهد.',
+    );
+    out.writeln(
+      s.logRead
+          ? '• لاگ خوانده شد؛ زمان وقوع پیام‌ها الزاماً زمان فعلی نیست.'
+          : '• لاگ در دسترس نبود؛ این به معنی سالم‌بودن نیست.',
+    );
     if (recorder) {
       out.writeln('• الگوهای خرابی پایگاه داده: $db؛ خطای دیسک I/O: $io.');
-      out.writeln('• این خطاها به‌تنهایی خرابی فیزیکی SSD یا ادامه خطا در لحظه حاضر را اثبات نمی‌کنند.');
+      out.writeln(
+        '• این خطاها به‌تنهایی خرابی فیزیکی SSD یا ادامه خطا در لحظه حاضر را اثبات نمی‌کنند.',
+      );
     }
     if (s.integrations == null) {
       out.writeln('• وضعیت Integrationها: فهرست قابل‌خواندن نبود؛ نامعلوم.');
     } else {
       final items = s.integrations!;
-      out.writeln('• Integrationها: ' +
-          items.configured.toString() + ' پیکربندی فعال، ' +
-          items.loaded.toString() + ' بارگذاری‌شده، ' +
-          items.problems.toString() + ' خطای راه‌اندازی/مهاجرت، ' +
-          items.retrying.toString() + ' در انتظار تلاش مجدد، ' +
-          items.disabled.toString() + ' عمداً غیرفعال/نادیده‌گرفته‌شده.');
-      out.writeln('• این شمارش وضعیت پیکربندی است، نه گواه سلامت همه دستگاه‌ها.');
+      out.writeln(
+        '• Integrationها: ' +
+            items.configured.toString() +
+            ' پیکربندی فعال، ' +
+            items.loaded.toString() +
+            ' بارگذاری‌شده، ' +
+            items.problems.toString() +
+            ' خطای راه‌اندازی/مهاجرت، ' +
+            items.retrying.toString() +
+            ' در انتظار تلاش مجدد، ' +
+            items.disabled.toString() +
+            ' عمداً غیرفعال/نادیده‌گرفته‌شده.',
+      );
+      out.writeln(
+        '• این شمارش وضعیت پیکربندی است، نه گواه سلامت همه دستگاه‌ها.',
+      );
     }
     if (mqtt > 0) out.writeln('• خطاهای مرتبط با MQTT: $mqtt.');
     if (zigbee > 0) out.writeln('• خطاهای مرتبط با Zigbee: $zigbee.');
-    out.writeln('• فقط ' + s.sensors.length.toString() +
-        ' حسگر مجاز نمونه‌برداری شد؛ نه همه تجهیزات.');
+    out.writeln(
+      '• فقط ' +
+          s.sensors.length.toString() +
+          ' حسگر مجاز نمونه‌برداری شد؛ نه همه تجهیزات.',
+    );
     for (final item in unavailable.take(3)) {
       final label = labels[item.id] ?? 'حسگر مجاز';
-      final state = item.state == 'read_error' ? 'نتیجه خواندن نامعلوم' : item.state;
+      final state = item.state == 'read_error'
+          ? 'نتیجه خواندن نامعلوم'
+          : item.state;
       out.writeln('• $label: $state؛ وضعیت فیزیکی دستگاه تأیید نشده است.');
     }
     out.writeln('\nبررسی‌های کم‌خطر پیشنهادی:');
     if (recorder) {
-      out.writeln('۱. تاریخ و تکرار خطاهای Recorder را در بخش Logs بررسی کنید.');
-      out.writeln('۲. فقط فضای آزاد دیسک و موجودبودن بکاپ معتبر را بررسی کنید؛ چیزی حذف نشود.');
+      out.writeln(
+        '۱. تاریخ و تکرار خطاهای Recorder را در بخش Logs بررسی کنید.',
+      );
+      out.writeln(
+        '۲. فقط فضای آزاد دیسک و موجودبودن بکاپ معتبر را بررسی کنید؛ چیزی حذف نشود.',
+      );
       out.writeln('۳. پیش از هر تعمیر، وضعیت بکاپ و امکان بازگشت را بسنجید.');
-    } else if (mqtt + zigbee > 0 || integrationProblems > 0 || integrationRetries > 0) {
-      out.writeln('۱. وضعیت ارتباط سرویس و حسگرهای فعال مرتبط را در رابط HA بررسی کنید.');
-      out.writeln('۲. زمان خطا و قطعی شبکه را مقایسه کنید؛ Restart خودکار نکنید.');
+    } else if (mqtt + zigbee > 0 ||
+        integrationProblems > 0 ||
+        integrationRetries > 0) {
+      out.writeln(
+        '۱. وضعیت ارتباط سرویس و حسگرهای فعال مرتبط را در رابط HA بررسی کنید.',
+      );
+      out.writeln(
+        '۲. زمان خطا و قطعی شبکه را مقایسه کنید؛ Restart خودکار نکنید.',
+      );
     } else {
-      out.writeln('۱. وضعیت و تازگی داده حسگرهای حیاتی را در داشبورد بررسی کنید.');
+      out.writeln(
+        '۱. وضعیت و تازگی داده حسگرهای حیاتی را در داشبورد بررسی کنید.',
+      );
       out.writeln('۲. برای تشخیص دقیق‌تر نشانه و زمان وقوع مشکل را مشخص کنید.');
     }
     out.writeln('\nمستندات محلی — جدا از داده زنده:');
@@ -182,8 +247,10 @@ abstract final class HaDoctorDiagnosis {
         out.writeln('• $title (راهنمای محلی، نه شاهد خرابی فعلی).');
       }
     }
-    out.writeln('\nدانش داخلی Qwen برای این تشخیص استفاده نشد. '
-        'هیچ Restart، Restore، تغییر تنظیمات یا کنترلی انجام نشد.');
+    out.writeln(
+      '\nدانش داخلی Qwen برای این تشخیص استفاده نشد. '
+      'هیچ Restart، Restore، تغییر تنظیمات یا کنترلی انجام نشد.',
+    );
     return out.toString().trimRight();
   }
 }

@@ -40,13 +40,13 @@ class ProjectMemoryExpiryEditor extends StatelessWidget {
                 subtitle: Text(
                   ProjectMemoryEntry.expiresAtOf(approved[i]) == null
                       ? (approved[i].contains('؛ انقضا: ')
-                          ? 'تاریخ انقضا نامعتبر؛ یادداشت غیرفعال است'
-                          : 'تا حذف دستی')
+                            ? 'تاریخ انقضا نامعتبر؛ یادداشت غیرفعال است'
+                            : 'تا حذف دستی')
                       : 'تا ' +
-                          ProjectMemoryEntry.expiresAtOf(approved[i])!
-                              .toLocal()
-                              .toString()
-                              .substring(0, 10),
+                            ProjectMemoryEntry.expiresAtOf(approved[i])!
+                                .toLocal()
+                                .toString()
+                                .substring(0, 10),
                 ),
                 trailing: PopupMenuButton<MemoryRetention>(
                   key: Key('project-memory-expiry-menu-' + i.toString()),
@@ -69,7 +69,9 @@ class ProjectMemoryExpiryEditor extends StatelessWidget {
                     }
                     notes.value = notes.value.copyWith(
                       text: changed,
-                      selection: TextSelection.collapsed(offset: changed.length),
+                      selection: TextSelection.collapsed(
+                        offset: changed.length,
+                      ),
                       composing: TextRange.empty,
                     );
                   },

@@ -22,12 +22,15 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
     if (saving) return;
     setState(() => saving = true);
     try {
-      await ref.read(palaFeedbackStoreProvider).write(
-        widget.messageId,
-        current?.vote == vote ? null : vote,
-        reasonCode: current?.vote == vote ? null :
-            (vote == AnswerVote.disliked ? current?.reasonCode : null),
-      );
+      await ref
+          .read(palaFeedbackStoreProvider)
+          .write(
+            widget.messageId,
+            current?.vote == vote ? null : vote,
+            reasonCode: current?.vote == vote
+                ? null
+                : (vote == AnswerVote.disliked ? current?.reasonCode : null),
+          );
       ref.invalidate(answerFeedbackProvider(widget.messageId));
       ref.invalidate(palaHealthReportProvider);
     } catch (_) {
@@ -64,18 +67,19 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
     if (selected == null || !mounted) return;
     setState(() => saving = true);
     try {
-      await ref.read(palaFeedbackStoreProvider).write(
-        widget.messageId,
-        AnswerVote.disliked,
-        reasonCode: selected == 'none' ? null : selected,
-      );
+      await ref
+          .read(palaFeedbackStoreProvider)
+          .write(
+            widget.messageId,
+            AnswerVote.disliked,
+            reasonCode: selected == 'none' ? null : selected,
+          );
       ref.invalidate(answerFeedbackProvider(widget.messageId));
       ref.invalidate(palaHealthReportProvider);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ثبت علت انجام نشد.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('ثبت علت انجام نشد.')));
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -93,9 +97,11 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('اصلاح معتبر خود را بنویسید. فقط پس از بررسی '
-                  'و تأیید شما در «سلامت و عملکرد PALA» فعال می‌شود؛ '
-                  'نپسندیدن به‌تنهایی باعث یادگیری نمی‌شود.'),
+              const Text(
+                'اصلاح معتبر خود را بنویسید. فقط پس از بررسی '
+                'و تأیید شما در «سلامت و عملکرد PALA» فعال می‌شود؛ '
+                'نپسندیدن به‌تنهایی باعث یادگیری نمی‌شود.',
+              ),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('m19-owner-correction-field'),
@@ -124,24 +130,31 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
       );
       if (!mounted || correction == null || correction.isEmpty) return;
       setState(() => saving = true);
-      await ref.read(palaLearningStoreProvider).propose(
-        sourceAnswerId: widget.messageId,
-        correction: correction,
-      );
+      await ref
+          .read(palaLearningStoreProvider)
+          .propose(sourceAnswerId: widget.messageId, correction: correction);
       ref.invalidate(palaLearningListProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('پیشنهاد ذخیره شد و هنوز فعال نیست. '
+          const SnackBar(
+            content: Text(
+              'پیشنهاد ذخیره شد و هنوز فعال نیست. '
               'از «سلامت و عملکرد PALA ← اصلاح‌های من» آن را '
-              'آزمایش و تأیید کنید.')),
+              'آزمایش و تأیید کنید.',
+            ),
+          ),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('پیشنهاد ثبت نشد. '
+          const SnackBar(
+            content: Text(
+              'پیشنهاد ثبت نشد. '
               'فقط اصلاح‌های کم‌خطر برای پاسخ ذخیره‌شده '
-              'و نپسندیده قابل پذیرش‌اند.')),
+              'و نپسندیده قابل پذیرش‌اند.',
+            ),
+          ),
         );
       }
     } finally {
@@ -177,8 +190,9 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
             tooltip: disliked ? 'برداشتن نپسندیدن' : 'نپسندیدن پاسخ',
             visualDensity: VisualDensity.compact,
             iconSize: 19,
-            onPressed: loading ? null :
-                () => _vote(AnswerVote.disliked, current),
+            onPressed: loading
+                ? null
+                : () => _vote(AnswerVote.disliked, current),
             color: disliked ? accent : null,
             icon: Icon(disliked ? Icons.thumb_down : Icons.thumb_down_outlined),
           ),
@@ -188,10 +202,12 @@ class _AnswerFeedbackBarState extends ConsumerState<AnswerFeedbackBar> {
               onPressed: loading || current == null
                   ? null
                   : () => _reason(current),
-              child: Text(current?.reasonCode == null
-                  ? 'دلیل؟ (اختیاری)'
-                  : FeedbackReasons.labels[current?.reasonCode] ??
-                    'ویرایش دلیل'),
+              child: Text(
+                current?.reasonCode == null
+                    ? 'دلیل؟ (اختیاری)'
+                    : FeedbackReasons.labels[current?.reasonCode] ??
+                          'ویرایش دلیل',
+              ),
             ),
           if (disliked)
             TextButton(

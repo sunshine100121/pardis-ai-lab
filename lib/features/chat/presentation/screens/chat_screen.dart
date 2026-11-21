@@ -971,7 +971,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           if (ref.watch(onlineTurnPermissionProvider) case final request?)
             Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppDesign.md, vertical: 4,
+                horizontal: AppDesign.md,
+                vertical: 4,
               ),
               child: Card(
                 key: const Key('m13-online-permission-card'),
@@ -981,8 +982,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('اجازه جست‌وجوی اینترنتی',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        'اجازه جست‌وجوی اینترنتی',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       Text(request.prompt),
                       SelectableText(request.query, maxLines: 3),
                       Wrap(
@@ -1093,10 +1096,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           ),
                                           feedbackBar:
                                               m.role == ChatRole.assistant &&
-                                              !m.isSuperseded &&
-                                              m.responseStatus != 'generating'
+                                                  !m.isSuperseded &&
+                                                  m.responseStatus !=
+                                                      'generating'
                                               ? AnswerFeedbackBar(
-                                                  key: ValueKey('feedback-' + m.id),
+                                                  key: ValueKey(
+                                                    'feedback-' + m.id,
+                                                  ),
                                                   messageId: m.id,
                                                 )
                                               : null,

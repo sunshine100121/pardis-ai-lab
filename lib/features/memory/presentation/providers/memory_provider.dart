@@ -8,12 +8,15 @@ import '../../domain/memory_statements.dart';
 
 /// Stored facts, newest first.
 final memoriesProvider = StreamProvider<List<Memory>>(
-  (ref) => ref.watch(appDatabaseProvider).watchMemories().map(
-    (rows) => [
-      for (final m in rows)
-        if (m.expiresAt == null || m.expiresAt!.isAfter(DateTime.now())) m,
-    ],
-  ),
+  (ref) => ref
+      .watch(appDatabaseProvider)
+      .watchMemories()
+      .map(
+        (rows) => [
+          for (final m in rows)
+            if (m.expiresAt == null || m.expiresAt!.isAfter(DateTime.now())) m,
+        ],
+      ),
 );
 
 /// Writes: add (by hand or from extraction), edit, delete, clear.
@@ -93,8 +96,9 @@ class MemoryStore {
   /// Expiry is a genuine retention rule, not only a hidden UI indicator.
   /// Called before normal memory readback; existing no-expiry facts remain.
   Future<int> purgeExpired({DateTime? now}) =>
-      (_db.delete(_db.memories)
-            ..where((t) => t.expiresAt.isSmallerOrEqualValue(now ?? DateTime.now())))
+      (_db.delete(_db.memories)..where(
+            (t) => t.expiresAt.isSmallerOrEqualValue(now ?? DateTime.now()),
+          ))
           .go();
 
   /// Newest first; removes expired rows from the existing SQLite store.

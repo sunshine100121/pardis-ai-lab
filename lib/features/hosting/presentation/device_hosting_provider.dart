@@ -307,7 +307,10 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
           },
         ),
         hasProjector: (id) {
-          final filePresent = ref.read(modelManagerProvider).vision.contains(id);
+          final filePresent = ref
+              .read(modelManagerProvider)
+              .vision
+              .contains(id);
           if (!filePresent) return false;
           // On Android the server shares the chat's current runtime.
           // A disk-only projector cannot make a text-only runtime see
@@ -388,9 +391,8 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
           if (state.pairCode == null) return;
           state = state.copyWith(
             clearPairCode: true,
-            error: stringsFor(
-              ref.read(settingsProvider).localeCode,
-            ).hostPairExpired,
+            error: stringsFor(ref.read(settingsProvider).localeCode)
+                .hostPairExpired,
           );
         });
       }
@@ -675,9 +677,8 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
   /// ranges; mobile-data and carrier (192.0.0.0/24, 100.64/10) last.
   static int rankAddress(String interface, List<int> b) {
     var score = 0;
-    if (RegExp(
-      r'^(wlan|eth|en|ap|swlan|softap|rndis|wl|wi-?fi)',
-    ).hasMatch(interface)) {
+    if (RegExp(r'^(wlan|eth|en|ap|swlan|softap|rndis|wl|wi-?fi)')
+        .hasMatch(interface)) {
       score += 10;
     }
     // Windows: VPN, virtual switch and Wi-Fi Direct adapters carry private
@@ -688,9 +689,8 @@ class DeviceHostingNotifier extends Notifier<DeviceHostingState> {
     ).hasMatch(interface)) {
       score -= 20;
     }
-    if (RegExp(
-      r'^(rmnet|ccmni|pdp|v4-rmnet|clat|dummy|tun)',
-    ).hasMatch(interface)) {
+    if (RegExp(r'^(rmnet|ccmni|pdp|v4-rmnet|clat|dummy|tun)')
+        .hasMatch(interface)) {
       score -= 10;
     }
     final private =

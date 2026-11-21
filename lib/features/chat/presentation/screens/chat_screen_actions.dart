@@ -16,9 +16,11 @@ extension _ChatScreenActions on _ChatScreenState {
               ListTile(
                 key: Key('m13-pick-mode-' + mode.name),
                 selected: current == mode,
-                leading: Icon(current == mode
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked),
+                leading: Icon(
+                  current == mode
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                ),
                 title: Text(switch (mode) {
                   WebMode.off => 'فقط آفلاین',
                   WebMode.auto => 'آفلاین‌اول؛ پیشنهاد اجازه',
@@ -37,14 +39,13 @@ extension _ChatScreenActions on _ChatScreenState {
       ),
     );
     if (selected == null || !mounted) return;
-    await ref.read(settingsProvider.notifier).update(
-      ref.read(settingsProvider).copyWith(webMode: selected),
-    );
+    await ref
+        .read(settingsProvider.notifier)
+        .update(ref.read(settingsProvider).copyWith(webMode: selected));
     if (mounted) {
       showIslandToast(context, 'حالت اینترنت ذخیره شد.');
     }
   }
-
 
   Future<void> _rememberProjectMessage(ChatMessage message) async {
     final chat = ref.read(chatProvider);

@@ -182,7 +182,9 @@ void main() {
     await library.refresh(pick: true);
     final report = await library.searchDetailed('orchid nutrient');
     final results = report.sources;
-    final pdfStatus = report.checks.where((check) => check['file'] == 'small.pdf').single;
+    final pdfStatus = report.checks
+        .where((check) => check['file'] == 'small.pdf')
+        .single;
     expect(pdfStatus['code'], 'pdf_page_scan');
     expect(pdfStatus['elapsedMs'], isA<int>());
     expect(

@@ -53,19 +53,29 @@ mixin _ChatWeb on _ChatBase {
       // Only a locally constructed query from this turn (or a pasted
       // public HTTPS URL) may cross the web boundary. Old conversations,
       // project instructions and local files cannot enter the query.
-      final currentProjectName = ref.read(conversationWorkspaceProvider)
-          .projects.where((p) => p.id == _projectId).firstOrNull?.name ?? '';
+      final currentProjectName =
+          ref
+              .read(conversationWorkspaceProvider)
+              .projects
+              .where((p) => p.id == _projectId)
+              .firstOrNull
+              ?.name ??
+          '';
       final publicQuery = _projectId == null
           ? null
           : ProjectPublicWebQuery.fromMessage(
-              message, projectName: currentProjectName,
+              message,
+              projectName: currentProjectName,
             );
-      final scopedSearch = plan.mode == RetrievalMode.search &&
-          plan.query == publicQuery && publicQuery != null;
-      final scopedLinks = plan.mode == RetrievalMode.readUrls &&
+      final scopedSearch =
+          plan.mode == RetrievalMode.search &&
+          plan.query == publicQuery &&
+          publicQuery != null;
+      final scopedLinks =
+          plan.mode == RetrievalMode.readUrls &&
           ProjectPublicWebQuery.publicUrlsFromMessage(message, plan.urls);
-      final deniedByScope = _projectId != null &&
-          !(scopedSearch || scopedLinks);
+      final deniedByScope =
+          _projectId != null && !(scopedSearch || scopedLinks);
       final sensitive =
           OnlinePermissionPolicy.privateContent(message) ||
           OnlinePermissionPolicy.privateContent(plan.query) ||
@@ -75,8 +85,8 @@ mixin _ChatWeb on _ChatBase {
           notice: deniedByScope
               ? 'جست‌وجوی عمومی در این پروژه مجاز نشده است؛ اطلاعات خصوصی ارسال نشد.'
               : sensitive
-                  ? 'این درخواست شامل اطلاعات خصوصی است؛ به اینترنت ارسال نشد.'
-                  : 'حالت فقط آفلاین فعال است؛ چیزی به اینترنت ارسال نشد.',
+              ? 'این درخواست شامل اطلاعات خصوصی است؛ به اینترنت ارسال نشد.'
+              : 'حالت فقط آفلاین فعال است؛ چیزی به اینترنت ارسال نشد.',
         );
         return (
           sources: sources,
@@ -94,32 +104,40 @@ mixin _ChatWeb on _ChatBase {
       // and arbitrary inferred searches retain the existing safety gate.
       var approved = approvedByUserButton || scopedLinks;
       if (OnlinePermissionPolicy.requiresPermission(
-        mode: settings.webMode,
-        input: message,
-        insideProject: deniedByScope,
-      ) && !approved) {
+            mode: settings.webMode,
+            input: message,
+            insideProject: deniedByScope,
+          ) &&
+          !approved) {
         // Offline-first: if trustworthy local documents answer a stable
         // question, do not request network access or interrupt the user.
         if (_projectId == null && !RetrievalPlan.timeSensitive(message)) {
           try {
-            final local = await ref.read(offlineKnowledgeProvider)
+            final local = await ref
+                .read(offlineKnowledgeProvider)
                 .searchDetailed(message);
             if (_cancelled || !_alive) return null;
             final terms = ProjectKnowledgePolicy.terms(message);
             bool useful(SearchResult source) {
               final body = source.pageText ?? '';
               if (body.trim().length < 60 ||
-                  source.url.startsWith('pala-status:')) return false;
-              final matching = terms.where(
-                (w) => body.toLowerCase().contains(w.toLowerCase()),
-              ).length;
+                  source.url.startsWith('pala-status:'))
+                return false;
+              final matching = terms
+                  .where((w) => body.toLowerCase().contains(w.toLowerCase()))
+                  .length;
               return matching >= 2;
             }
+
             var hasUsefulLocal = local.sources.any(useful);
-            if (!hasUsefulLocal &&
-                settings.knowledgeCollection.isNotEmpty) {
-              final savedKnowledge = await ref.read(knowledgeStoreProvider)
-                  .search(settings.knowledgeCollection, message, maxPassages: 4);
+            if (!hasUsefulLocal && settings.knowledgeCollection.isNotEmpty) {
+              final savedKnowledge = await ref
+                  .read(knowledgeStoreProvider)
+                  .search(
+                    settings.knowledgeCollection,
+                    message,
+                    maxPassages: 4,
+                  );
               if (_cancelled || !_alive) return null;
               hasUsefulLocal = savedKnowledge.any(useful);
             }
@@ -140,26 +158,34 @@ mixin _ChatWeb on _ChatBase {
           }
         }
         if (allowApprovalPrompt) {
-          approved = await ref.read(onlineTurnPermissionProvider.notifier).ask(
-            query: plan.query,
-          );
+          approved = await ref
+              .read(onlineTurnPermissionProvider.notifier)
+              .ask(query: plan.query);
           if (_cancelled || !_alive) return null;
         }
       }
       final latestOwnerMode = ref.read(settingsProvider).webMode;
       final workspace = ref.read(conversationWorkspaceProvider);
-      final projectMembershipChanged = originatingProjectId != null &&
+      final projectMembershipChanged =
+          originatingProjectId != null &&
           (workspace.projects.every((p) => p.id != originatingProjectId) ||
               (originatingChatId != null &&
                   workspace.memberships[originatingChatId] !=
                       originatingProjectId));
-      final currentProjectNameAfterApproval = workspace.projects
-          .where((p) => p.id == originatingProjectId).firstOrNull?.name ?? '';
-      final stillSafe = originatingProjectId == null ||
+      final currentProjectNameAfterApproval =
+          workspace.projects
+              .where((p) => p.id == originatingProjectId)
+              .firstOrNull
+              ?.name ??
+          '';
+      final stillSafe =
+          originatingProjectId == null ||
           (plan.mode == RetrievalMode.search &&
-              plan.query == ProjectPublicWebQuery.fromMessage(
-                message, projectName: currentProjectNameAfterApproval,
-              )) ||
+              plan.query ==
+                  ProjectPublicWebQuery.fromMessage(
+                    message,
+                    projectName: currentProjectNameAfterApproval,
+                  )) ||
           (plan.mode == RetrievalMode.readUrls &&
               ProjectPublicWebQuery.publicUrlsFromMessage(message, plan.urls));
       final noLongerAllowed =
@@ -489,7 +515,8 @@ mixin _ChatWeb on _ChatBase {
           // words of the question unanswered, one more query for those
           // words and up to two more pages.
           if (_projectId == null &&
-              settings.searchAgain && operationBudget == null) {
+              settings.searchAgain &&
+              operationBudget == null) {
             sources = await _searchAgain(plan.query, sources, settings, lock);
             stage('searchAgainMs');
             if (_cancelled || !_alive) return null;
@@ -1000,8 +1027,7 @@ mixin _ChatWeb on _ChatBase {
             messages: [
               {
                 'role': 'system',
-                'content':
-                    'You turn questions into web search queries. Reply with the queries only, one per line.',
+                'content': 'You turn questions into web search queries. Reply with the queries only, one per line.',
               },
               {
                 'role': 'user',
@@ -1226,9 +1252,9 @@ mixin _ChatWeb on _ChatBase {
             .toList()
             .reversed) {
       try {
-        final list = SearchSteps.sourcesFromJson(
-          a.sourcesJson,
-        ).where((s) => !s.sponsored).toList();
+        final list = SearchSteps.sourcesFromJson(a.sourcesJson)
+            .where((s) => !s.sponsored)
+            .toList();
         if (list.isNotEmpty) {
           earlier = list;
           break;
@@ -1276,9 +1302,9 @@ mixin _ChatWeb on _ChatBase {
           whole(focus),
       ];
     }
-    final pages = [
-      for (final s in earlier) whole(s),
-    ].where((s) => (s.pageText ?? '').isNotEmpty).toList();
+    final pages = [for (final s in earlier) whole(s)]
+        .where((s) => (s.pageText ?? '').isNotEmpty)
+        .toList();
     if (pages.isEmpty) return const [];
     final asks = EvidenceRanker.terms(input).toSet();
     if (asks.isEmpty) return pages.take(6).toList();

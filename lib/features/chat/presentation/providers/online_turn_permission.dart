@@ -11,8 +11,8 @@ class OnlineTurnQuestion {
 /// Pending approval is ephemeral; it is never an enduring broad grant.
 final onlineTurnPermissionProvider =
     NotifierProvider<OnlineTurnPermission, OnlineTurnQuestion?>(
-  OnlineTurnPermission.new,
-);
+      OnlineTurnPermission.new,
+    );
 
 class OnlineTurnPermission extends Notifier<OnlineTurnQuestion?> {
   Completer<bool>? _answer;
@@ -32,13 +32,15 @@ class OnlineTurnPermission extends Notifier<OnlineTurnQuestion?> {
     reject();
     final answer = _answer = Completer<bool>();
     state = OnlineTurnQuestion(
-      prompt: 'منابع محلی برای این درخواست کافی نبودند. '
+      prompt:
+          'منابع محلی برای این درخواست کافی نبودند. '
           'این بار اجازه می‌دهید فقط عبارت زیر در اینترنت جست‌وجو شود؟',
       query: query,
     );
     // In a headless task there may be no UI at all; do not grant by default.
     final timeout = Future<bool>.delayed(
-      const Duration(seconds: 45), () => false,
+      const Duration(seconds: 45),
+      () => false,
     );
     final allowed = await Future.any([answer.future, timeout]);
     if (identical(_answer, answer)) {

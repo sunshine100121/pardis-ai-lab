@@ -17,8 +17,7 @@ Future<AppDatabase> fixture() async {
   await db.customStatement(
     'INSERT INTO messages(id,chat_id,role,content,timestamp,sequence) '
     'VALUES(?,?,?,?,?,?)',
-    ['question', 'chat', 'user',
-      'علت لکه های زرد روی برگ انجیر چیست', 100, 1],
+    ['question', 'chat', 'user', 'علت لکه های زرد روی برگ انجیر چیست', 100, 1],
   );
   await db.customStatement(
     'INSERT INTO messages(id,chat_id,role,content,timestamp,sequence) '
@@ -36,17 +35,21 @@ Widget app(AppDatabase db, Widget child) => ProviderScope(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('feedback only proposes; approval and rollback need owner tap',
-      (tester) async {
+  testWidgets('feedback only proposes; approval and rollback need owner tap', (
+    tester,
+  ) async {
     final db = await fixture();
     addTearDown(db.close);
     await PalaFeedbackStore(db).write('answer', AnswerVote.disliked);
 
-    await tester.pumpWidget(app(db,
-        const AnswerFeedbackBar(messageId: 'answer')));
+    await tester.pumpWidget(
+      app(db, const AnswerFeedbackBar(messageId: 'answer')),
+    );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('m19-propose-correction-answer')),
-        findsOneWidget);
+    expect(
+      find.byKey(const Key('m19-propose-correction-answer')),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('m19-propose-correction-answer')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -69,9 +72,10 @@ void main() {
     await tester.tap(find.byKey(approveKey));
     await tester.pumpAndSettle();
     expect((await store.byId(draft.id))?.state, LearningState.active);
-    expect((await store.match('chat',
-        'چرا برگ انجیر لکه زرد دارد؟'))?.correction,
-        draft.correction);
+    expect(
+      (await store.match('chat', 'چرا برگ انجیر لکه زرد دارد؟'))?.correction,
+      draft.correction,
+    );
     final disableKey = Key('m19-disable-' + draft.id);
     await tester.tap(find.byKey(disableKey));
     await tester.pumpAndSettle();

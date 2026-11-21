@@ -208,14 +208,18 @@ abstract class _ChatBase extends Notifier<ChatState> {
   AppDatabase? _temporaryDb;
   Future<void> _temporaryReady = Future.value();
   String? _projectId;
+
   /// Detects credentials in the current in-scope chat, not only the latest
   /// message. A follow-up or web-query planner must not leak older secrets.
   bool get _containsSensitiveHistory {
     final workspace = ref.read(conversationWorkspaceProvider);
-    return state.messages.any((m) =>
-        workspace.mayUseInContext(state.chatId, m.timestamp) &&
-        OnlinePermissionPolicy.privateContent(m.content));
+    return state.messages.any(
+      (m) =>
+          workspace.mayUseInContext(state.chatId, m.timestamp) &&
+          OnlinePermissionPolicy.privateContent(m.content),
+    );
   }
+
   AppDatabase get _database => _temporaryDb ?? ref.read(appDatabaseProvider);
   final _turns = TurnCoordinator();
 
@@ -318,19 +322,19 @@ class ChatNotifier extends _ChatBase
         projectLabel: project?.name ?? 'Project',
       ).effective;
       // If a remote model was chosen, prevent secrets or HA credentials from
-    // entering the outbound model request at all. The owner can rephrase
-    // or choose a local model, but there is no silent automatic downgrade.
+      // entering the outbound model request at all. The owner can rephrase
+      // or choose a local model, but there is no silent automatic downgrade.
 
-    // Modes off/auto are local-inference first. A previously configured
-    // remote LLM is NOT permission to silently transmit the conversation:
-    // only the explicitly approved internet mode may use that model.
-    if (settings.webMode != WebMode.always && settings.usesRemote) {
-      settings = settings.copyWith(
-        remoteEnabled: false,
-        remoteWebResearch: false,
-      );
-    }
-    if (state.temporary) settings = settings.copyWith(memoryEnabled: false);
+      // Modes off/auto are local-inference first. A previously configured
+      // remote LLM is NOT permission to silently transmit the conversation:
+      // only the explicitly approved internet mode may use that model.
+      if (settings.webMode != WebMode.always && settings.usesRemote) {
+        settings = settings.copyWith(
+          remoteEnabled: false,
+          remoteWebResearch: false,
+        );
+      }
+      if (state.temporary) settings = settings.copyWith(memoryEnabled: false);
       if (settings.usesRemote || !settings.promptCache) return;
       _primedLoad = load;
       // No question-specific instructions, history or tool registrations.
@@ -799,8 +803,8 @@ class ChatNotifier extends _ChatBase
       // retrieval, remote web tools or any answer generation.
       if (t.attachments.any((a) => a.isImage) && t.resume == null) {
         final isRemote = t.settings?.usesRemote == true;
-        final outsideLan = isRemote &&
-            !LanProbeRunner.isLocal(t.settings?.remoteUri);
+        final outsideLan =
+            isRemote && !LanProbeRunner.isLocal(t.settings?.remoteUri);
         final supported = isRemote
             ? t.settings?.remoteVision == true && !outsideLan
             : t.engine.metrics['supportsVision'] == true;
@@ -827,7 +831,8 @@ class ChatNotifier extends _ChatBase
           t.visionRamFreeBeforeBytes = memory?.availableBytes;
         }
       }
-      final doctorQuestion = HaDoctorIntent.matches(t.input) &&
+      final doctorQuestion =
+          HaDoctorIntent.matches(t.input) &&
           resume == null &&
           attachments.isEmpty &&
           compareWith == null &&
@@ -839,13 +844,14 @@ class ChatNotifier extends _ChatBase
       if (doctorQuestion) {
         final workspace = ref.read(conversationWorkspaceProvider);
         final project = workspace.projects
-            .where((p) => p.id == _projectId).firstOrNull;
+            .where((p) => p.id == _projectId)
+            .firstOrNull;
         final scoped = _projectId == null
             ? null
             : (project?.sourceIds.toSet() ?? <String>{});
-        final result = await ref.read(offlineKnowledgeProvider).doctorReport(
-          t.input, projectSourceIds: scoped,
-        );
+        final result = await ref
+            .read(offlineKnowledgeProvider)
+            .doctorReport(t.input, projectSourceIds: scoped);
         // Direct report: no Qwen, online lookup or Home Assistant write.
         t.appAnswer = result;
         t.replaceAnswer(result);
@@ -877,7 +883,8 @@ class ChatNotifier extends _ChatBase
       // live-sensor action, explicit web investigation or altered prompt.
       // This is direct retrieval, NOT a base-model modification and NOT
       // automatically promoted from a dislike or a model suggestion.
-      final replayAllowed = !state.temporary &&
+      final replayAllowed =
+          !state.temporary &&
           _projectId == null &&
           state.chatId != null &&
           t.settings?.memoryEnabled == true &&
@@ -893,9 +900,9 @@ class ChatNotifier extends _ChatBase
           !forceResearch &&
           !isolated;
       if (replayAllowed) {
-        final confirmed = await ref.read(palaLearningStoreProvider).match(
-          state.chatId!, t.input,
-        );
+        final confirmed = await ref
+            .read(palaLearningStoreProvider)
+            .match(state.chatId!, t.input);
         if (confirmed != null) {
           final answer = confirmed.ownerMarkedAnswer;
           t.appAnswer = answer;
@@ -959,7 +966,8 @@ class ChatNotifier extends _ChatBase
     if (t.resume != null &&
         boundary != null &&
         !t.resume!.timestamp.isAfter(boundary)) {
-      t.failure = 'این پاسخ متعلق به محدوده پیش از انتقال پروژه است؛ '
+      t.failure =
+          'این پاسخ متعلق به محدوده پیش از انتقال پروژه است؛ '
           'لطفاً پرسش تازه‌ای در پروژه فعلی بنویسید.';
       return null;
     }
@@ -1073,7 +1081,8 @@ class ChatNotifier extends _ChatBase
     if (settings.usesRemote &&
         (OnlinePermissionPolicy.privateContent(input) ||
             _containsSensitiveHistory)) {
-      t.failure = 'این درخواست شامل اطلاعات محرمانه است؛ '
+      t.failure =
+          'این درخواست شامل اطلاعات محرمانه است؛ '
           'به سرویس خارجی ارسال نشد. لطفاً از Qwen محلی استفاده کنید.';
       return null;
     }
@@ -1237,7 +1246,8 @@ class ChatNotifier extends _ChatBase
         (!settings.usesRemote || settings.remoteWebResearch);
     // Under Auto, early follow-up recall must not access the network
     // without a one-turn grant. Explicit user searches are that grant.
-    final earlyWebAllowed = webAllowed &&
+    final earlyWebAllowed =
+        webAllowed &&
         !_containsSensitiveHistory &&
         !OnlinePermissionPolicy.privateContent(input) &&
         (settings.webMode == WebMode.always ||
@@ -1272,8 +1282,11 @@ class ChatNotifier extends _ChatBase
     // the camera of the first question (report 2026-10-04).
     final previousQuestion = RetrievalPlan.conversationTopic([
       for (final m in state.messages)
-        if (m.role == ChatRole.user && isLive(m) &&
-            _messageInScope(m) && m.id != user.id) m.content,
+        if (m.role == ChatRole.user &&
+            isLive(m) &&
+            _messageInScope(m) &&
+            m.id != user.id)
+          m.content,
     ]);
     final contextual = previousQuestion == null
         ? input
@@ -1441,7 +1454,8 @@ class ChatNotifier extends _ChatBase
         // two prompts share their prefix.
         history: [
           for (final m in state.messages.where(
-              (m) => isLive(m) && _messageInScope(m)))
+            (m) => isLive(m) && _messageInScope(m),
+          ))
             if (m.id != user.id)
               TurnPrompts.renderTurn(
                 m,
@@ -1467,8 +1481,10 @@ class ChatNotifier extends _ChatBase
     if (plan.mode == RetrievalMode.search && _projectId == null) {
       final placed = RetrievalPlan.withUserPlace(plan.query, [
         for (final m in state.messages)
-          if (m.role == ChatRole.user && isLive(m) &&
-              _messageInScope(m) && m.id != user.id)
+          if (m.role == ChatRole.user &&
+              isLive(m) &&
+              _messageInScope(m) &&
+              m.id != user.id)
             m.content,
       ]);
       if (placed != plan.query) {
@@ -1484,10 +1500,14 @@ class ChatNotifier extends _ChatBase
     // saved notes or model-generated text. A current-turn public search
     // uses the same permission gate and search engine as a normal chat.
     if (_projectId != null && plan.mode != RetrievalMode.none) {
-      final currentProject = ref.read(conversationWorkspaceProvider)
-          .projects.where((p) => p.id == _projectId).firstOrNull;
+      final currentProject = ref
+          .read(conversationWorkspaceProvider)
+          .projects
+          .where((p) => p.id == _projectId)
+          .firstOrNull;
       final publicQuery = ProjectPublicWebQuery.fromMessage(
-        input, projectName: currentProject?.name ?? '',
+        input,
+        projectName: currentProject?.name ?? '',
       );
       if (plan.mode == RetrievalMode.readUrls &&
           ProjectPublicWebQuery.publicUrlsFromMessage(input, plan.urls)) {
@@ -1507,7 +1527,8 @@ class ChatNotifier extends _ChatBase
       } else {
         plan = RetrievalPlan.of(input, webEnabled: false);
         state = state.copyWith(
-          notice: 'عبارت مناسب و امن برای اینترنت مشخص نشد؛ '
+          notice:
+              'عبارت مناسب و امن برای اینترنت مشخص نشد؛ '
               'درخواست به منابع محلی محدود ماند.',
         );
       }
@@ -1537,42 +1558,45 @@ class ChatNotifier extends _ChatBase
     if (researchTurn || plan.mode == RetrievalMode.search) {
       t.lease.transition(TurnStage.researching);
     }
-    final web = await _gatherWeb(
-      plan,
-      settings: settings,
-      engine: engine,
-      model: model,
-      sources: t.sources,
-      sponsored: t.sponsored,
-      timely: timely,
-      researchTurn: researchTurn,
-      recalledTurn: planned.recalledTurn,
-      followUpSearch: planned.followUpSearch,
-      stage: t.stage,
-      subject: t.subject,
-      subjectAllowed: t.subjectAllowed,
-      operationBudget: t.budget,
-      earlier: planned.contextual == input ? null : planned.previousQuestion,
-      originalInput: input,
-      approvedByUserButton: t.forceResearch && !t.isolated,
-      // Background/voice tasks have no visible confirmation card. In Auto
-      // mode they fail closed instead of hanging or obtaining a silent grant.
-      allowApprovalPrompt: !t.spoken && !t.isolated,
-    ).onError((Object error, StackTrace trace) {
-      if (_cancelled) return null;
-      // A failed Wi-Fi route/search provider must not kill Qwen or discard
-      // local sources, drafts or project knowledge. Do not fabricate links.
-      state = state.copyWith(
-        notice: 'ارتباط اینترنتی برقرار نشد؛ پاسخ آفلاین ادامه دارد.',
-      );
-      return (
-        sources: t.sources,
-        sponsored: const <SearchResult>[],
-        queries: const <String>[],
-        newsIntent: null,
-        newsTurn: false,
-      );
-    });
+    final web =
+        await _gatherWeb(
+          plan,
+          settings: settings,
+          engine: engine,
+          model: model,
+          sources: t.sources,
+          sponsored: t.sponsored,
+          timely: timely,
+          researchTurn: researchTurn,
+          recalledTurn: planned.recalledTurn,
+          followUpSearch: planned.followUpSearch,
+          stage: t.stage,
+          subject: t.subject,
+          subjectAllowed: t.subjectAllowed,
+          operationBudget: t.budget,
+          earlier: planned.contextual == input
+              ? null
+              : planned.previousQuestion,
+          originalInput: input,
+          approvedByUserButton: t.forceResearch && !t.isolated,
+          // Background/voice tasks have no visible confirmation card. In Auto
+          // mode they fail closed instead of hanging or obtaining a silent grant.
+          allowApprovalPrompt: !t.spoken && !t.isolated,
+        ).onError((Object error, StackTrace trace) {
+          if (_cancelled) return null;
+          // A failed Wi-Fi route/search provider must not kill Qwen or discard
+          // local sources, drafts or project knowledge. Do not fabricate links.
+          state = state.copyWith(
+            notice: 'ارتباط اینترنتی برقرار نشد؛ پاسخ آفلاین ادامه دارد.',
+          );
+          return (
+            sources: t.sources,
+            sponsored: const <SearchResult>[],
+            queries: const <String>[],
+            newsIntent: null,
+            newsTurn: false,
+          );
+        });
     if (web == null) return null;
     t.sources = web.sources;
     // Web search off: an imported offline Wikipedia still answers a factual
@@ -1715,13 +1739,15 @@ class ChatNotifier extends _ChatBase
         ? settings.remoteVision
         : engine.metrics['supportsVision'] == true;
     final documents = !settings.usesRemote || settings.remoteDocuments;
-    final live = state.messages.where((m) => isLive(m) && _messageInScope(m)).toList();
+    final live = state.messages
+        .where((m) => isLive(m) && _messageInScope(m))
+        .toList();
     final summary =
         !state.temporary &&
             !t.isolated &&
             t.resume == null &&
-            t.promptOverride == null
-        && _scopeBoundary == null
+            t.promptOverride == null &&
+            _scopeBoundary == null
         ? await ContextSummary.read(state.chatId)
         : null;
     final summarized = summary != null && summary.validFor(live);
@@ -1795,11 +1821,15 @@ class ChatNotifier extends _ChatBase
     // the evidence ahead of any web pages; a continuation or comparison
     // keeps what its original turn saw. A Remote profile with document
     // sharing off gets none (audit P1-03).
-    final scopeProject = ref.read(conversationWorkspaceProvider)
-        .projects.where((p) => p.id == _projectId).firstOrNull;
+    final scopeProject = ref
+        .read(conversationWorkspaceProvider)
+        .projects
+        .where((p) => p.id == _projectId)
+        .firstOrNull;
     final approvedShared = scopeProject?.sharedCollections ?? const <String>[];
     if (documents &&
-        (settings.knowledgeCollection.isNotEmpty || approvedShared.isNotEmpty) &&
+        (settings.knowledgeCollection.isNotEmpty ||
+            approvedShared.isNotEmpty) &&
         t.resume == null &&
         t.reuseSourcesJson == null &&
         t.promptOverride == null &&
@@ -1818,11 +1848,17 @@ class ChatNotifier extends _ChatBase
         for (final c in collections.take(5)) {
           // Access to shared collections requires explicit per-project opt-in.
           if (scopedId != null) {
-            final current = ref.read(conversationWorkspaceProvider).projects
-                .where((p) => p.id == scopedId).firstOrNull;
-            if (!_alive || _cancelled || _projectId != scopedId ||
+            final current = ref
+                .read(conversationWorkspaceProvider)
+                .projects
+                .where((p) => p.id == scopedId)
+                .firstOrNull;
+            if (!_alive ||
+                _cancelled ||
+                _projectId != scopedId ||
                 current == null ||
-                !(current.collection == c || current.sharedCollections.contains(c))) {
+                !(current.collection == c ||
+                    current.sharedCollections.contains(c))) {
               return const [];
             }
           }
@@ -1840,6 +1876,7 @@ class ChatNotifier extends _ChatBase
           maxResults: 12,
         );
       }
+
       final own =
           engine is LlamaEngine &&
               DesktopHost.active &&
@@ -1858,12 +1895,17 @@ class ChatNotifier extends _ChatBase
           : await retrieve();
       if (_cancelled || !_alive) return null;
       if (scopedId != null) {
-        final active = ref.read(conversationWorkspaceProvider).projects
-            .where((p) => p.id == scopedId).firstOrNull;
-        if (_projectId != scopedId || active == null ||
+        final active = ref
+            .read(conversationWorkspaceProvider)
+            .projects
+            .where((p) => p.id == scopedId)
+            .firstOrNull;
+        if (_projectId != scopedId ||
+            active == null ||
             scopeProject == null ||
             !active.sameKnowledgeScope(scopeProject)) {
-          t.offlineRefusal = 'انتخاب منابع پروژه تغییر کرده است؛ لطفاً دوباره بپرسید.';
+          t.offlineRefusal =
+              'انتخاب منابع پروژه تغییر کرده است؛ لطفاً دوباره بپرسید.';
           return null;
         }
       }
@@ -2031,8 +2073,11 @@ class ChatNotifier extends _ChatBase
           .toList();
     }
     if (_projectId != null && t.sources.isNotEmpty) {
-      final current = ref.read(conversationWorkspaceProvider).projects
-          .where((p) => p.id == _projectId).firstOrNull;
+      final current = ref
+          .read(conversationWorkspaceProvider)
+          .projects
+          .where((p) => p.id == _projectId)
+          .firstOrNull;
       t.sources = ProjectKnowledgePolicy.rank(
         input,
         t.sources,
@@ -2097,8 +2142,9 @@ class ChatNotifier extends _ChatBase
       t.sources = [];
       t.offlineRefusal = 'خواندن حسگر در محدوده پروژه هنوز آماده نیست؛ مقدار فعلی حدس زده نمی‌شود.';
     } else if (projectExternalRequest &&
-        !t.sources.any((s) =>
-            s.url.startsWith('https://') || s.url.startsWith('http://'))) {
+        !t.sources.any(
+          (s) => s.url.startsWith('https://') || s.url.startsWith('http://'),
+        )) {
       // An explicit online request without usable public web evidence
       // must never be answered with fabricated current references.
       t.sources = [];
@@ -3839,7 +3885,10 @@ class ChatNotifier extends _ChatBase
     baseSystem.write('\n${settings.systemPrompt}');
     // Personal tone is a saved UI preference, never a factual claim.
     // It applies across chats but cannot override safety or project rules.
-    final ownerStyle = ref.read(memoryPreferencesProvider).responseStyle.promptNote;
+    final ownerStyle = ref
+        .read(memoryPreferencesProvider)
+        .responseStyle
+        .promptNote;
     if (ownerStyle.isNotEmpty) {
       baseSystem.write('\nResponse tone preference: $ownerStyle');
     }

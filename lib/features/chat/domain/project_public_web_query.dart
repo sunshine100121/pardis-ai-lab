@@ -13,9 +13,7 @@ abstract final class ProjectPublicWebQuery {
   static final _email = RegExp(
     r'[A-Za-z0-9_.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}',
   );
-  static final _ip = RegExp(
-    r'(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])',
-  );
+  static final _ip = RegExp(r'(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])');
   static final _word = RegExp(r'[\p{L}\p{N}]+', unicode: true);
   static final _privateReference = RegExp(
     r'(?<![\p{L}])(?:آدرس منزل|نشانی خانه|موقعیت دقیق منزل|'
@@ -63,11 +61,39 @@ abstract final class ProjectPublicWebQuery {
     unicode: true,
   );
   static final _filler = {
-    'در', 'از', 'به', 'برای', 'را', 'و', 'با', 'من',
-    'ما', 'این', 'آن', 'درباره', 'مورد', 'یک', 'چند',
-    'آیا', 'چه', 'هست', 'است', 'کن', 'کنید', 'لطفا',
-    'درمورد', 'اطلاعات', 'please', 'the', 'and',
-    'in', 'on', 'for', 'my', 'our', 'about',
+    'در',
+    'از',
+    'به',
+    'برای',
+    'را',
+    'و',
+    'با',
+    'من',
+    'ما',
+    'این',
+    'آن',
+    'درباره',
+    'مورد',
+    'یک',
+    'چند',
+    'آیا',
+    'چه',
+    'هست',
+    'است',
+    'کن',
+    'کنید',
+    'لطفا',
+    'درمورد',
+    'اطلاعات',
+    'please',
+    'the',
+    'and',
+    'in',
+    'on',
+    'for',
+    'my',
+    'our',
+    'about',
   };
 
   static String normalize(String input) => input
@@ -86,10 +112,7 @@ abstract final class ProjectPublicWebQuery {
 
   /// Returns a safe, useful search query or null. No fixed subject list:
   /// specialist terms, software names, media, models and years survive.
-  static String? fromMessage(
-    String message, {
-    String projectName = '',
-  }) {
+  static String? fromMessage(String message, {String projectName = ''}) {
     if (message.trim().isEmpty ||
         message.length > 550 ||
         _url.hasMatch(message) ||
@@ -125,8 +148,11 @@ abstract final class ProjectPublicWebQuery {
   /// chats. The existing WebPageReader then validates every DNS address and
   /// redirect, preventing access to HA/LAN, localhost and private hosts.
   static bool publicUrlsFromMessage(String message, List<Uri> urls) {
-    if (urls.isEmpty || urls.length > 3 ||
-        message.length > 1000 || _sensitive(message)) return false;
+    if (urls.isEmpty ||
+        urls.length > 3 ||
+        message.length > 1000 ||
+        _sensitive(message))
+      return false;
     for (final url in urls) {
       if (url.scheme != 'https' ||
           url.host.isEmpty ||

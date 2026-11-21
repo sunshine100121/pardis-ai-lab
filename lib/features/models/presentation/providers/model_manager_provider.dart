@@ -1,13 +1,16 @@
 import '../../../../data/storage/download_history.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/island/status_island.dart';
 import '../../../../core/l10n/l10n.dart';
@@ -1329,8 +1332,10 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
       architecture: metadata.architecture,
       parameterCount: metadata.parameterCount,
     )) {
-      throw StateError('سازگاری این فایل GGUF با بینایی Qwen3.5 4B '
-          'به‌صورت محلی تأیید نشد؛ مدل اصلی تغییر نکرد.');
+      throw StateError(
+        'سازگاری این فایل GGUF با بینایی Qwen3.5 4B '
+        'به‌صورت محلی تأیید نشد؛ مدل اصلی تغییر نکرد.',
+      );
     }
     final projector = visionProjectors['qwen35-4b-iq4nl'];
     if (projector == null ||
@@ -1341,9 +1346,12 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
     final existing = await ModelStorage.modelFile(projector.fileName);
     if (await existing.exists()) {
       if (await existing.length() != projector.sizeBytes ||
-          await ModelStorage.validateAndHash(existing.path) != projector.sha256) {
-        throw StateError('فایل بینایی موجود تأیید نشد؛ '
-            'برای حفاظت، هیچ فایل یا مدل اصلی تغییر نکرد.');
+          await ModelStorage.validateAndHash(existing.path) !=
+              projector.sha256) {
+        throw StateError(
+          'فایل بینایی موجود تأیید نشد؛ '
+          'برای حفاظت، هیچ فایل یا مدل اصلی تغییر نکرد.',
+        );
       }
     }
     final paired = info.copyWith(projector: projector);
@@ -1727,9 +1735,8 @@ class ModelManagerNotifier extends Notifier<ModelManagerState> {
                     [p.basename(path)])
               p.join(p.dirname(path), name),
         ],
-        busyMessage: stringsFor(
-          ref.read(settingsProvider).localeCode,
-        ).modelFilesInUse,
+        busyMessage: stringsFor(ref.read(settingsProvider).localeCode)
+            .modelFilesInUse,
       );
 
   Future<void> deleteModel(ModelInfo info) async {

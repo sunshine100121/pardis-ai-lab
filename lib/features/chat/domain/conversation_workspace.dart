@@ -17,6 +17,7 @@ class ChatProject {
     this.sourceIds = const [],
     this.sharedCollections = const [],
   });
+
   /// Exact permission comparison for in-flight retrieval. Removing a
   /// library grant during a search must invalidate all old excerpts.
   bool sameKnowledgeScope(ChatProject other) =>
@@ -40,6 +41,7 @@ class ChatProject {
 class ConversationWorkspace {
   final List<ChatProject> projects;
   final Map<String, String> memberships, states;
+
   /// A persisted privacy boundary on reassignment. Earlier history stays
   /// visible but never becomes model context in the destination scope.
   final Map<String, String> scopeStarts;
@@ -536,8 +538,7 @@ class ProjectMemoryEntry {
     final expiry = expiresAt == null
         ? ''
         : '؛ انقضا: ' + expiresAt.toUtc().toIso8601String();
-    lines[index] =
-        stem.substring(0, tail) + expiry + stem.substring(tail);
+    lines[index] = stem.substring(0, tail) + expiry + stem.substring(tail);
     return lines.join('\n');
   }
 
@@ -546,12 +547,15 @@ class ProjectMemoryEntry {
   /// checks; the original saved text remains available for owner editing.
   static String activeNotes(String notes, {DateTime? now}) {
     final today = now ?? DateTime.now();
-    return notes.split('\n').where((line) {
-      final match = _expiry.firstMatch(line);
-      if (match == null) return true;
-      final date = DateTime.tryParse(match[1]!.trim());
-      return date != null && date.isAfter(today);
-    }).join('\n');
+    return notes
+        .split('\n')
+        .where((line) {
+          final match = _expiry.firstMatch(line);
+          if (match == null) return true;
+          final date = DateTime.tryParse(match[1]!.trim());
+          return date != null && date.isAfter(today);
+        })
+        .join('\n');
   }
 
   static bool belongsTo(String line, String chatId, String messageId) =>

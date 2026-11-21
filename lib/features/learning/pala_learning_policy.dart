@@ -37,9 +37,33 @@ abstract final class PalaLearningPolicy {
       .trim();
 
   static const _stop = <String>{
-    'چیست', 'چیه', 'است', 'هست', 'هستن', 'بود', 'شد', 'میشه', 'می', 'شود',
-    'در', 'به', 'از', 'با', 'که', 'را', 'روی', 'رویی', 'یک', 'این', 'آن',
-    'چه', 'هم', 'چند', 'برای', 'های', 'ها',
+    'چیست',
+    'چیه',
+    'است',
+    'هست',
+    'هستن',
+    'بود',
+    'شد',
+    'میشه',
+    'می',
+    'شود',
+    'در',
+    'به',
+    'از',
+    'با',
+    'که',
+    'را',
+    'روی',
+    'رویی',
+    'یک',
+    'این',
+    'آن',
+    'چه',
+    'هم',
+    'چند',
+    'برای',
+    'های',
+    'ها',
   };
 
   static Set<String> terms(String question) {
@@ -68,11 +92,17 @@ abstract final class PalaLearningPolicy {
 
   static bool safe({required String question, required String correction}) {
     final q = question.trim(), c = correction.trim();
-    if (q.length < 12 || q.length > 240 ||
-        c.length < 10 || c.length > 450 ||
-        terms(q).length < 3) return false;
-    if (_forbidden.hasMatch(q) || _forbidden.hasMatch(c) ||
-        _instruction.hasMatch(q) || _instruction.hasMatch(c)) return false;
+    if (q.length < 12 ||
+        q.length > 240 ||
+        c.length < 10 ||
+        c.length > 450 ||
+        terms(q).length < 3)
+      return false;
+    if (_forbidden.hasMatch(q) ||
+        _forbidden.hasMatch(c) ||
+        _instruction.hasMatch(q) ||
+        _instruction.hasMatch(c))
+      return false;
     if (RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f]').hasMatch(q + c)) {
       return false;
     }

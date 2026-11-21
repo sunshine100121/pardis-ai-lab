@@ -1,6 +1,7 @@
 import '../../../../core/platform/desktop_host.dart';
 import '../../../../desktop/cpu_variant_setting.dart';
 import '../../../../core/l10n/l10n.dart';
+
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -56,9 +57,9 @@ class ContextBatchPage extends ConsumerWidget {
     final n = ref.read(settingsProvider.notifier);
     final c = context.colors;
     // What the loaded model was trained for, once one has been loaded.
-    final trained =
-        ref.watch(chatProvider.select((x) => x.metrics['contextTrain']))
-            as num?;
+    final trained = ref.watch(
+      chatProvider.select((x) => x.metrics['contextTrain']),
+    ) as num?;
     final beyond = trained != null && trained > 0 && s.contextSize > trained;
     return _AdvancedScaffold(
       title: context.l10n.uiAdvancedPagesContextBatch,

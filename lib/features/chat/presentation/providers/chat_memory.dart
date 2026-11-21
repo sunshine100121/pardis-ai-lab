@@ -80,19 +80,23 @@ mixin _ChatMemory on _ChatBase {
           evidence: MemoryEvidence.explicitUserStatement,
           content: fact,
         )) {
-          saved.add(await store.add(
-            fact,
-            sourceChatId: chatId,
-            sourceMessageId: sourceMessageId,
-            expiresAt: policy.retention.expiresFrom(DateTime.now()),
-          ));
+          saved.add(
+            await store.add(
+              fact,
+              sourceChatId: chatId,
+              sourceMessageId: sourceMessageId,
+              expiresAt: policy.retention.expiresFrom(DateTime.now()),
+            ),
+          );
         } else {
           // Proposals are NOT facts and are never given to the model.
-          ref.read(memorySuggestionsProvider.notifier).propose(
-            fact,
-            sourceChatId: chatId,
-            sourceMessageId: sourceMessageId,
-          );
+          ref
+              .read(memorySuggestionsProvider.notifier)
+              .propose(
+                fact,
+                sourceChatId: chatId,
+                sourceMessageId: sourceMessageId,
+              );
         }
       }
       return saved;
@@ -317,23 +321,24 @@ mixin _ChatMemory on _ChatBase {
         userMessage,
         existing: const [],
       ).isNotEmpty;
-      if (directlyStated && MemoryAdmissionPolicy.mayPersist(
-        mode: policy.learning,
-        evidence: MemoryEvidence.explicitUserStatement,
-        content: f,
-      )) {
-        saved.add(await store.add(
-          f,
-          sourceChatId: chatId,
-          sourceMessageId: sourceMessageId,
-          expiresAt: policy.retention.expiresFrom(DateTime.now()),
-        ));
-      } else {
-        ref.read(memorySuggestionsProvider.notifier).propose(
-          f,
-          sourceChatId: chatId,
-          sourceMessageId: sourceMessageId,
+      if (directlyStated &&
+          MemoryAdmissionPolicy.mayPersist(
+            mode: policy.learning,
+            evidence: MemoryEvidence.explicitUserStatement,
+            content: f,
+          )) {
+        saved.add(
+          await store.add(
+            f,
+            sourceChatId: chatId,
+            sourceMessageId: sourceMessageId,
+            expiresAt: policy.retention.expiresFrom(DateTime.now()),
+          ),
         );
+      } else {
+        ref
+            .read(memorySuggestionsProvider.notifier)
+            .propose(f, sourceChatId: chatId, sourceMessageId: sourceMessageId);
       }
     }
     return saved;

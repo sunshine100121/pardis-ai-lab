@@ -126,12 +126,8 @@ class TurnRun {
     if (key == 'visionPhotoCount') {
       return value is int && value >= 1 && value <= 2;
     }
-    if (key == 'visionRamFreeBeforeMb' ||
-        key == 'visionRamFreeAfterMb') {
-      return value is num &&
-          value.isFinite &&
-          value > 0 &&
-          value < 1024 * 1024;
+    if (key == 'visionRamFreeBeforeMb' || key == 'visionRamFreeAfterMb') {
+      return value is num && value.isFinite && value > 0 && value < 1024 * 1024;
     }
     return true;
   }

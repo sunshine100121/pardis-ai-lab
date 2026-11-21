@@ -86,6 +86,7 @@ class BenchmarkResult {
   final Map<String, dynamic> engine;
   final Map<String, double> thermalBefore, thermalAfter;
   final BenchmarkSample? chat, chatTools;
+
   /// M15: model ready time is not necessarily a cold load (see didLoad).
   final int? modelReadyMs;
   final bool didLoad;
@@ -191,17 +192,26 @@ class BenchmarkResult {
     if (chatTools != null) b.writeln('Chat + tools: ${chatLine(chatTools!)}');
     b.writeln('Peak RSS: ${peakRssMb.round()} MB');
     if (modelReadyMs != null) {
-      b.writeln('Model ready: ${modelReadyMs} ms (' +
-          (didLoad ? 'model loaded in this run' : 'reuse / warm, not a cold load') + ')');
+      b.writeln(
+        'Model ready: ${modelReadyMs} ms (' +
+            (didLoad
+                ? 'model loaded in this run'
+                : 'reuse / warm, not a cold load') +
+            ')',
+      );
     }
     if (batteryBeforePct != null && batteryAfterPct != null) {
-      b.writeln('Battery: ${batteryBeforePct}% → ${batteryAfterPct}% ' +
-          '(charging before: ${chargingBefore ?? 'unknown'}, after: ${chargingAfter ?? 'unknown'}); ' +
-          'rounded OS percentage, not energy consumption');
+      b.writeln(
+        'Battery: ${batteryBeforePct}% → ${batteryAfterPct}% ' +
+            '(charging before: ${chargingBefore ?? 'unknown'}, after: ${chargingAfter ?? 'unknown'}); ' +
+            'rounded OS percentage, not energy consumption',
+      );
     }
     if (freeMemoryBeforeMb != null && freeMemoryAfterMb != null) {
-      b.writeln('Available RAM: ${freeMemoryBeforeMb!.round()} → ' +
-          '${freeMemoryAfterMb!.round()} MB (OS headroom, not model allocation)');
+      b.writeln(
+        'Available RAM: ${freeMemoryBeforeMb!.round()} → ' +
+            '${freeMemoryAfterMb!.round()} MB (OS headroom, not model allocation)',
+      );
     }
     if (thermalSummary.isNotEmpty) {
       b.writeln('Thermal: $thermalSummary (zone that ended hottest)');
@@ -365,9 +375,11 @@ class BenchmarkResult {
       chargingBefore: powerBefore?.charging,
       chargingAfter: powerAfter?.charging,
       freeMemoryBeforeMb: memoryBefore == null
-          ? null : memoryBefore.availableBytes / (1024 * 1024),
+          ? null
+          : memoryBefore.availableBytes / (1024 * 1024),
       freeMemoryAfterMb: memoryAfter == null
-          ? null : memoryAfter.availableBytes / (1024 * 1024),
+          ? null
+          : memoryAfter.availableBytes / (1024 * 1024),
     );
   }
 }
@@ -420,7 +432,7 @@ class BenchmarkNotifier extends Notifier<BenchmarkState> {
   late Future<void> ready;
   bool _alive = true;
   bool _cancelRequested = false;
-  
+
   /// Stop a heavy benchmark or an in-progress model load without changing
   /// saved results. The next normal chat stays available after release.
   void cancel() {

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ondevice_llm/features/chat/domain/turn_coordinator.dart';
 
@@ -70,17 +71,18 @@ void main() {
     coordinator.dispose();
   });
 
-  test('provider disposal cancels retrieval without invoking provider callback',
-      () {
-    final coordinator = TurnCoordinator();
-    var providerMutations = 0;
-    final t = coordinator.begin(() => providerMutations++);
-    coordinator.dispose(notifyEngines: false);
-    expect(t.cancelled, true);
-    expect(t.ended, true);
-    expect(t.retrieval.isCancelled, true);
-    expect(providerMutations, 0);
-    expect(() => coordinator.begin(() {}), throwsStateError);
-  });
-
+  test(
+    'provider disposal cancels retrieval without invoking provider callback',
+    () {
+      final coordinator = TurnCoordinator();
+      var providerMutations = 0;
+      final t = coordinator.begin(() => providerMutations++);
+      coordinator.dispose(notifyEngines: false);
+      expect(t.cancelled, true);
+      expect(t.ended, true);
+      expect(t.retrieval.isCancelled, true);
+      expect(providerMutations, 0);
+      expect(() => coordinator.begin(() {}), throwsStateError);
+    },
+  );
 }

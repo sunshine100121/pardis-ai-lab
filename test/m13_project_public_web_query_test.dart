@@ -32,7 +32,8 @@ void main() {
         'در پروژه باغبانی پردیس، جدیدترین روش مقابله با کنه انجیر را '
         'در اینترنت جستجو کن';
     final query = ProjectPublicWebQuery.fromMessage(
-      input, projectName: 'باغبانی پردیس',
+      input,
+      projectName: 'باغبانی پردیس',
     )!;
     expect(query, contains('کنه انجیر'));
     expect(query, isNot(contains('پردیس')));
@@ -64,9 +65,9 @@ void main() {
   test('pasted public HTTPS pages can be read inside projects', () {
     const raw = 'این مقاله را بررسی کن https://www.nature.com/articles/test';
     expect(
-      ProjectPublicWebQuery.publicUrlsFromMessage(
-        raw, [Uri.parse('https://www.nature.com/articles/test')],
-      ),
+      ProjectPublicWebQuery.publicUrlsFromMessage(raw, [
+        Uri.parse('https://www.nature.com/articles/test'),
+      ]),
       isTrue,
     );
     for (final u in [
@@ -79,7 +80,8 @@ void main() {
     ]) {
       expect(
         ProjectPublicWebQuery.publicUrlsFromMessage(u, [Uri.parse(u)]),
-        isFalse, reason: u,
+        isFalse,
+        reason: u,
       );
     }
   });
@@ -88,33 +90,48 @@ void main() {
     const q = 'جدیدترین تحقیقات آفات انجیر';
     expect(
       OnlinePermissionPolicy.mayContact(
-        mode: WebMode.off, input: q, insideProject: false,
+        mode: WebMode.off,
+        input: q,
+        insideProject: false,
         approvedThisTurn: true,
-      ), isFalse,
+      ),
+      isFalse,
     );
     expect(
       OnlinePermissionPolicy.mayContact(
-        mode: WebMode.auto, input: q, insideProject: false,
+        mode: WebMode.auto,
+        input: q,
+        insideProject: false,
         approvedThisTurn: false,
-      ), isFalse,
+      ),
+      isFalse,
     );
     expect(
       OnlinePermissionPolicy.mayContact(
-        mode: WebMode.auto, input: q, insideProject: false,
+        mode: WebMode.auto,
+        input: q,
+        insideProject: false,
         approvedThisTurn: true,
-      ), isTrue,
+      ),
+      isTrue,
     );
     expect(
       OnlinePermissionPolicy.mayContact(
-        mode: WebMode.always, input: q, insideProject: false,
+        mode: WebMode.always,
+        input: q,
+        insideProject: false,
         approvedThisTurn: false,
-      ), isTrue,
+      ),
+      isTrue,
     );
     expect(
       OnlinePermissionPolicy.mayContact(
-        mode: WebMode.always, input: q, insideProject: true,
+        mode: WebMode.always,
+        input: q,
+        insideProject: true,
         approvedThisTurn: true,
-      ), isFalse,
+      ),
+      isFalse,
     );
   });
 

@@ -30,8 +30,9 @@ enum MemoryResponseStyle {
     systemDefault => '',
     formal => 'Use a clear, professional and respectful response style.',
     friendly => 'Use a friendly, natural, concise response style.',
-    humorous => 'Use light humor only when appropriate; never in safety, '
-        'health, emergency, factual uncertainty, or sensitive matters.',
+    humorous =>
+      'Use light humor only when appropriate; never in safety, '
+          'health, emergency, factual uncertainty, or sensitive matters.',
   };
 }
 
@@ -52,12 +53,12 @@ abstract final class MemoryScopePolicy {
     MemoryScope.general => currentProjectId == null,
     MemoryScope.project =>
       itemProjectId != null &&
-      itemProjectId.isNotEmpty &&
-      itemProjectId == currentProjectId,
+          itemProjectId.isNotEmpty &&
+          itemProjectId == currentProjectId,
     MemoryScope.conversation =>
       itemChatId != null &&
-      itemChatId.isNotEmpty &&
-      itemChatId == currentChatId,
+          itemChatId.isNotEmpty &&
+          itemChatId == currentChatId,
   };
 
   /// Only low-risk explicit USER statements are automatically eligible.
@@ -91,11 +92,11 @@ abstract final class MemoryScopePolicy {
   );
   static final _benign = RegExp(
     r'\b(?:prefer|prefers|speak|speaks|language|languages|'
-    r'work|works|job|profession|favourite|favorite|'
-    r'likes|use|uses|hobby|hobbies|chef|cook|teacher|engineer|' +
-    r'developer|farmer|gardener|nurse|technician|building|builds)\b|'
-    r'(?:ترجیح می‌دهم|ترجیح می‌دهد|دوست دارم|علاقه دارم|علاقه دارد|زبان کاربر|شغل کاربر|زبان|'
-    r'کار می‌کنم|شغل|سرگرمی|کتاب مورد علاقه|سبک پاسخ)',
+            r'work|works|job|profession|favourite|favorite|'
+            r'likes|use|uses|hobby|hobbies|chef|cook|teacher|engineer|' +
+        r'developer|farmer|gardener|nurse|technician|building|builds)\b|'
+            r'(?:ترجیح می‌دهم|ترجیح می‌دهد|دوست دارم|علاقه دارم|علاقه دارد|زبان کاربر|شغل کاربر|زبان|'
+            r'کار می‌کنم|شغل|سرگرمی|کتاب مورد علاقه|سبک پاسخ)',
     caseSensitive: false,
     unicode: true,
   );
@@ -118,7 +119,8 @@ abstract final class MemoryAdmissionPolicy {
   static bool needsApproval({
     required MemoryLearningMode mode,
     required MemoryEvidence evidence,
-  }) => mode != MemoryLearningMode.off &&
+  }) =>
+      mode != MemoryLearningMode.off &&
       evidence != MemoryEvidence.ownerConfirmed &&
       (mode == MemoryLearningMode.confirm ||
           evidence == MemoryEvidence.modelProposal);
