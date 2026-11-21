@@ -21,3 +21,5 @@ If CI fails, capture named failing test(s), do not issue another trigger until t
 
 AFTER_TEN_LEGACY_CHAT_FIXTURES_A0D874 — One source-only integrated CI pass after aligning ten M13/legacy chat scenarios on 2026-11-21.
 Only test/chat_test.dart and the release checkpoint changed since previous CI. Check 240 test regressions and privacy safeguards. No APK, no signer, no owner device, no model or HA changes.
+
+M16_AFTER_239_PASS_ONE_ASSERTION_5198A8: exactly one integrated source CI check for the research-loop expectation correction at 5198a8a8. No APK/build/sign/install/HA write; zero model/device data access. Release remains blocked until independent signing and owner-device gates.
