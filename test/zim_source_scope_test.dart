@@ -32,7 +32,10 @@ void main() {
       ids,
       isNot(contains(FolderLibrary.sourceId('content://owner/unapproved.zim'))),
     );
-    expect(ids, isNot(contains(FolderLibrary.sourceId('content://owner/notes.pdf'))));
+    expect(
+      ids,
+      isNot(contains(FolderLibrary.sourceId('content://owner/notes.pdf'))),
+    );
   });
 
   test('malformed library state never expands public source authorization', () {
