@@ -64,7 +64,7 @@ void main() {
       await ModelStorage.validateAndHash(file.path),
       sha256.convert(archiveBytes).toString(),
     );
-    expect(
+    await expectLater(
       ModelStorage.modelFile('../outside.zip'),
       throwsFormatException,
     );
