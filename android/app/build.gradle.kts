@@ -130,6 +130,14 @@ android {
             // CI verifies it is the 1.31.1 library needed by the Java API;
             // never ship an unverified legacy Sherpa variant.
             pickFirsts += "**/libonnxruntime.so"
+            // Diagnostic ONLY: preserve the exact bytes of the pinned
+            // Microsoft ORT binary so the APK SHA-256 can be compared to its
+            // verified AAR. AGP normally strips native debug symbols, which
+            // changes a correctly selected .so's hash after packaging.
+            // Never alter regular PALA builds or skip the final hash gate.
+            if (System.getenv("PALA_POCKET_TEST_APK") == "true") {
+                keepDebugSymbols += "**/libonnxruntime.so"
+            }
         }
     }
 }
