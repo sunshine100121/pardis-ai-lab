@@ -7,6 +7,7 @@ on:
       - '.github/workflows/pala-pocket-test-apk.yml'
       - 'android/build.gradle.kts'
       - 'android/app/build.gradle.kts'
+      - 'scripts/prepare_pocket_diagnostic_ort.py'
 
 permissions:
   contents: read
