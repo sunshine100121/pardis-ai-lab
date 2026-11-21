@@ -57,7 +57,7 @@ jobs:
           pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
           test -n "$pdfium"
           echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
-      - name: Validate twelve archive scope, full-text, bilingual ranking and citations
+      - name: Validate twelve archives, Persian prompt, offline citations and scoped retrieval
         run: |
           flutter test --concurrency=1 \
             test/zim_source_scope_test.dart \
