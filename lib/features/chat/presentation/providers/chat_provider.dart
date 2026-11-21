@@ -39,6 +39,7 @@ import '../../../learning/pala_learning_store.dart';
 import '../../../zim/zim_wikipedia.dart';
 import '../../../zim/zim_index_storage.dart';
 import '../../../zim/zim_indexed_project_search.dart';
+import '../../../zim/zim_source_scope.dart';
 import '../../../retrieval/claim_check_runner.dart';
 import '../../../retrieval/domain/claim_check.dart';
 import '../../../retrieval/domain/date_check.dart';
