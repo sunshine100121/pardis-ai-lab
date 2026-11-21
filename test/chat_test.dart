@@ -3351,7 +3351,10 @@ void main() {
         expect(echo.answers, 2, reason: 'one retry, never more');
         final turns = echo.receivedMessages!;
         expect(turns[turns.length - 2]['role'], 'assistant');
-        expect(turns.last['content'], endsWith('Search the web for the Nikon Z30 weight'));
+        expect(
+          turns.last['content'],
+          endsWith('Search the web for the Nikon Z30 weight'),
+        );
         final saved = container.read(chatProvider).messages.last.content;
         if (copies == 1) {
           expect(saved, startsWith('The Z30 weighs 350 g'));
