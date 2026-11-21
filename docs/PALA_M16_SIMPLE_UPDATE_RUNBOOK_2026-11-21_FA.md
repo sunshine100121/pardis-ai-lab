@@ -62,3 +62,10 @@
 - سیاست جلوگیری از چرخه تکراری: **تا مشاهده لاگ دوم، هیچ اصلاح فرضی، بازاجرای سوم، ساخت APK، تغییر مدل یا نصب انجام نشود.** ابتدا فقط اولین گام شکست‌خورده و خروجی انتهای لاگ بررسی شود.
 - ثبت شکست در Github Actions به معنی از بین رفتن اطلاعات تبلت نیست؛ workflow در این دو اجرا فقط source/CI را آزمایش کرده و فرمان ساخت APK ندارد.
 - وضعیت فعلی: `CI integrated=FAIL`، `CAUSE=NOT_VERIFIED`، `APK=NOT_BUILT`، `DEVICE=UNCHANGED`.
+
+## اصلاح قطعی بر اساس لاگ Run 44818185203 — ۲۱ نوامبر ۲۰۲۶
+- شواهد مستقیم: `integrated-source-gate` در Job `136571871429`، پس از `flutter pub get` و `build_runner` و `gen-l10n` در مرحله `Verify protected offline-first source baseline` با `INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:pubspec.lock` متوقف شد؛ تمام مرحله‌های تست، تحلیل و Android compile اجرا نشدند.
+- GitHub Connector نسخه موجود `pubspec.lock` و نسخه مرجع Commit `5663b264afb77026014f81b69e04b1d00ab8a098` را دقیقاً با **یک SHA blob مشترک** `d067c68074a84cfe035f8a277daa987551f8451b` خواند. بنابراین تفاوت **فایل commitشده** وجود ندارد؛ تغییرِ زمان اجرا بعد از اجرای یکی از ابزارهای تولید/وابستگی ایجاد شده است، نه تغییر ذخیره‌شدهٔ داده‌های مالک.
+- اصلاح فقط در Workflow موجود `.github/workflows/pala-m16-integrated-gate.yml` انجام شد: گام source baseline به **قبل از `flutter pub get`** منتقل شد؛ `flutter pub get --enforce-lockfile` از حل مجدد خاموش وابستگی‌ها جلوگیری می‌کند؛ بعد از تولید کد، `git diff --quiet -- pubspec.lock` وجود drift را بررسی و در صورت اختلاف، diff واقعی را گزارش و اجرا را متوقف می‌کند. هیچ `git checkout` یا reset برای پنهان‌کردن تغییر اجرا نمی‌شود.
+- این اصلاح **تغییر موتور Qwen، پایگاه‌داده، فایل GGUF، فایل ZIM، کلید امضا یا دستگاه نیست**. پیش‌شرط‌ها/حفاظت‌های اصلی حفظ شده‌اند. اطلاعات بیشتر: راهنمای رسمی Dart درباره `pub get --enforce-lockfile`.
+- Commit اصلاح Workflow: `710f73071013acb3ab13dee46a1cfb9667c120db`. نتیجه CI همین Commit هنوز نامعلوم است. اجرای بازبینی فقط با Trigger موجود یک‌بار دیگر انجام می‌شود؛ اگر تفاوت واقعی بسته‌های dependency کشف شد، به‌جای حذف کنترل، علت دقیق و نسخه‌های وابستگی بررسی می‌شوند.
