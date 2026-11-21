@@ -20,6 +20,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ondevice_llm/data/local/database/app_database.dart';
 import 'package:ondevice_llm/features/chat/domain/conversation_workspace.dart';
 import 'package:ondevice_llm/features/chat/presentation/providers/chat_provider.dart';
+import 'package:ondevice_llm/features/chat/presentation/providers/online_turn_permission.dart';
+import 'package:ondevice_llm/features/memory/presentation/providers/memory_preferences.dart';
 import 'package:ondevice_llm/features/chat/presentation/providers/search_misses.dart';
 import 'package:ondevice_llm/features/chat/domain/entities/chat_message.dart';
 import 'package:ondevice_llm/features/chat/domain/entities/turn_run.dart';
@@ -49,6 +51,14 @@ const testModel = ModelInfo(
   isDownloaded: true,
   localPath: 'test.gguf',
 );
+
+/// Legacy chat/web regressions explicitly simulate the owner's one-turn
+/// approval. The real internet permission provider is NEVER changed; M13
+/// denial/no-UI tests use the unmodified provider in separate tests.
+class OwnerApprovedWebTurnForChatTests extends OnlineTurnPermission {
+  @override
+  Future<bool> ask({required String query}) async => true;
+}
 
 class TestSettings extends SettingsNotifier {
   @override
@@ -775,6 +785,7 @@ void main() {
     engine = TestEngine();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(TestSettings.new),
@@ -871,6 +882,7 @@ void main() {
       final search = TestSearch();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -916,6 +928,7 @@ void main() {
       final search = TestSearch();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -956,6 +969,7 @@ void main() {
       final reader = CoverageReader(covers);
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -983,6 +997,7 @@ void main() {
     final reader = SlowCoverageReader();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1008,6 +1023,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1045,6 +1061,7 @@ void main() {
       final reader = TestReader();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -1079,6 +1096,7 @@ void main() {
     final reader = TestReader();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1121,6 +1139,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(TitleSettings.new),
@@ -1149,6 +1168,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(TitleSettings.new),
@@ -1255,6 +1275,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(TestSettings.new),
@@ -1278,6 +1299,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(TestSettings.new),
@@ -1555,6 +1577,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1597,6 +1620,7 @@ void main() {
     engine = TestEngine()..judgement = 'No.';
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1622,6 +1646,7 @@ void main() {
       engine = TestEngine()..judgement = verdict;
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -1644,6 +1669,7 @@ void main() {
     engine = TestEngine()..judgement = 'no';
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1677,6 +1703,7 @@ void main() {
       engine = TestEngine()..judgement = 'Yes';
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -1715,6 +1742,7 @@ void main() {
       ..judgeDelay = TurnPolicy.judgeDeadline + const Duration(seconds: 2);
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -1745,6 +1773,7 @@ void main() {
       engine = TestEngine();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -1793,6 +1822,7 @@ void main() {
         ];
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(TestSettings.new),
@@ -1924,6 +1954,7 @@ void main() {
     container.dispose();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(MemoryTestSettings.new),
@@ -1952,8 +1983,14 @@ void main() {
     ]);
     engine.memoryReply = '- The user has a dog';
     await notifier.send('I have a dog, what should I feed it?');
-    expect(container.read(chatProvider).learned, hasLength(1));
-    await notifier.dismissLearned(discard: true);
+    // M11: a model-proposed note is not a durable fact without owner approval.
+    expect(container.read(chatProvider).learned, isEmpty);
+    final pending = container.read(memorySuggestionsProvider);
+    expect(pending.map((s) => s.content), contains('The user has a dog'));
+    expect(await container.read(memoryStoreProvider).facts(),
+        ['The user is a night-shift nurse in Lisbon']);
+    container.read(memorySuggestionsProvider.notifier).discard(pending.first);
+    expect(container.read(memorySuggestionsProvider), isEmpty);
     // Text a prompt shortcut wrapped is not the user speaking about
     // themself: "/translate fr My name is Paul" learns nothing.
     engine.memoryPrompt = null;
@@ -1993,6 +2030,7 @@ void main() {
       container.dispose();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(MemoryTestSettings.new),
@@ -2035,6 +2073,7 @@ void main() {
       container.dispose();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(MemoryTestSettings.new),
@@ -2081,7 +2120,7 @@ void main() {
     final text = notifier.plainText(modelName: 'Qwen');
     expect(
       text,
-      startsWith('You:\n[Photo: shot.png]\nHello there\n\nQwen:\nanswer'),
+      startsWith('You:\n[Photo: shot.png]\nHello there\n\nQwen:\nاین مدل در وضعیت فعلی تصویر را نمی‌بیند.'),
     );
     expect(text, isNot(contains('reason')));
   });
@@ -2456,6 +2495,7 @@ void main() {
       final search = TestSearch();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -2511,6 +2551,7 @@ void main() {
       engine = TestEngine();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(ToolTestSettings.new),
@@ -2544,6 +2585,7 @@ void main() {
       engine = TestEngine();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(TestSettings.new),
@@ -2575,6 +2617,7 @@ void main() {
     engine = TestEngine();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(ToolTestSettings.new),
@@ -2660,6 +2703,7 @@ void main() {
     engine = TestEngine()..toolBlock = 'Let me compute.\n```tool\n{"name": "calculator", "arguments": {"expression": "6 * 7"}}\n```';
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(ToolTestSettings.new),
@@ -2695,6 +2739,7 @@ void main() {
     final search = EmptyThenSearch();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -2720,6 +2765,7 @@ void main() {
     final search = TestSearch();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -2747,6 +2793,7 @@ void main() {
       engine.plannerReply = 'largest maker memory chips revenue this year';
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -2773,6 +2820,7 @@ void main() {
       engine = TestEngine()..toolBlock = '```tool\n{"name": "read_url", "arguments": {"url": "https://example.com/evidence"}}\n```';
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(ResearchLoopSettings.new),
@@ -2823,6 +2871,7 @@ void main() {
       engine = TestEngine()..toolBlock = searchBlock;
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(ResearchMemorySettings.new),
@@ -2865,6 +2914,7 @@ void main() {
     engine = TestEngine()..toolBlock = searchBlock;
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(ResearchLoopSettings.new),
@@ -2897,6 +2947,7 @@ void main() {
     engine = TestEngine();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(ResearchLoopSettings.new),
@@ -2922,6 +2973,7 @@ void main() {
     engine = TestEngine();
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
         settingsProvider.overrideWith(WebTestSettings.new),
@@ -2981,6 +3033,7 @@ void main() {
       final wiki = FakeWikipedia();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(AlwaysWebSettings.new),
@@ -3022,6 +3075,7 @@ void main() {
       final wiki = FakeWikipedia();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(AutoWebSettings.new),
@@ -3057,6 +3111,7 @@ void main() {
       final denial = _DenialEngine();
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(denial),
           settingsProvider.overrideWith(AlwaysWebSettings.new),
@@ -3090,6 +3145,7 @@ void main() {
       ])..judgement = 'No.';
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(scripted),
           settingsProvider.overrideWith(WebTestSettings.new),
@@ -3120,6 +3176,7 @@ void main() {
     ]);
     container = ProviderContainer(
       overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(scripted),
         settingsProvider.overrideWith(AlwaysWebSettings.new),
@@ -3149,6 +3206,7 @@ void main() {
       final wiki = FakeWikipedia(finds: (q) => !q.contains('please'));
       container = ProviderContainer(
         overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
           settingsProvider.overrideWith(AlwaysWebSettings.new),
@@ -3178,6 +3236,7 @@ void main() {
         final echo = _EchoEngine(copies);
         container = ProviderContainer(
           overrides: [
+          onlineTurnPermissionProvider.overrideWith(OwnerApprovedWebTurnForChatTests.new),
             appDatabaseProvider.overrideWithValue(db),
             llamaEngineProvider.overrideWithValue(echo),
             settingsProvider.overrideWith(AlwaysWebSettings.new),
