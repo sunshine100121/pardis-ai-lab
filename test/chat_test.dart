@@ -1670,7 +1670,7 @@ void main() {
     expect(search.calls, greaterThan(1));
   });
 
-  test('owner-enabled Always mode asks the model when no keyword fires', () async {
+  test('Always mode asks the model when no keyword fires', () async {
     for (final verdict in ['No.', 'Yes']) {
       container.dispose();
       final search = TestSearch();
