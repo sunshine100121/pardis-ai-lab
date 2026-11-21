@@ -1946,9 +1946,7 @@ class ChatNotifier extends _ChatBase
       // Previously only project chat entered this branch, so an ordinary
       // Persian question always fell back to title-only ZIM lookup.
       final indexedSourceIds = scopedProjectId == null
-          ? ZimSourceScope.enabledArchives(
-              await localKnowledge.library.state(),
-            )
+          ? ZimSourceScope.enabledArchives(await localKnowledge.library.state())
           : projectSourceIds;
       if ((scopedProjectId == null || project != null) &&
           engine is LlamaEngine &&
@@ -1991,7 +1989,9 @@ class ChatNotifier extends _ChatBase
             indexedSources.addAll(indexed.sources);
             if (indexed.incomplete > 0 || indexed.skipped > 0) {
               indexedChecks.add({
-                'file': scopedProjectId == null ? 'نمایه متن دانشنامه' : 'نمایه متن پروژه',
+                'file': scopedProjectId == null
+                    ? 'نمایه متن دانشنامه'
+                    : 'نمایه متن پروژه',
                 'code': 'index_partial',
                 'incomplete': indexed.incomplete,
                 'skipped': indexed.skipped,
@@ -1999,7 +1999,9 @@ class ChatNotifier extends _ChatBase
             }
             if (indexed.errors > 0)
               indexedChecks.add({
-                'file': scopedProjectId == null ? 'نمایه متن دانشنامه' : 'نمایه متن پروژه',
+                'file': scopedProjectId == null
+                    ? 'نمایه متن دانشنامه'
+                    : 'نمایه متن پروژه',
                 'code': 'index_error',
               });
             for (final source in indexed.sources) {
@@ -2012,7 +2014,12 @@ class ChatNotifier extends _ChatBase
             }
           }
         } catch (_) {
-          indexedChecks.add({'file': scopedProjectId == null ? 'نمایه متن دانشنامه' : 'نمایه متن پروژه', 'code': 'index_error'});
+          indexedChecks.add({
+            'file': scopedProjectId == null
+                ? 'نمایه متن دانشنامه'
+                : 'نمایه متن پروژه',
+            'code': 'index_error',
+          });
         }
       }
       if (_cancelled || !_alive) return null;
