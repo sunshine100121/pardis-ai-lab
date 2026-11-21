@@ -1942,19 +1942,31 @@ class ChatNotifier extends _ChatBase
       final indexedSources = <SearchResult>[];
       final indexedChecks = <Map<String, dynamic>>[];
       final scopedProjectId = _projectId;
-      if (scopedProjectId != null &&
-          project != null &&
+      // In ordinary chats, use the same content index as project chats.
+      // Previously only project chat entered this branch, so an ordinary
+      // Persian question always fell back to title-only ZIM lookup.
+      final indexedSourceIds = scopedProjectId == null
+          ? ZimSourceScope.enabledArchives(
+              await localKnowledge.library.state(),
+            )
+          : projectSourceIds;
+      if ((scopedProjectId == null || project != null) &&
           engine is LlamaEngine &&
-          projectSourceIds.isNotEmpty &&
+          indexedSourceIds.isNotEmpty &&
           !RetrievalPlan.smallTalk(input) &&
           !RetrievalPlan.localTask(input)) {
         bool allowed(String id) {
-          final workspace = ref.read(conversationWorkspaceProvider);
-          if (!_alive ||
-              _cancelled ||
-              !workspace.readable ||
-              _projectId != scopedProjectId)
+          if (!_alive || _cancelled || _projectId != scopedProjectId) {
             return false;
+          }
+          if (scopedProjectId == null) {
+            // This is only a snapshot of owner-enabled public sources.
+            // ZimIndexedProjectSearch independently rechecks current SAF
+            // metadata and enabled state before returning evidence.
+            return indexedSourceIds.contains(id);
+          }
+          final workspace = ref.read(conversationWorkspaceProvider);
+          if (!workspace.readable) return false;
           return workspace.projects.any(
             (p) => p.id == scopedProjectId && p.sourceIds.contains(id),
           );
@@ -1969,7 +1981,7 @@ class ChatNotifier extends _ChatBase
                   storage,
                 ).search(
                   question: input,
-                  sourceIds: projectSourceIds,
+                  sourceIds: indexedSourceIds,
                   allowed: allowed,
                   cancelled: () => _cancelled || !_alive,
                   engine: engine,
@@ -1979,7 +1991,7 @@ class ChatNotifier extends _ChatBase
             indexedSources.addAll(indexed.sources);
             if (indexed.incomplete > 0 || indexed.skipped > 0) {
               indexedChecks.add({
-                'file': 'نمایه متن پروژه',
+                'file': scopedProjectId == null ? 'نمایه متن دانشنامه' : 'نمایه متن پروژه',
                 'code': 'index_partial',
                 'incomplete': indexed.incomplete,
                 'skipped': indexed.skipped,
@@ -1987,7 +1999,7 @@ class ChatNotifier extends _ChatBase
             }
             if (indexed.errors > 0)
               indexedChecks.add({
-                'file': 'نمایه متن پروژه',
+                'file': scopedProjectId == null ? 'نمایه متن دانشنامه' : 'نمایه متن پروژه',
                 'code': 'index_error',
               });
             for (final source in indexed.sources) {
@@ -2000,7 +2012,7 @@ class ChatNotifier extends _ChatBase
             }
           }
         } catch (_) {
-          indexedChecks.add({'file': 'نمایه متن پروژه', 'code': 'index_error'});
+          indexedChecks.add({'file': scopedProjectId == null ? 'نمایه متن دانشنامه' : 'نمایه متن پروژه', 'code': 'index_error'});
         }
       }
       if (_cancelled || !_alive) return null;
