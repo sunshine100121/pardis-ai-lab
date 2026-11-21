@@ -60,7 +60,7 @@ jobs:
             test/persian_sherpa_models_test.dart \
             test/download_test.dart \
             test/persian_voice_routing_test.dart \
-            test/voice_settings_test.dart
+            test/voice_settings_test.dart \
             test/offline_upgrade_compatibility_test.dart
       - name: Refuse silent dependency drift and distinguish device acceptance
         run: |
