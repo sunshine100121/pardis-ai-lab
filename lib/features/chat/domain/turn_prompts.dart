@@ -168,10 +168,20 @@ class TurnPrompts {
     // The instructions are English: Gemma 4 E2B answered "Quelle est la
     // hauteur de la tour Eiffel ?" in English (app quality probe,
     // 2026-10-19).
-    final asked = WikipediaClient.languageFor(question, 'en');
+    // WikipediaClient.languageFor handles Latin-script languages. Detect
+    // Persian separately before relying on its English fallback; otherwise
+    // an English ZIM citation can make a Persian answer come out in English.
+    final asked = RegExp(r'[\u0600-\u06FF]').hasMatch(question)
+        ? 'fa'
+        : WikipediaClient.languageFor(question, 'en');
     if (asked != 'en') {
+      final language = switch (asked) {
+        'fa' => 'Persian',
+        'fr' => 'French',
+        _ => 'Spanish',
+      };
       b.write(
-        '\n\nWrite the answer in ${asked == 'fr' ? 'French' : 'Spanish'}, '
+        '\n\nWrite the answer in $language, '
         'the language of the question.',
       );
     }
