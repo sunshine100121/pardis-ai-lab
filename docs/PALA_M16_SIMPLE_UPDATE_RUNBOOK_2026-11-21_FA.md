@@ -127,3 +127,10 @@
 ## ثبت اجرای محدود بعد از رفع خطای ترجمه — ۲۱ نوامبر ۲۰۲۶
 - Commit درخواست اجرای اصلاح‌شده: `fac6f5efcd222d9ec4c9153409b2ff9814bc600a`. فقط Job قالب‌بندی M16 را فعال می‌کند. **نتیجه هنوز NOT_VERIFIED**؛ هیچ مجوزی برای ساخت APK یا نصب صادر نشده است.
 - بررسی نهایی پیش از trigger: Stage فقط `*.dart` تغییرکرده به‌جز `lib/l10n/app_localizations*` و فایل Checkpoint حفاظت؛ عدم Force Push؛ عدم تغییر فایل مدل/داده. نتیجه موفق باید با **Commit واقعی formatter در همان شاخه** و آزمون سازگاری فایل‌های پین‌شده اثبات شود.
+
+## رفع خرابی Syntax فایل Workflow — ۲۱ نوامبر ۲۰۲۶
+- طبق تصویر GitHub Actions مالک، اجراهای مربوط به Commitهای `a7e1232`، `885cec2`، `fac6f5e` و `25c9421` پیش از آغاز Job با پیام `Invalid workflow file` و `YAML syntax on line 214` قرمز شدند. این‌ها **شکست آزمون کد پالا نیستند** و هیچ چیز روی تبلت اجرا نشده است.
+- بررسی فایل واقعی `.github/workflows/pala-m16-integrated-gate.yml` نشان داد عبارت `grep -E '\\.dart` در خط ۲۰۸ نیمه‌کاره رها شده، خط ۲۱۴ با `| grep -v ...` به سطح اشتباه فرورفتگی منتقل شده و سه دستور `git fetch` / `git rebase` / `git push` دوبار آمده‌اند؛ بنابراین خود YAML غیرقابل‌تجزیه بوده است.
+- اصلاح در Commit `f50def36c4118ca43fc49a1c50fae8fc77ff5d49`: کل مرحلهٔ «Commit reviewed formatter-only changes» بازنویسی شد، pipe دستور `mapfile` یک‌خطی و درست گردید؛ فقط Dartهای بازبینی‌شده stage می‌شوند؛ `lib/l10n/app_localizations*` و فایل‌های مدل/داده stage نمی‌شوند؛ مسیر `fetch/rebase/push` فقط یک‌بار و بدون force اجرا می‌شود.
+- بررسی مستقل ساختاری پس از دریافت فایل از GitHub: ۱۰ block دارای `run: |` از نظر فرورفتگی بررسی شدند، خطوط شکسته و دستورهای تکراری برطرف شده‌اند، مورد آشکار نامعتبر پیدا نشد. این بررسی **جایگزین تأیید YAML توسط GitHub یا PASS واقعی Job نیست**.
+- تا این لحظه Commit قالب‌بندی واقعی و نتیجه جدید تأیید نشده‌اند. **No APK / No Signing / No Install / No Device Access**. از این پس هر شکست Syntax باید از شکست Unit/Integration Test جدا ثبت شود تا روزها به اشتباه صرف عیب‌یابی Runtime نشود.
