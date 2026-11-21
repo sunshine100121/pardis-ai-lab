@@ -18,3 +18,6 @@ Baseline formatting saved in GitHub commit 221efe252941c2a857f0d6fc016b2f63430b4
 Run Flutter analyze, M9-M19 and legacy chat tests, offline upgrade protections, Android host check.
 Never build or sign an APK, change the Qwen model, access HA, or modify owner device.
 If CI fails, capture named failing test(s), do not issue another trigger until the cause is investigated.
+
+AFTER_TEN_LEGACY_CHAT_FIXTURES_A0D874 — One source-only integrated CI pass after aligning ten M13/legacy chat scenarios on 2026-11-21.
+Only test/chat_test.dart and the release checkpoint changed since previous CI. Check 240 test regressions and privacy safeguards. No APK, no signer, no owner device, no model or HA changes.
