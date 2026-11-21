@@ -27,6 +27,10 @@ jobs:
           java-version: '21'
       - name: Compile Kotlin and prepare the pinned Android build
         run: bash scripts/check_android_host.sh
+      - name: Stage verified Microsoft ORT only in disposable diagnostic runner
+        env:
+          PALA_POCKET_TEST_APK: 'true'
+        run: python3 scripts/prepare_pocket_diagnostic_ort.py
       - name: Build one separately installable ARM64 debug APK
         env:
           PALA_POCKET_TEST_APK: 'true'
@@ -49,12 +53,13 @@ jobs:
               import hashlib,os
               binary=z.read('lib/arm64-v8a/libonnxruntime.so')
               packaged=hashlib.sha256(binary).hexdigest()
-              cache=pathlib.Path.home()/'.gradle'/'caches'
-              candidates=list(cache.glob('**/onnxruntime-android-1.31.1/jni/arm64-v8a/libonnxruntime.so'))
-              if not candidates:
-                  raise AssertionError('Cannot verify packaged ORT runtime origin')
-              official={hashlib.sha256(p.read_bytes()).hexdigest() for p in candidates}
-              assert packaged in official, 'Wrong bundled ORT version; refuse to ship APK'
+              cache=pathlib.Path.home()/'.gradle/caches/modules-2/files-2.1/com.microsoft.onnxruntime/onnxruntime-android/1.31.1'
+              aars=list(cache.rglob('*.aar'))
+              assert len(aars)==1, 'Cannot verify exactly one pinned Microsoft ONNX AAR'
+              with zipfile.ZipFile(aars[0]) as official_aar:
+                  known=hashlib.sha256(official_aar.read('jni/arm64-v8a/libonnxruntime.so')).hexdigest()
+              print('Pocket diagnostic native provenance:', 'packaged='+packaged, 'Microsoft='+known)
+              assert packaged==known, 'Wrong bundled ORT version; refuse to ship APK'
           print('Verified isolated APK:',f.stat().st_size,'bytes')
           PY
       - name: Upload ONLY the separate diagnostic APK
