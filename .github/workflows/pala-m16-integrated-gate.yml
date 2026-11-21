@@ -30,11 +30,19 @@ jobs:
           test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.3+6'
           grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           echo 'SOURCE_VERSION_ONLY_0.3.3+6; RELEASE_BUILD_BLOCKED_PENDING_ALL_GATES'
-      - run: flutter pub get
-      - run: dart run build_runner build --delete-conflicting-outputs
-      - run: flutter gen-l10n
-      - name: Verify protected offline-first source baseline
+      - name: Verify committed source, dependencies and storage BEFORE any generator
         run: python3 scripts/check_offline_baseline.py
+      - name: Resolve only exact committed dependency versions
+        run: flutter pub get --enforce-lockfile
+      - name: Refuse silent dependency changes during code generation
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          flutter gen-l10n
+          if ! git diff --quiet -- pubspec.lock; then
+            echo 'LOCKFILE_CHANGED_BY_BUILD_TOOLS; inspect exact dependency drift, do not reset silently' >&2
+            git diff -- pubspec.lock
+            exit 1
+          fi
       - name: Check changed source and test formatting without rewriting repository
         run: |
           mapfile -t changed < <(git diff --name-only cae3ac12b0719212109c7b0fd6c0fe85c85c19c3 HEAD -- '*.dart' | grep -E '^(lib/|test/)' || true)
