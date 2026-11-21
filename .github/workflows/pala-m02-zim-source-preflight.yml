@@ -1,0 +1,87 @@
+name: PALA M02 ZIM content retrieval focused source check (no APK)
+
+on:
+  push:
+    branches: [pala/m02-zim-real-retrieval-2026-11-22]
+    paths: ['.github/workflows/pala-m02-zim-source-preflight.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pala-m02-zim-source-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scoped-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Preserve baseline, data and native engine protections
+        run: python3 scripts/check_offline_baseline.py
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Install only pinned dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Review actual formatter delta without hiding other checks
+        run: |
+          dart format \
+            lib/features/zim/zim_source_scope.dart \
+            lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            test/zim_source_scope_test.dart
+          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart; then
+            echo 'M02_FORMAT_PATCH_BEGIN'
+            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart
+            echo 'M02_FORMAT_PATCH_END'
+            echo 'M02_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
+          fi
+      - name: Analyze scoped public-chat and indexed retrieval code
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/zim/zim_source_scope.dart \
+            lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            test/zim_source_scope_test.dart
+      - name: Prepare locked PDFium test asset if needed by library imports
+        run: |
+          dart run scripts/prepare_pdfium_assets.dart
+          pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
+          test -n "$pdfium"
+          echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
+      - name: Validate twelve archive scope, full-text, bilingual ranking and citations
+        run: |
+          flutter test --concurrency=1 \
+            test/zim_source_scope_test.dart \
+            test/zim_indexed_project_search_test.dart \
+            test/zim_content_index_test.dart \
+            test/zim_index_service_test.dart \
+            test/zim_query_translation_test.dart \
+            test/citation_match_test.dart \
+            test/offline_zim_chat_test.dart \
+            test/offline_upgrade_compatibility_test.dart
+      - name: Final exact lockfile and formatting verification
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          original = subprocess.check_output(['git','show','HEAD:pubspec.lock'],text=True)
+          current = Path('pubspec.lock').read_text()
+          if original != current:
+              old = 'sdks:\n  dart: ">=3.12.0 <4.0.0"\n  flutter: ">=3.44.0"\n'
+              new = 'sdks:\n  dart: ">=3.13.4 <4.0.0"\n  flutter: ">=3.47.5"\n'
+              if not original.endswith(old) or current != original[:-len(old)] + new:
+                  raise SystemExit('UNREVIEWED_DEPENDENCY_DRIFT')
+              print('Only pinned Flutter SDK footer differs; package hashes unchanged')
+          PY
+          if [ "${M02_FORMAT_CHANGED:-false}" = true ]; then
+            echo 'FORMAT_PATCH_NEEDS_REVIEW_AND_COMMIT' >&2
+            exit 1
+          fi
+          echo 'M02_SOURCE_GATE=PASS; USER_ZIM_INDEX_COMPLETENESS=NOT_VERIFIED; TABLET=NOT_VERIFIED; APK=NO'
