@@ -107,6 +107,7 @@ class TurnPrompts {
     String? topic,
     bool local = false,
     DateTime? now,
+    String? originalUserQuestion,
   }) {
     final clock = (now ?? DateTime.now()).toUtc();
     final evidence = sources.where((source) => !source.sponsored).toList();
@@ -171,9 +172,10 @@ class TurnPrompts {
     // WikipediaClient.languageFor handles Latin-script languages. Detect
     // Persian separately before relying on its English fallback; otherwise
     // an English ZIM citation can make a Persian answer come out in English.
-    final asked = RegExp(r'[\u0600-\u06FF]').hasMatch(question)
+    final userQuestion = originalUserQuestion ?? question;
+    final asked = RegExp(r'[\u0600-\u06FF]').hasMatch(userQuestion)
         ? 'fa'
-        : WikipediaClient.languageFor(question, 'en');
+        : WikipediaClient.languageFor(userQuestion, 'en');
     if (asked != 'en') {
       final language = switch (asked) {
         'fa' => 'Persian',
