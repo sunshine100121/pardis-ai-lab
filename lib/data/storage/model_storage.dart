@@ -35,6 +35,7 @@ class ModelStorage {
     '.onnx',
     '.txt',
     '.tar.bz2',
+    '.zip',
     '.safetensors',
     '.pth',
   ];
@@ -81,7 +82,7 @@ class ModelStorage {
         fileName.contains('\\') ||
         fileName.contains('/') ||
         !fileExtensions.any(fileName.toLowerCase().endsWith)) {
-      throw const FormatException('Choose a single .gguf filename.');
+      throw const FormatException('Choose one supported model or voice archive filename.');
     }
     if (DesktopHost.active) {
       await modelsDir();
