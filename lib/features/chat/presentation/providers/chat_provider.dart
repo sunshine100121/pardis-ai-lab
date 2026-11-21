@@ -2169,8 +2169,9 @@ class ChatNotifier extends _ChatBase
       // must never be answered with fabricated current references.
       t.sources = [];
       t.offlineRefusal =
+          'اطلاعات خصوصی پروژه به اینترنت ارسال نشد؛ '
           'برای این درخواست نتیجه اینترنتیِ مجاز و قابل‌استناد پیدا نشد. '
-          'می‌توانید موضوع را با عبارت عمومی‌تر بپرسید.';
+          'در صورت تمایل، موضوع عمومی را بدون اطلاعات خصوصی جست‌وجو کنید.';
     } else if (_projectId != null &&
         t.sources.isEmpty &&
         t.attachments.isEmpty &&
