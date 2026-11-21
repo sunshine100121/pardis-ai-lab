@@ -34,11 +34,12 @@ jobs:
           dart format \
             lib/features/zim/zim_source_scope.dart \
             lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/chat/domain/turn_prompts.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             test/zim_source_scope_test.dart
-          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart; then
+          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart; then
             echo 'M02_FORMAT_PATCH_BEGIN'
-            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart
+            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart
             echo 'M02_FORMAT_PATCH_END'
             echo 'M02_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
           fi
@@ -47,6 +48,7 @@ jobs:
           flutter analyze --no-fatal-infos --no-fatal-warnings \
             lib/features/zim/zim_source_scope.dart \
             lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/chat/domain/turn_prompts.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             test/zim_source_scope_test.dart
       - name: Prepare locked PDFium test asset if needed by library imports
