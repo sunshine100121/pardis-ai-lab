@@ -31,11 +31,19 @@ jobs:
           cache: true
       - name: Resolve only committed dependency versions
         run: flutter pub get --enforce-lockfile
-      - name: Check formatting of the STT selection fix and regression
+      - name: Produce exact Dart formatting delta and continue source checks
         run: |
-          dart format --output=none --set-exit-if-changed \
+          dart format \
             lib/features/voice/voice_engine_selection.dart \
             test/voice_engine_selection_test.dart
+          if ! git diff --quiet -- \
+            lib/features/voice/voice_engine_selection.dart \
+            test/voice_engine_selection_test.dart; then
+            echo 'STT_DART_FORMAT_PATCH_BEGIN'
+            git diff -- lib/features/voice/voice_engine_selection.dart test/voice_engine_selection_test.dart
+            echo 'STT_DART_FORMAT_PATCH_END'
+            echo 'STT_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
+          fi
       - name: Analyze changed STT selection and model storage sources
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings \
@@ -57,4 +65,8 @@ jobs:
       - name: Refuse silent dependency drift and distinguish device acceptance
         run: |
           git diff --exit-code -- pubspec.lock
+          if [ "${STT_FORMAT_CHANGED:-false}" = true ]; then
+            echo 'STT_FORMAT_PATCH_REQUIRES_COMMIT; tests ran on formatted runner source only' >&2
+            exit 1
+          fi
           echo 'STT_SOURCE_TESTS_ONLY; APK_BUILT=NO; TABLET_STT_AUDIO=NOT_VERIFIED'
