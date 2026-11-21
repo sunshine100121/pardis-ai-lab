@@ -50,40 +50,52 @@ void main() {
     expect(tts?.id, 'tts:piper:fa_ir-custom');
   });
 
-  test('official downloaded Vosk ZIP hash IDs may start with a digit', () async {
-    SharedPreferences.setMockInitialValues({});
-    // Official vosk-model-small-fa-0.42.zip SHA-256 starts with 977c.
-    const selected = 'stt:vosk:977cb5faa538f3a8';
-    final parsed = VoiceEngineSelection.parse(selected);
-    expect(parsed?.kind, VoiceSelectionKind.stt);
-    expect(parsed?.adapter, 'vosk');
-    expect(parsed?.model, '977cb5faa538f3a8');
-    await VoiceChoiceStorage.choose(VoiceSelectionKind.stt, selected);
-    expect(await VoiceChoiceStorage.current(VoiceSelectionKind.stt), selected);
-  });
+  test(
+    'official downloaded Vosk ZIP hash IDs may start with a digit',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      // Official vosk-model-small-fa-0.42.zip SHA-256 starts with 977c.
+      const selected = 'stt:vosk:977cb5faa538f3a8';
+      final parsed = VoiceEngineSelection.parse(selected);
+      expect(parsed?.kind, VoiceSelectionKind.stt);
+      expect(parsed?.adapter, 'vosk');
+      expect(parsed?.model, '977cb5faa538f3a8');
+      await VoiceChoiceStorage.choose(VoiceSelectionKind.stt, selected);
+      expect(
+        await VoiceChoiceStorage.current(VoiceSelectionKind.stt),
+        selected,
+      );
+    },
+  );
 
-  test('numeric Shenava hash IDs persist without changing TTS choice', () async {
-    SharedPreferences.setMockInitialValues({});
-    const shenavaId = 'stt:sherpa-ctc:0a12bc34de56f789';
-    const gyroPreference = 'tts:piper:fa_ir-custom';
+  test(
+    'numeric Shenava hash IDs persist without changing TTS choice',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      const shenavaId = 'stt:sherpa-ctc:0a12bc34de56f789';
+      const gyroPreference = 'tts:piper:fa_ir-custom';
 
-    final parsed = VoiceEngineSelection.parse(shenavaId);
-    expect(parsed?.kind, VoiceSelectionKind.stt);
-    expect(parsed?.adapter, 'sherpa-ctc');
-    expect(parsed?.model, '0a12bc34de56f789');
+      final parsed = VoiceEngineSelection.parse(shenavaId);
+      expect(parsed?.kind, VoiceSelectionKind.stt);
+      expect(parsed?.adapter, 'sherpa-ctc');
+      expect(parsed?.model, '0a12bc34de56f789');
 
-    await VoiceChoiceStorage.choose(VoiceSelectionKind.tts, gyroPreference);
-    await VoiceChoiceStorage.choose(VoiceSelectionKind.stt, shenavaId);
-    expect(await VoiceChoiceStorage.current(VoiceSelectionKind.stt), shenavaId);
-    expect(
-      await VoiceChoiceStorage.current(VoiceSelectionKind.tts),
-      gyroPreference,
-    );
-    await expectLater(
-      VoiceChoiceStorage.choose(VoiceSelectionKind.tts, shenavaId),
-      throwsFormatException,
-    );
-  });
+      await VoiceChoiceStorage.choose(VoiceSelectionKind.tts, gyroPreference);
+      await VoiceChoiceStorage.choose(VoiceSelectionKind.stt, shenavaId);
+      expect(
+        await VoiceChoiceStorage.current(VoiceSelectionKind.stt),
+        shenavaId,
+      );
+      expect(
+        await VoiceChoiceStorage.current(VoiceSelectionKind.tts),
+        gyroPreference,
+      );
+      await expectLater(
+        VoiceChoiceStorage.choose(VoiceSelectionKind.tts, shenavaId),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('invalid and unsafe model identities are not accepted', () {
     for (final candidate in [
