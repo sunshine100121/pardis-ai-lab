@@ -221,12 +221,18 @@ class ZimIndexedProjectSearch {
       // Rank only genuine retrieved excerpts. Prefer passages that cover
       // several question terms; a specialist archive wins a tie, but cannot
       // defeat stronger evidence just because its name looks relevant.
-      final queryWords = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true)
-          .allMatches((question + ' ' + (query ?? '')).toLowerCase())
-          .map((m) => m.group(0)!)
-          .toSet();
+      // Compare coverage within each archive's language. Counting Persian
+      // and English query words together makes both appear artificially
+      // weak; English specialist evidence can then lose to a generic
+      // Persian title. Never infer article truth from this lexical score.
+      Set<String> terms(String value) => RegExp(
+        r'[\p{L}\p{N}]{3,}',
+        unicode: true,
+      ).allMatches(value.toLowerCase()).map((m) => m.group(0)!).toSet();
+      final persianWords = terms(ZimWikipedia.subjectQuery(question));
+      final englishWords = terms(query ?? question);
       final gardenQuestion = RegExp(
-        r'باغ|درخت|گردو|آبیاری|گیاه|horticultur|garden|walnut|irrigat',
+        r'باغ|درخت|گردو|بادام|سرما|یخبندان|آبیاری|گیاه|horticultur|garden|walnut|almond|frost|cold hardiness|irrigat',
         caseSensitive: false,
       ).hasMatch(question + ' ' + (query ?? ''));
       final travelQuestion = RegExp(
@@ -239,7 +245,15 @@ class ZimIndexedProjectSearch {
         if (!seen.add(result.url)) continue;
         final text = (result.title + ' ' + (result.pageText ?? ''))
             .toLowerCase();
-        final count = queryWords.where(text.contains).length;
+        final language = result.archiveLanguage?.toLowerCase().trim() ?? '';
+        final relevantWords = const {'eng', 'en'}.contains(language) &&
+                englishWords.isNotEmpty
+            ? englishWords
+            : persianWords;
+        final count = relevantWords.isEmpty
+            ? 0
+            : (100 * relevantWords.where(text.contains).length) ~/
+                  relevantWords.length;
         final archive = result.source?.toLowerCase() ?? '';
         final specialist =
             (gardenQuestion && archive.contains('garden')) ||
