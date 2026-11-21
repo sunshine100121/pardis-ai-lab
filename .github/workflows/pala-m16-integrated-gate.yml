@@ -204,27 +204,25 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # Stage reviewed Dart changes only; NEVER commit Flutter-generated l10n.
-          mapfile -t stage_dart < <(git diff --name-only -- lib/ test/ | grep -E '\.dart
-          # Preserve any documented checkpoint committed since the trigger.
-          # Rebase only this one formatter commit; do not force-push or drop history.
-          git fetch origin pala/m16-release-gate-034-2026-11-21
-          git rebase origin/pala/m16-release-gate-034-2026-11-21
-          git push origin HEAD:refs/heads/pala/m16-release-gate-034-2026-11-21
- | grep -v '^lib/l10n/app_localizations' || true)
-          if ((${#stage_dart[@]} == 0)); then echo 'NO_DART_FORMAT_CHANGES'; exit 1; fi
+          # Stage ONLY reviewed Dart sources; never stage Flutter-generated l10n.
+          mapfile -t stage_dart < <(git diff --name-only -- lib/ test/ | grep -E '\.dart$' | grep -v '^lib/l10n/app_localizations' || true)
+          if (("${#stage_dart[@]}" == 0)); then
+            echo 'NO_DART_FORMAT_CHANGES' >&2
+            exit 1
+          fi
           git add -- "${stage_dart[@]}" scripts/check_offline_baseline.py
           git diff --cached --check
           if git diff --cached --name-only | grep -q '^lib/l10n/app_localizations'; then
-            echo 'GENERATED_TRANSLATION_STAGED' >&2; exit 1
+            echo 'GENERATED_TRANSLATION_STAGED' >&2
+            exit 1
           fi
           git diff --cached --stat
           git commit -m 'style(pala-m16): one-time Dart format plus repinned reviewed blobs [skip ci]'
-          # Clean only temporary generated translation edits in the disposable CI runner.
+          # Discard only temporary Flutter-generated output in the disposable runner.
           git restore --worktree -- 'lib/l10n/app_localizations*'
           git diff --exit-code
-          # Preserve any documented checkpoint committed since the trigger.
-          # Rebase only this one formatter commit; do not force-push or drop history.
+          # Keep any checkpoint commits added since this run began.
+          # No force-push: rebase our single commit on the newest branch head.
           git fetch origin pala/m16-release-gate-034-2026-11-21
           git rebase origin/pala/m16-release-gate-034-2026-11-21
           git push origin HEAD:refs/heads/pala/m16-release-gate-034-2026-11-21
