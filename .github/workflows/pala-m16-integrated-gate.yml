@@ -1,4 +1,4 @@
-name: PALA M16 integrated 0.3.4 release gate (source only; no APK)
+name: PALA M16 source gates and one guarded 0.3.4 signed trial APK
 on:
   # One-shot source validation. Future source/docs changes do not trigger CI again.
   push:
@@ -7,6 +7,7 @@ on:
       - docs/PALA_M16_ONE_SHOT_CI_2026-11-21.trigger
       - docs/PALA_M16_FORMAT_ONLY_2026-11-21.trigger
       - docs/PALA_M16_SIGN_ONLY_2026-11-21.trigger
+      - docs/PALA_M16_BUILD_ONCE_2026-11-21.trigger
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   integrated-source-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
@@ -30,9 +31,9 @@ jobs:
         run: |
           grep '^version:' pubspec.yaml
           grep 'applicationId = ' android/app/build.gradle.kts
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.3+6'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
           grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
-          echo 'SOURCE_VERSION_ONLY_0.3.3+6; RELEASE_BUILD_BLOCKED_PENDING_ALL_GATES'
+          echo 'SOURCE_VERSION_ONLY_0.3.4+7; NO_APK_IN_SOURCE_GATE'
       - name: Verify committed source, dependencies and storage BEFORE any generator
         run: python3 scripts/check_offline_baseline.py
       - name: Resolve only exact committed dependency versions
@@ -251,8 +252,115 @@ jobs:
           # This script only loads the keystore in memory and signs a random
           # challenge; no keystore, password or private key is written to disk.
           java scripts/CheckUpgradeSigner.java
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.3+6'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
           grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           echo 'SIGNER_PRIVATE_KEY_AND_HISTORICAL_OWNER_CERTIFICATE=PASS'
           echo 'INSTALLED_0.3.3_CODE6_DEVICE_CERTIFICATE=NOT_VERIFIED'
           echo 'APK_BUILD=NO; INSTALL=NO; RELEASE_APPROVAL=BLOCKED_PENDING_BACKUP_AND_DEVICE_CHECK'
+
+  signed-single-trial-apk:
+    # Only the exact owner-approved project branch and a dedicated commit
+    # can ask GitHub to build one signed candidate. No device installation.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/pala/m16-release-gate-034-2026-11-21' && contains(github.event.head_commit.message, '[m16-build-once]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Verify tested code provenance, previous APK contract and exact new version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 66806b220052505fb7f8e767f790dcdae22b8837 HEAD
+          # After 240/240 source tests, only release metadata, workflow,
+          # build-identity injection and checkpoints may have changed.
+          while IFS= read -r changed; do
+            case "$changed" in
+              docs/*|.github/workflows/pala-m16-integrated-gate.yml|pubspec.yaml|scripts/build_android.sh) ;;
+              *) echo "UNTESTED_RUNTIME_CHANGE:$changed" >&2; exit 1 ;;
+            esac
+          done < <(git diff --name-only 66806b220052505fb7f8e767f790dcdae22b8837 HEAD)
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          grep -Fq 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
+          grep -Fq 'ODLLM_REQUIRE_RELEASE_SIGNING' android/app/build.gradle.kts
+          grep -Fq 'ODLLM_RELEASE_VERSION' scripts/build_android.sh
+          git diff --check
+          python3 scripts/check_offline_baseline.py
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          echo 'RELEASE_SOURCE_AND_COMPATIBILITY=PASS'
+      - name: Sign and build exactly one arm64 APK with the existing owner key
+        shell: bash
+        env:
+          PALA_F1_KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          PALA_F1_KEYSTORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          PALA_F1_KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          PALA_F1_KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          java scripts/CheckUpgradeSigner.java > "$RUNNER_TEMP/pala-owner-signer-proof.json"
+          grep -Fq '"owner_key_usable":true' "$RUNNER_TEMP/pala-owner-signer-proof.json"
+          keystore="$RUNNER_TEMP/pala-owner-upgrade.p12"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$PALA_F1_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          export ODLLM_ANDROID_KEYSTORE_PATH="$keystore"
+          export ODLLM_ANDROID_STORE_PASSWORD="$PALA_F1_KEYSTORE_PASSWORD"
+          export ODLLM_ANDROID_KEY_ALIAS="$PALA_F1_KEY_ALIAS"
+          export ODLLM_ANDROID_KEY_PASSWORD="$PALA_F1_KEY_PASSWORD"
+          export ODLLM_REQUIRE_RELEASE_SIGNING=true
+          export ODLLM_RELEASE_VERSION='0.3.4+7'
+          export ODLLM_RELEASE_SOURCE="git:${GITHUB_SHA:0:12}"
+          bash scripts/build_android.sh
+          # No credential material survives this build step.
+          git diff --exit-code -- pubspec.lock
+          echo 'ONE_ARM64_BUILD_COMPLETED; SIGNED_APK_MUST_STILL_PASS_VERIFICATION'
+      - name: Verify package, code 7, owner signature, native arm64 library and no secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=build/app/outputs/flutter-apk
+          apk="$out/app-release.apk"
+          test -s "$apk"
+          aapt=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          test -x "$aapt"
+          test -x "$signer"
+          "$aapt" dump badging "$apk" > "$out/upgrade-package.txt"
+          grep -Fq "package: name='ir.pardis.ai.pala.f1diag2' versionCode='7' versionName='0.3.4'" "$out/upgrade-package.txt"
+          "$signer" verify --verbose --print-certs "$apk" > "$out/upgrade-signing.txt"
+          grep -Fiq 'c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52' "$out/upgrade-signing.txt"
+          unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/libondevice_llm_cpu_i8mm.so' "$RUNNER_TEMP/apk-members.txt"
+          if grep -Ei '\.(p12|jks|keystore|gguf)$' "$RUNNER_TEMP/apk-members.txt"; then
+            echo 'FORBIDDEN_PRIVATE_KEY_OR_MODEL_FILE_IN_APK' >&2
+            exit 1
+          fi
+          sha256sum "$apk" > "$out/app-release.sha256"
+          echo 'OWNER_SIGNATURE_PACKAGE_CODE7_ARM64=PASS'
+          echo 'NOT_INSTALLED; LIVE_TABLET_ACCEPTANCE_AND_ROLLBACK_NOT_YET_VERIFIED'
+      - name: Upload the single inspectable signed candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: PALA-0.3.4-code7-one-signed-trial
+          retention-days: 60
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-release.sha256
+            build/app/outputs/flutter-apk/upgrade-package.txt
+            build/app/outputs/flutter-apk/upgrade-signing.txt
