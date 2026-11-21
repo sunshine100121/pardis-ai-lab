@@ -62,9 +62,28 @@ jobs:
             test/persian_voice_routing_test.dart \
             test/voice_settings_test.dart \
             test/offline_upgrade_compatibility_test.dart
-      - name: Refuse silent dependency drift and distinguish device acceptance
+      - name: Reject dependency drift except pinned Flutter SDK footer metadata
         run: |
-          git diff --exit-code -- pubspec.lock
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          original = subprocess.check_output(
+              ['git', 'show', 'HEAD:pubspec.lock'], text=True
+          )
+          current = Path('pubspec.lock').read_text()
+          if original != current:
+              old_sdk = 'sdks:\n  dart: ">=3.12.0 <4.0.0"\n  flutter: ">=3.44.0"\n'
+              runner_sdk = 'sdks:\n  dart: ">=3.13.4 <4.0.0"\n  flutter: ">=3.47.5"\n'
+              if not original.endswith(old_sdk) or current != (
+                  original[:-len(old_sdk)] + runner_sdk
+              ):
+                  raise SystemExit(
+                      'UNREVIEWED_LOCKFILE_DRIFT: packages or SDK metadata changed'
+                  )
+              print('Exact Flutter runner SDK footer drift only; all pinned packages identical')
+          else:
+              print('Committed dependency lockfile unchanged')
+          PY
           if [ "${STT_FORMAT_CHANGED:-false}" = true ]; then
             echo 'STT_FORMAT_PATCH_REQUIRES_COMMIT; tests ran on formatted runner source only' >&2
             exit 1
