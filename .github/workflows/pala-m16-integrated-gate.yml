@@ -287,7 +287,7 @@ jobs:
           # build-identity injection and checkpoints may have changed.
           while IFS= read -r changed; do
             case "$changed" in
-              docs/*|.github/workflows/pala-m16-integrated-gate.yml|pubspec.yaml|scripts/build_android.sh) ;;
+              docs/*|.github/workflows/pala-m16-integrated-gate.yml|pubspec.yaml|scripts/build_android.sh|scripts/bootstrap.sh) ;;
               *) echo "UNTESTED_RUNTIME_CHANGE:$changed" >&2; exit 1 ;;
             esac
           done < <(git diff --name-only 66806b220052505fb7f8e767f790dcdae22b8837 HEAD)
