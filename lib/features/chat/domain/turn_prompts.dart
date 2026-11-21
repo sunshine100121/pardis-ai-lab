@@ -181,8 +181,9 @@ class TurnPrompts {
         _ => 'Spanish',
       };
       b.write(
-        '\n\nWrite the answer in $language, '
-        'the language of the question.',
+        asked == 'fa'
+            ? '\n\nAnswer in Persian, the language of the question.'
+            : '\n\nWrite the answer in $language, the language of the question.',
       );
     }
     // Future and already-passed dates: the arithmetic the model skips.
