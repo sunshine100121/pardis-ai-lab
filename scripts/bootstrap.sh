@@ -9,4 +9,12 @@ test "$(git -C native/llama.cpp rev-parse HEAD)" = cf24317bea431b807dc93319d74c6
 for patch in native/patches/*.patch; do
   git -C native/llama.cpp apply --reverse --check --ignore-whitespace "$PWD/$patch" 2>/dev/null     || git -C native/llama.cpp apply --ignore-whitespace "$PWD/$patch"
 done
-flutter pub get
+
+# Keep historical local developer behavior. Release CI must resolve only the
+# committed dependency lock, without rewriting its SDK metadata on the runner.
+if [[ -n "${ODLLM_RELEASE_VERSION:-}" ]]; then
+  flutter pub get --enforce-lockfile
+  git diff --exit-code -- pubspec.lock
+else
+  flutter pub get
+fi
