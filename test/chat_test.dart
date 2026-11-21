@@ -79,7 +79,9 @@ class ResearchLoopSettings extends TestSettings {
   InferenceSettings build() => super.build().copyWith(
     toolsEnabled: true,
     researchLoop: true,
-    webMode: WebMode.auto,
+    // Direct model web tools are permitted only in the owner's Always mode.
+    // Auto-mode web access must use the one-turn approval pipeline (M13).
+    webMode: WebMode.always,
   );
 }
 
@@ -88,7 +90,8 @@ class ResearchMemorySettings extends TestSettings {
   InferenceSettings build() => super.build().copyWith(
     toolsEnabled: true,
     researchLoop: true,
-    webMode: WebMode.auto,
+    // Owner opted into Always mode for this research-specific fixture.
+    webMode: WebMode.always,
     memoryEnabled: true,
   );
 }
@@ -889,7 +892,7 @@ void main() {
           ),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(WebTestSettings.new),
+          settingsProvider.overrideWith(AlwaysWebSettings.new),
           modelManagerProvider.overrideWith(TestModels.new),
           duckDuckGoScraperProvider.overrideWithValue(search),
           webPageReaderProvider.overrideWithValue(reader),
@@ -1651,7 +1654,7 @@ void main() {
         ),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
-        settingsProvider.overrideWith(WebTestSettings.new),
+        settingsProvider.overrideWith(AlwaysWebSettings.new),
         modelManagerProvider.overrideWith(TestModels.new),
         duckDuckGoScraperProvider.overrideWithValue(search),
         webPageReaderProvider.overrideWithValue(TestReader()),
@@ -1667,7 +1670,7 @@ void main() {
     expect(search.calls, greaterThan(1));
   });
 
-  test('auto mode asks the model when no keyword fires', () async {
+  test('owner-enabled Always mode asks the model when no keyword fires', () async {
     for (final verdict in ['No.', 'Yes']) {
       container.dispose();
       final search = TestSearch();
@@ -1679,7 +1682,7 @@ void main() {
           ),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(engine),
-          settingsProvider.overrideWith(WebTestSettings.new),
+          settingsProvider.overrideWith(AlwaysWebSettings.new),
           modelManagerProvider.overrideWith(TestModels.new),
           duckDuckGoScraperProvider.overrideWithValue(search),
           webPageReaderProvider.overrideWithValue(TestReader()),
@@ -1781,7 +1784,7 @@ void main() {
         ),
         appDatabaseProvider.overrideWithValue(db),
         llamaEngineProvider.overrideWithValue(engine),
-        settingsProvider.overrideWith(WebTestSettings.new),
+        settingsProvider.overrideWith(AlwaysWebSettings.new),
         modelManagerProvider.overrideWith(TestModels.new),
         duckDuckGoScraperProvider.overrideWithValue(search),
         webPageReaderProvider.overrideWithValue(TestReader()),
@@ -2999,7 +3002,9 @@ void main() {
     final n = container.read(chatProvider.notifier);
     expect(await n.send('search for the latest Flutter version'), isTrue);
     final last = container.read(chatProvider).messages.last;
-    expect(last.content, 'The answer is 42');
+    // The current product reports source freshness after the response.
+    expect(last.content, startsWith('The answer is 42'));
+    expect(last.content, contains('Sources last updated'));
     // The only search was the model's own call: the fixed pipeline did not run.
     expect(search.calls, 1);
     expect(last.reasoning, contains('search_web'));
@@ -3233,7 +3238,7 @@ void main() {
           ),
           appDatabaseProvider.overrideWithValue(db),
           llamaEngineProvider.overrideWithValue(scripted),
-          settingsProvider.overrideWith(WebTestSettings.new),
+          settingsProvider.overrideWith(AlwaysWebSettings.new),
           modelManagerProvider.overrideWith(TestModels.new),
           duckDuckGoScraperProvider.overrideWithValue(search),
           webPageReaderProvider.overrideWithValue(RememberingReader()),
@@ -3341,12 +3346,12 @@ void main() {
         );
         await container
             .read(chatProvider.notifier)
-            .send('How heavy is the Nikon Z30?');
+            .send('Search the web for the Nikon Z30 weight');
         expect(container.read(chatProvider).error, isNull);
         expect(echo.answers, 2, reason: 'one retry, never more');
         final turns = echo.receivedMessages!;
         expect(turns[turns.length - 2]['role'], 'assistant');
-        expect(turns.last['content'], endsWith('How heavy is the Nikon Z30?'));
+        expect(turns.last['content'], endsWith('Search the web for the Nikon Z30 weight'));
         final saved = container.read(chatProvider).messages.last.content;
         if (copies == 1) {
           expect(saved, startsWith('The Z30 weighs 350 g'));
