@@ -246,8 +246,8 @@ class ZimIndexedProjectSearch {
         final text = (result.title + ' ' + (result.pageText ?? ''))
             .toLowerCase();
         final language = result.archiveLanguage?.toLowerCase().trim() ?? '';
-        final relevantWords = const {'eng', 'en'}.contains(language) &&
-                englishWords.isNotEmpty
+        final relevantWords =
+            const {'eng', 'en'}.contains(language) && englishWords.isNotEmpty
             ? englishWords
             : persianWords;
         final count = relevantWords.isEmpty
