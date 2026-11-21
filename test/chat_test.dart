@@ -3002,9 +3002,9 @@ void main() {
     final n = container.read(chatProvider.notifier);
     expect(await n.send('search for the latest Flutter version'), isTrue);
     final last = container.read(chatProvider).messages.last;
-    // The current product reports source freshness after the response.
-    expect(last.content, startsWith('The answer is 42'));
-    expect(last.content, contains('Sources last updated'));
+    // The text-tool research loop returns the model's exact answer.
+    // Freshness suffixes belong to the separate web-retrieval pathway.
+    expect(last.content, 'The answer is 42');
     // The only search was the model's own call: the fixed pipeline did not run.
     expect(search.calls, 1);
     expect(last.reasoning, contains('search_web'));
