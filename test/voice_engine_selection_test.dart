@@ -50,6 +50,18 @@ void main() {
     expect(tts?.id, 'tts:piper:fa_ir-custom');
   });
 
+  test('official downloaded Vosk ZIP hash IDs may start with a digit', () async {
+    SharedPreferences.setMockInitialValues({});
+    // Official vosk-model-small-fa-0.42.zip SHA-256 starts with 977c.
+    const selected = 'stt:vosk:977cb5faa538f3a8';
+    final parsed = VoiceEngineSelection.parse(selected);
+    expect(parsed?.kind, VoiceSelectionKind.stt);
+    expect(parsed?.adapter, 'vosk');
+    expect(parsed?.model, '977cb5faa538f3a8');
+    await VoiceChoiceStorage.choose(VoiceSelectionKind.stt, selected);
+    expect(await VoiceChoiceStorage.current(VoiceSelectionKind.stt), selected);
+  });
+
   test('invalid and unsafe model identities are not accepted', () {
     for (final candidate in [
       'stt:vosk:../private',
