@@ -794,6 +794,7 @@ mixin _ChatWeb on _ChatBase {
             shape: AnswerShapes.of(input, news: NewsIntent.of(input)),
             topic: NewsIntent.of(input)?.topic,
             local: local,
+            originalUserQuestion: input,
           );
     } else if (sources.isNotEmpty && !overridden) {
       // Keep the system prompt short here: some templates (Gemma) have no
@@ -901,6 +902,7 @@ mixin _ChatWeb on _ChatBase {
               shape: shape,
               topic: newsIntent?.topic,
               local: local,
+              originalUserQuestion: input,
             );
         final budget = await engine.previewPrompt(
           messages: messages,
