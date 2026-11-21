@@ -31,13 +31,27 @@ jobs:
         env:
           PALA_POCKET_TEST_APK: 'true'
         run: python3 scripts/prepare_pocket_diagnostic_ort.py
-      - name: Clean native intermediates after selecting pinned ORT
-        # The earlier Kotlin compilation may cache Sherpa's old .so in Gradle
-        # intermediates. Removing the source file alone is not sufficient.
-        # Only the disposable runner is cleaned; the signed PALA app is untouched.
+      - name: Invalidate only cached native merging in disposable runner
+        # The old Sherpa .so can remain in build intermediates after source
+        # removal. A full Gradle clean triggers unrelated native JNI/CMake
+        # cleanup (missing Ninja on runner); do not use it here.
         run: |
-          cd android
-          bash gradlew clean --console=plain
+          python3 - <<'PY'
+          from pathlib import Path
+          from shutil import rmtree
+          paths = (
+              Path('build/sherpa_onnx_android_arm64/intermediates'),
+              Path('build/app/intermediates/merged_native_libs'),
+              Path('build/app/intermediates/stripped_native_libs'),
+              Path('build/app/intermediates/merged_jni_libs'),
+          )
+          for p in paths:
+              if p.is_symlink():
+                  raise SystemExit(f'Unexpected symlink; refusing cleanup: {p}')
+              if p.is_dir():
+                  rmtree(p)
+                  print(f'Invalidated temporary native outputs: {p}')
+          PY
       - name: Build one separately installable ARM64 debug APK
         env:
           PALA_POCKET_TEST_APK: 'true'
