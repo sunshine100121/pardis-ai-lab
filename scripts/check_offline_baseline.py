@@ -15,7 +15,12 @@ APPROVED_034_BLOBS = {
     "lib/features/models/presentation/providers/model_manager_provider.dart": "5dc5ab12ceef1f96144cf096d344b8c420728361",
     "lib/features/settings/domain/entities/inference_settings.dart": "6795ebe5d6a717c9bc809abdb8c2cb0d1c1fd726",
 }
-protected=['lib/inference','native','lib/data/storage/model_storage.dart',
+# M09 Vosk ZIP import requires two reviewed storage changes: allowing .zip
+# filenames and updating the validation message. Only this exact blob is
+# accepted; GGUF/native paths and every other protected file stay unchanged.
+APPROVED_STT_ZIP_STORAGE_BLOB = 'e9489641589dbec6b02949c86965e5748dde24f0'
+assert git('hash-object','lib/data/storage/model_storage.dart').decode().strip() == APPROVED_STT_ZIP_STORAGE_BLOB, 'UNREVIEWED_STT_ZIP_STORAGE_CHANGE'
+protected=['lib/inference','native',
            'lib/core/platform/device_info.dart','lib/core/storage/app_directories.dart',
            'android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/NativeBridge.kt']
 assert not git('diff',BASE,'--',*protected).strip(), 'PROTECTED_RUNTIME_DRIFT'
@@ -50,6 +55,9 @@ assert compatibility_paths
 for path in compatibility_paths:
     if path in APPROVED_034_BLOBS:
         continue  # Exact reviewed blob SHA pinned above; additive changes covered by dedicated tests.
+    if path == 'lib/data/storage/model_storage.dart':
+        # Exact reviewed STT ZIP delta pinned above, not a broad bypass.
+        continue
     installed=git('show','5663b264afb77026014f81b69e04b1d00ab8a098:'+path)
     installed=installed.replace(b'\r\n',b'\n')
     if path == 'lib/features/settings/domain/entities/inference_settings.dart':
