@@ -30,5 +30,18 @@ fi
 mkdir -p android/app/src/main/jniLibs/arm64-v8a
 cp build/native-cpu-i8mm/arm64-v8a/libondevice_llm_cpu_i8mm.so android/app/src/main/jniLibs/arm64-v8a/
 dart scripts/prepare_release_registrant.dart
-flutter build apk --release --target-platform android-arm64 --no-pub
+# Optional audited release identity for PALA; regular local builds keep their
+# existing behavior. Reject a partial identity instead of hiding provenance.
+flutter_args=(--release --target-platform android-arm64 --no-pub)
+if [[ -n "${ODLLM_RELEASE_VERSION:-}" || -n "${ODLLM_RELEASE_SOURCE:-}" ]]; then
+  [[ -n "${ODLLM_RELEASE_VERSION:-}" && -n "${ODLLM_RELEASE_SOURCE:-}" ]] || {
+    echo 'RELEASE_IDENTITY_INCOMPLETE' >&2
+    exit 1
+  }
+  flutter_args+=(
+    "--dart-define=ODLLM_VERSION=$ODLLM_RELEASE_VERSION"
+    "--dart-define=ODLLM_SOURCE=$ODLLM_RELEASE_SOURCE"
+  )
+fi
+flutter build apk "${flutter_args[@]}"
 unzip -Z1 build/app/outputs/flutter-apk/app-release.apk | grep -Fx 'lib/arm64-v8a/libondevice_llm_cpu_i8mm.so'
