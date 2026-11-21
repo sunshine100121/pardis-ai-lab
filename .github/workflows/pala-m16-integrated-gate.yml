@@ -161,7 +161,12 @@ jobs:
           set -euo pipefail
           mapfile -t changed < <(git diff --name-only cae3ac12b0719212109c7b0fd6c0fe85c85c19c3 HEAD -- '*.dart' | grep -E '^(lib/|test/)' | grep -v '^lib/l10n/app_localizations' || true)
           if ((${#changed[@]} == 0)); then echo 'NO_REVIEWED_DART_FILES'; exit 1; fi
+          # Flutter pub get may update tracked generated l10n in the ephemeral runner.
+          # Record its exact diff: formatting must NOT change those generated files.
+          generated_before="$(git diff --binary -- 'lib/l10n/app_localizations*' | sha256sum | cut -d ' ' -f1)"
           dart format "${changed[@]}"
+          generated_after="$(git diff --binary -- 'lib/l10n/app_localizations*' | sha256sum | cut -d ' ' -f1)"
+          test "$generated_before" = "$generated_after" || { echo 'FORMATTER_TOUCHED_GENERATED_L10N' >&2; exit 1; }
           git diff --exit-code -- pubspec.lock
           python3 - <<'PY'
           import pathlib, subprocess, ast
@@ -184,10 +189,14 @@ jobs:
           python3 - <<'PY'
           import subprocess
           changes=subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()
-          allowed=lambda p: (p.startswith('lib/') or p.startswith('test/')) and p.endswith('.dart') or p=='scripts/check_offline_baseline.py'
-          assert changes and all(map(allowed,changes)),f'UNEXPECTED_CHANGE:{changes}'
-          assert all(not p.startswith('lib/l10n/app_localizations') for p in changes),'GENERATED_L10N_EDIT'
-          print('FORMATTED_SOURCE_FILES:',sum(p.endswith('.dart') for p in changes))
+          # Existing Flutter-generated l10n drift was recorded and checked
+          # before/after formatting; never stage those temporary outputs.
+          generated=[p for p in changes if p.startswith('lib/l10n/app_localizations')]
+          reviewed=[p for p in changes if p not in generated]
+          allowed=lambda p: ((p.startswith('lib/') or p.startswith('test/')) and p.endswith('.dart')) or p=='scripts/check_offline_baseline.py'
+          assert reviewed and all(map(allowed,reviewed)),f'UNEXPECTED_CHANGE:{changes}'
+          print('FORMATTED_SOURCE_FILES:',sum(p.endswith('.dart') for p in reviewed))
+          print('TEMPORARY_GENERATED_L10N_NOT_FOR_COMMIT:',len(generated))
           PY
       - name: Commit reviewed formatter-only changes to the same branch
         shell: bash
@@ -195,10 +204,25 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- lib/ test/ scripts/check_offline_baseline.py
+          # Stage reviewed Dart changes only; NEVER commit Flutter-generated l10n.
+          mapfile -t stage_dart < <(git diff --name-only -- lib/ test/ | grep -E '\.dart
+          # Preserve any documented checkpoint committed since the trigger.
+          # Rebase only this one formatter commit; do not force-push or drop history.
+          git fetch origin pala/m16-release-gate-034-2026-11-21
+          git rebase origin/pala/m16-release-gate-034-2026-11-21
+          git push origin HEAD:refs/heads/pala/m16-release-gate-034-2026-11-21
+ | grep -v '^lib/l10n/app_localizations' || true)
+          if ((${#stage_dart[@]} == 0)); then echo 'NO_DART_FORMAT_CHANGES'; exit 1; fi
+          git add -- "${stage_dart[@]}" scripts/check_offline_baseline.py
           git diff --cached --check
+          if git diff --cached --name-only | grep -q '^lib/l10n/app_localizations'; then
+            echo 'GENERATED_TRANSLATION_STAGED' >&2; exit 1
+          fi
           git diff --cached --stat
           git commit -m 'style(pala-m16): one-time Dart format plus repinned reviewed blobs [skip ci]'
+          # Clean only temporary generated translation edits in the disposable CI runner.
+          git restore --worktree -- 'lib/l10n/app_localizations*'
+          git diff --exit-code
           # Preserve any documented checkpoint committed since the trigger.
           # Rebase only this one formatter commit; do not force-push or drop history.
           git fetch origin pala/m16-release-gate-034-2026-11-21
