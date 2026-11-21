@@ -1,8 +1,8 @@
 name: PALA STT Vosk-Shenava targeted source preflight (no APK)
 
 on:
-  # Only the first creation of this workflow triggers one scoped CI run.
-  # Further changes need deliberate workflow_dispatch; no build or install.
+  # Scoped changes to this workflow trigger a targeted diagnostic retry.
+  # All source-only validations; no APK, no installation.
   push:
     branches: [pala/fix-voice-vosk-zip-id-2026-11-21]
     paths: ['.github/workflows/pala-stt-selection-preflight.yml']
@@ -53,6 +53,7 @@ jobs:
             test/download_test.dart \
             test/persian_voice_routing_test.dart \
             test/voice_settings_test.dart
+            test/offline_upgrade_compatibility_test.dart
       - name: Refuse silent dependency drift and distinguish device acceptance
         run: |
           git diff --exit-code -- pubspec.lock
