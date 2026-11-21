@@ -199,4 +199,8 @@ jobs:
           git diff --cached --check
           git diff --cached --stat
           git commit -m 'style(pala-m16): one-time Dart format plus repinned reviewed blobs [skip ci]'
+          # Preserve any documented checkpoint committed since the trigger.
+          # Rebase only this one formatter commit; do not force-push or drop history.
+          git fetch origin pala/m16-release-gate-034-2026-11-21
+          git rebase origin/pala/m16-release-gate-034-2026-11-21
           git push origin HEAD:refs/heads/pala/m16-release-gate-034-2026-11-21
