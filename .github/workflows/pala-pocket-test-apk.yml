@@ -31,6 +31,13 @@ jobs:
         env:
           PALA_POCKET_TEST_APK: 'true'
         run: python3 scripts/prepare_pocket_diagnostic_ort.py
+      - name: Clean native intermediates after selecting pinned ORT
+        # The earlier Kotlin compilation may cache Sherpa's old .so in Gradle
+        # intermediates. Removing the source file alone is not sufficient.
+        # Only the disposable runner is cleaned; the signed PALA app is untouched.
+        run: |
+          cd android
+          bash gradlew clean --console=plain
       - name: Build one separately installable ARM64 debug APK
         env:
           PALA_POCKET_TEST_APK: 'true'
