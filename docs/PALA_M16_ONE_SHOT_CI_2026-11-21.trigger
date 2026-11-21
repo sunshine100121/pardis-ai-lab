@@ -10,3 +10,5 @@ Subsequent documentation commits will NOT trigger the source-validation workflow
 Single diagnostic retry after baseline-order correction and frozen-lock enforcement.
 Source workflow commit 710f73071013acb3ab13dee46a1cfb9667c120db.
 No APK. No installation. No new signing key. No data access. Do not automatically retry.
+
+Fourth source-only CI request: collect all failures and optional 64-file format patch in ONE pass; no APK or installation. Workflow cd3dc994. 
