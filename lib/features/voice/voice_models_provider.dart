@@ -7,6 +7,7 @@ import '../../data/storage/download_jobs.dart';
 import '../../data/storage/download_manager.dart';
 import '../../data/storage/model_storage.dart';
 import 'voice_models.dart';
+import 'vosk_local_models.dart';
 
 /// Install state of one voice pack.
 enum VoicePackStatus { missing, downloading, unpacking, ready }
@@ -87,7 +88,24 @@ class VoiceModelsNotifier extends Notifier<VoiceModelsState> {
       if (ready) {
         _set(pack, const VoicePackState(VoicePackStatus.ready));
       } else if (pending.contains(pack.downloadKey)) {
-        unawaited(download(pack));
+        // A previously rejected official Vosk ZIP download can leave a
+        // persistent "resume" flag even after the owner imports its ZIP
+        // successfully through the separate local-model UI. Avoid silently
+        // downloading a duplicate pack on the first upgraded app launch.
+        var importedVoskPresent = false;
+        if (pack.id == VoiceModels.voskPersian.id) {
+          try {
+            importedVoskPresent = (await VoskLocalModels.installed()).isNotEmpty;
+          } catch (_) {
+            // Missing storage leaves the ordinary resume path unchanged.
+          }
+        }
+        if (importedVoskPresent) {
+          await DownloadJobs.remove(pack.downloadKey);
+          _set(pack, const VoicePackState(VoicePackStatus.missing));
+        } else {
+          unawaited(download(pack));
+        }
       } else {
         _set(pack, const VoicePackState(VoicePackStatus.missing));
       }
@@ -160,7 +178,11 @@ class VoiceModelsNotifier extends Notifier<VoiceModelsState> {
           error: paused ? null : '$e',
         ),
       );
-      if (paused) await DownloadJobs.remove(pack.downloadKey);
+      // Permanent filename/format errors are not resumable transfers.
+      // Preserve the existing retry behavior for temporary network errors.
+      if (paused || e is FormatException) {
+        await DownloadJobs.remove(pack.downloadKey);
+      }
     } finally {
       _active.remove(pack.id);
     }
