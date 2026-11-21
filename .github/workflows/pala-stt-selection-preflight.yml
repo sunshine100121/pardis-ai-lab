@@ -1,0 +1,59 @@
+name: PALA STT Vosk-Shenava targeted source preflight (no APK)
+
+on:
+  # Only the first creation of this workflow triggers one scoped CI run.
+  # Further changes need deliberate workflow_dispatch; no build or install.
+  push:
+    branches: [pala/fix-voice-vosk-zip-id-2026-11-21]
+    paths: ['.github/workflows/pala-stt-selection-preflight.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pala-stt-choice-preflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  stt-choice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Preserve the existing offline-first baseline
+        run: python3 scripts/check_offline_baseline.py
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Resolve only committed dependency versions
+        run: flutter pub get --enforce-lockfile
+      - name: Check formatting of the STT selection fix and regression
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib/features/voice/voice_engine_selection.dart \
+            test/voice_engine_selection_test.dart
+      - name: Analyze changed STT selection and model storage sources
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/voice/voice_engine_selection.dart \
+            lib/features/voice/voice_choice_storage.dart \
+            lib/features/voice/vosk_local_models.dart \
+            lib/features/voice/persian_sherpa_models.dart \
+            test/voice_engine_selection_test.dart
+      - name: Test numeric hash, independent STT/TTS choice, local imports and routing
+        run: |
+          flutter test --concurrency=1 \
+            test/voice_engine_selection_test.dart \
+            test/vosk_local_models_test.dart \
+            test/persian_sherpa_models_test.dart \
+            test/download_test.dart \
+            test/persian_voice_routing_test.dart \
+            test/voice_settings_test.dart
+      - name: Refuse silent dependency drift and distinguish device acceptance
+        run: |
+          git diff --exit-code -- pubspec.lock
+          echo 'STT_SOURCE_TESTS_ONLY; APK_BUILT=NO; TABLET_STT_AUDIO=NOT_VERIFIED'
