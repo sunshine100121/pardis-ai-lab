@@ -35,11 +35,12 @@ jobs:
             lib/features/zim/zim_source_scope.dart \
             lib/features/zim/zim_indexed_project_search.dart \
             lib/features/chat/domain/turn_prompts.dart \
+            lib/features/chat/presentation/providers/chat_web.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             test/zim_source_scope_test.dart
-          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart; then
+          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart; then
             echo 'M02_FORMAT_PATCH_BEGIN'
-            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart
+            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart
             echo 'M02_FORMAT_PATCH_END'
             echo 'M02_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
           fi
@@ -49,6 +50,7 @@ jobs:
             lib/features/zim/zim_source_scope.dart \
             lib/features/zim/zim_indexed_project_search.dart \
             lib/features/chat/domain/turn_prompts.dart \
+            lib/features/chat/presentation/providers/chat_web.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             test/zim_source_scope_test.dart
       - name: Prepare locked PDFium test asset if needed by library imports
@@ -57,7 +59,7 @@ jobs:
           pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
           test -n "$pdfium"
           echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
-      - name: Validate twelve archives, Persian prompt, offline citations and scoped retrieval
+      - name: Verify original-question Persian language and multi-archive evidence regression
         run: |
           flutter test --concurrency=1 \
             test/zim_source_scope_test.dart \
