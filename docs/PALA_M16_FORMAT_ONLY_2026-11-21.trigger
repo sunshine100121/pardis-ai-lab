@@ -7,3 +7,5 @@ No APK, no signing, no device connection.
 Retry of same formatting-only operation with fast-forward/rebase protection; previous attempt may conflict with newer checkpoint. No APK, no data changes, no force-push.
 
 Corrected single format-only run request 2026-11-21: exclude Flutter-generated translations from staged files and verify unchanged generation diff. Workflow a7e123250dd37d807ec5250f298ce19afae8833d. No build, install, model or HA changes.
+
+YAML_FIXED_F50DEF36_FORMAT_TRIGGER: start exactly one format-only run after removing stray line 214 and duplicated git commands; source-only, no APK, no install, no model/HA changes.
