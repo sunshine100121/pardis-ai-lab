@@ -117,6 +117,15 @@ void main() {
     expect(route.sourceIds, isNot(contains(id('medical.pdf'))));
   });
 
+  test('ordinary use of the word only is never a source restriction', () {
+    final route = ZimMultilingualSourceRoute.choose(
+      'Please give only two short sentences about gravity.',
+      data,
+    );
+    expect(route.exclusive, false);
+    expect(route.sourceIds, isNull);
+  });
+
   test('generic questions retain source scope; no forced source selection', () {
     final route = ZimMultilingualSourceRoute.choose('What is gravity?', data);
     expect(route.sourceIds, isNull);
