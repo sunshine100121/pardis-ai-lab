@@ -2073,7 +2073,10 @@ class ChatNotifier extends _ChatBase
             : t.sources.where((source) {
                 if (!source.url.startsWith('zim://')) return false;
                 final uri = Uri.tryParse(source.url);
-                return uri?.queryParameters['source'] == allowedId;
+                // A title-only lookup is allowed when it came from the
+                // same already-filtered local library, even before indexing.
+                return uri?.queryParameters['source'] == allowedId ||
+                    local.sources.any((trusted) => trusted.url == source.url);
               }).toList();
         if (t.sources.isEmpty) {
           t.offlineRefusal = route.missingOrAmbiguous
