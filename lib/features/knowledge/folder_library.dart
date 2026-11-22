@@ -14,8 +14,15 @@ import '../zim/zim_source.dart';
 import '../zim/zim_wikipedia.dart';
 import '../zim/zim_image_selection.dart';
 import 'knowledge_read_report.dart';
+import 'pdf_index_lookup.dart';
 
 typedef LibraryFile = ({String uri, String name, int size, int modified});
+typedef IndexedPdfSearch = Future<List<({int page, String text})>?> Function({
+  required String sourceId,
+  required int size,
+  required int modified,
+  required String query,
+});
 
 abstract interface class FolderAccess {
   Future<bool> pick();
@@ -68,13 +75,16 @@ class FolderLibrary {
   };
   final FolderAccess access;
   final Future<String> Function(Uint8List) pdfText;
+  final IndexedPdfSearch indexedPdfSearch;
   final Duration lookupTimeout;
   FolderLibrary({
     FolderAccess? access,
     Future<String> Function(Uint8List)? pdfText,
+    IndexedPdfSearch? indexedPdfSearch,
     this.lookupTimeout = const Duration(seconds: 8),
   }) : access = access ?? AndroidFolderAccess(),
-       pdfText = pdfText ?? readPdf;
+       pdfText = pdfText ?? readPdf,
+       indexedPdfSearch = indexedPdfSearch ?? PdfIndexLookup.read;
   bool _refreshing = false;
   int _pendingZimCleanup = 0;
   static const _maxPendingZimCleanup = 2;
@@ -478,11 +488,71 @@ class FolderLibrary {
         }
         continue;
       }
-      // Search every page of each approved PDF, even when the short preview
-      // also contains a match. This prevents early matches hiding later,
-      // more relevant chapters. Reads are sparse and no full PDF is copied.
+      // A complete, revision-matching index skips the costly PDFium scan.
+      // Incomplete/revoked indexes never return evidence; the existing
+      // bounded read-only page scan remains the safe fallback.
       if ((f['name'] as String).toLowerCase().endsWith('.pdf') &&
           terms.isNotEmpty) {
+        List<({int page, String text})>? indexed;
+        try {
+          indexed = await indexedPdfSearch(
+            sourceId: sourceId(f['uri'] as String),
+            size: now.size,
+            modified: now.modified,
+            query: question,
+          );
+        } catch (_) {
+          checks.add({'file': f['name'], 'code': 'pdf_index_error'});
+        }
+        if (indexed != null) {
+          // Revalidate the current SAF permission and owner enablement even
+          // for a SQLite hit; never trust old cached excerpts blindly.
+          final still = await access.list();
+          final currentFile = still.files
+              .where((item) => item.uri == f['uri'])
+              .firstOrNull;
+          final saved = await state();
+          final approved = (saved['files'] as List).whereType<Map>().any(
+            (row) =>
+                row['uri'] == f['uri'] &&
+                row['enabled'] == true &&
+                row['size'] == now.size &&
+                row['modified'] == now.modified,
+          );
+          if (!approved ||
+              currentFile == null ||
+              currentFile.size != now.size ||
+              currentFile.modified != now.modified ||
+              currentFile.name != now.name) {
+            checks.add({'file': f['name'], 'code': 'changed'});
+            continue;
+          }
+          for (final hit in indexed) {
+            final snippet = hit.text.length > 1500
+                ? hit.text.substring(0, 1500)
+                : hit.text;
+            found.add((
+              terms.where(normalize(hit.text).contains).length,
+              SearchResult(
+                title: "${f['name']} · صفحه ${hit.page}",
+                url:
+                    'pala-knowledge://${sourceId(f['uri'] as String)}?page=${hit.page}',
+                snippet: '',
+                source: 'پوشه AI Knowledge',
+                rank: 100,
+                pageText: snippet,
+                fetchedAt: DateTime.now().toUtc(),
+              ),
+            ));
+          }
+          checks.add({
+            'file': f['name'],
+            'code': 'pdf_index_hit',
+            'pagesScanned': 0,
+            'pagesMatched': indexed.length,
+          });
+          continue;
+        }
         // M15: no additional scan, copy or allocation; measure the
         // existing approved-page lookup from open through final cleanup.
         final pageScanClock = Stopwatch()..start();
