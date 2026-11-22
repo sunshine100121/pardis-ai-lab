@@ -142,17 +142,21 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
         },
       );
       if (mounted) {
-        setState(() => _indexMessage = result.cancelled
-            ? 'نمایه متوقف شد؛ ادامه از صفحه ${result.scanned + 1} ممکن است.'
-            : 'نمایه PDF آماده شد: ${result.total} صفحه. '
-              '${result.needsOcr} صفحه بدون متن، نیازمند OCR است.');
+        setState(
+          () => _indexMessage = result.cancelled
+              ? 'نمایه متوقف شد؛ ادامه از صفحه ${result.scanned + 1} ممکن است.'
+              : 'نمایه PDF آماده شد: ${result.total} صفحه. '
+                    '${result.needsOcr} صفحه بدون متن، نیازمند OCR است.',
+        );
       }
     } on StateError catch (error) {
       if (mounted) setState(() => _indexMessage = error.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _indexMessage =
-            'نمایه PDF کامل نشد؛ دسترسی، فایل و فضای حافظه را بررسی کنید.');
+        setState(
+          () => _indexMessage =
+              'نمایه PDF کامل نشد؛ دسترسی، فایل و فضای حافظه را بررسی کنید.',
+        );
       }
     } finally {
       _pdfIndexService = null;
