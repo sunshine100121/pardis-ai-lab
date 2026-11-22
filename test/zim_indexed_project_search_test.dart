@@ -95,6 +95,8 @@ void main() {
     expect(result.sources.single.source, 'Gardening fixture');
     expect(result.sources.single.title, 'Plant care — Gardening fixture');
     expect(result.sources.single.pageText, contains('walnut'));
+    // Common Persian gardening terms must not launch an extra Qwen turn.
+    expect(engine.calls, 0);
     expect(
       result.sources.single.url,
       'zim://01000000000000000000000000000000/Plant_care?entry=0&source=$id',
