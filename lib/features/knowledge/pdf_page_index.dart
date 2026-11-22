@@ -59,10 +59,9 @@ class PdfPageIndex {
     required int size,
     required int modified,
   }) {
-    final rows = db.select(
-      'SELECT * FROM pala_pdf_documents WHERE id = ?',
-      [sourceId],
-    );
+    final rows = db.select('SELECT * FROM pala_pdf_documents WHERE id = ?', [
+      sourceId,
+    ]);
     if (rows.isEmpty) return null;
     final row = rows.single;
     if (row['size_bytes'] != size || row['modified'] != modified) {
@@ -197,29 +196,29 @@ class PdfPageIndex {
     if (state == null || !state.complete || limit < 1 || limit > 12) {
       return [];
     }
-    final quoted = RegExp(r'[«“"]([^»”"]{4,})[»”"]')
-        .firstMatch(query);
+    final quoted = RegExp(r'[«“"]([^»”"]{4,})[»”"]').firstMatch(query);
     final clean = normalize(quoted?.group(1) ?? query);
-    final terms = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true)
-        .allMatches(clean)
-        .map((m) => m.group(0)!)
-        .toSet()
-        .take(24)
-        .toList();
+    final terms = RegExp(
+      r'[\p{L}\p{N}]{3,}',
+      unicode: true,
+    ).allMatches(clean).map((m) => m.group(0)!).toSet().take(24).toList();
     if (terms.isEmpty) return [];
     // The FTS grammar is assembled from quoted normalized tokens only.
     // Never interpolate an untrusted raw MATCH expression.
     final expression = quoted != null
         ? '"${terms.join(' ')}"'
         : terms.map((t) => '"$t"').join(' OR ');
-    final rows = db.select('''
+    final rows = db.select(
+      '''
       SELECT p.page AS page, p.text AS text
       FROM pala_pdf_fts
       JOIN pala_pdf_pages p ON p.id = pala_pdf_fts.rowid
       WHERE pala_pdf_fts MATCH ? AND p.source_id = ?
       ORDER BY bm25(pala_pdf_fts)
       LIMIT ?
-    ''', [expression, sourceId, limit]);
+    ''',
+      [expression, sourceId, limit],
+    );
     return [
       for (final row in rows)
         (page: row['page'] as int, text: row['text'] as String),
