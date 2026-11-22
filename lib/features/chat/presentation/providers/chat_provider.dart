@@ -2094,21 +2094,22 @@ class ChatNotifier extends _ChatBase
             'منابع پروژه هنگام جست‌وجو تغییر کردند؛ لطفاً دوباره درخواست کنید.';
       }
       t.offlineRead = local.toJson(
-        requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
+        requiredEncyclopedia:
+            route.exclusive || ZimWikipedia.requiresEncyclopedia(input),
         supplied: false,
       );
-      if (route.exclusive) {
-        (t.offlineRead!['checks'] as List).add({
-          'file': route.requestedFile ?? 'منبع انتخاب‌شده',
-          'code': route.missingOrAmbiguous
-              ? 'source_scope_unavailable'
-              : 'source_scope_exclusive',
-          'selected': route.sourceIds?.length ?? 0,
-        });
-      }
-      if (!scopeChanged && indexedChecks.isNotEmpty) {
-        t.offlineRead!['checks'] = [...local.checks, ...indexedChecks];
-      }
+      t.offlineRead!['checks'] = <Map<String, dynamic>>[
+        ...local.checks,
+        if (!scopeChanged) ...indexedChecks,
+        if (route.exclusive)
+          {
+            'file': route.requestedFile ?? 'منبع انتخاب‌شده',
+            'code': route.missingOrAmbiguous
+                ? 'source_scope_unavailable'
+                : 'source_scope_exclusive',
+            'selected': route.sourceIds?.length ?? 0,
+          },
+      ];
       // Application-owned fail-closed result: do not ask Qwen to guess HA values.
       final haFailure = local.checks.any(
         (c) =>
