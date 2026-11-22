@@ -41,10 +41,7 @@ class PdfOcrModels {
       // on an unpinned chunked-hash sink implementation.
       final bytes = await file.readAsBytes();
       if (bytes.length != length) return false;
-      final gitBlob = <int>[
-        ...utf8.encode('blob $length\x00'),
-        ...bytes,
-      ];
+      final gitBlob = <int>[...utf8.encode('blob $length\x00'), ...bytes];
       return sha1.convert(gitBlob).toString() == blob;
     } catch (_) {
       return false;
