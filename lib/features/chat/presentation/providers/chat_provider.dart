@@ -1948,16 +1948,16 @@ class ChatNotifier extends _ChatBase
               sourceIds: localScope,
             )
           : _projectId == null
-              ? route.sourceIds == null
-                  ? await localKnowledge.searchDetailed(input)
-                  : await localKnowledge.searchDetailedScoped(
-                      input,
-                      sourceIds: localScope,
-                    )
-              : await localKnowledge.searchProject(
-                  input,
-                  sourceIds: localScope ?? projectSourceIds,
-                );
+          ? route.sourceIds == null
+                ? await localKnowledge.searchDetailed(input)
+                : await localKnowledge.searchDetailedScoped(
+                    input,
+                    sourceIds: localScope,
+                  )
+          : await localKnowledge.searchProject(
+              input,
+              sourceIds: localScope ?? projectSourceIds,
+            );
       if (_cancelled || !_alive) return null;
       final indexedSources = <SearchResult>[];
       final indexedChecks = <Map<String, dynamic>>[];
