@@ -26,21 +26,22 @@ class ZimMultilingualSourceRoute {
     Map<String, dynamic> libraryState, {
     Set<String>? projectAllowed,
   }) {
-    final all = (libraryState['files'] is List
-            ? libraryState['files'] as List
-            : const <dynamic>[])
-        .whereType<Map>()
-        .where(
-          (row) =>
-              row['enabled'] == true &&
-              row['uri'] is String &&
-              row['name'] is String &&
-              (projectAllowed == null ||
-                  projectAllowed.contains(
-                    FolderLibrary.sourceId(row['uri'] as String),
-                  )),
-        )
-        .toList();
+    final all =
+        (libraryState['files'] is List
+                ? libraryState['files'] as List
+                : const <dynamic>[])
+            .whereType<Map>()
+            .where(
+              (row) =>
+                  row['enabled'] == true &&
+                  row['uri'] is String &&
+                  row['name'] is String &&
+                  (projectAllowed == null ||
+                      projectAllowed.contains(
+                        FolderLibrary.sourceId(row['uri'] as String),
+                      )),
+            )
+            .toList();
     String name(Map row) => (row['name'] as String).toLowerCase();
     String id(Map row) => FolderLibrary.sourceId(row['uri'] as String);
 
@@ -57,33 +58,40 @@ class ZimMultilingualSourceRoute {
     final only = restrictiveWords && mentionsArchive;
     // Explicit source requests require an unambiguous exact filename or a
     // recognizable named archive. Never guess a source from a general noun.
-    final filenames = RegExp(r'[a-z0-9_.-]+\.zim\b', caseSensitive: false)
-        .allMatches(q)
-        .map((m) => m.group(0)!)
-        .toSet();
+    final filenames = RegExp(
+      r'[a-z0-9_.-]+\.zim\b',
+      caseSensitive: false,
+    ).allMatches(q).map((m) => m.group(0)!).toSet();
     final specified = <Map>[];
     if (filenames.isNotEmpty) {
       for (final row in all) {
         if (filenames.contains(name(row))) specified.add(row);
       }
-    } else if (only && RegExp(r'\b(gardening stack exchange|gardening\.stackexchange)\b|دانشنامه.{0,20}باغبانی').hasMatch(q)) {
+    } else if (only &&
+        RegExp(
+          r'\b(gardening stack exchange|gardening\.stackexchange)\b|دانشنامه.{0,20}باغبانی',
+        ).hasMatch(q)) {
       specified.addAll(
         all.where(
-          (row) => _isZim(name(row)) &&
+          (row) =>
+              _isZim(name(row)) &&
               name(row).contains('gardening.stackexchange'),
         ),
       );
-    } else if (only && RegExp(r'\b(wikivoyage|ویکی سفر|ویکی‌سفر)\b').hasMatch(q)) {
+    } else if (only &&
+        RegExp(r'\b(wikivoyage|ویکی سفر|ویکی‌سفر)\b').hasMatch(q)) {
       specified.addAll(
         all.where(
-          (row) => _isZim(name(row)) &&
-              name(row).contains('wikivoyage'),
+          (row) => _isZim(name(row)) && name(row).contains('wikivoyage'),
         ),
       );
-    } else if (only && RegExp(r'\b(raspberrypi stack exchange|raspberrypi\.stackexchange)\b').hasMatch(q)) {
+    } else if (only &&
+        RegExp(r'\b(raspberrypi stack exchange|raspberrypi\.stackexchange)\b')
+            .hasMatch(q)) {
       specified.addAll(
         all.where(
-          (row) => _isZim(name(row)) &&
+          (row) =>
+              _isZim(name(row)) &&
               name(row).contains('raspberrypi.stackexchange'),
         ),
       );
@@ -97,8 +105,8 @@ class ZimMultilingualSourceRoute {
         requestedFile: filenames.isEmpty
             ? null
             : filenames.length == 1
-                ? filenames.single
-                : null,
+            ? filenames.single
+            : null,
       );
     }
 
@@ -129,19 +137,20 @@ class ZimMultilingualSourceRoute {
       final specialist =
           (garden && n.contains('gardening.stackexchange')) ||
           (travel && n.contains('wikivoyage')) ||
-          (ha && (n.contains('raspberrypi.stackexchange') ||
-              n.contains('home_assistant') || n.contains('home assistant')));
-      final broad = zim &&
-          n.contains('wikipedia_fa_all_') &&
-          (garden || travel);
-      final relevantPdf = pdf && ha &&
+          (ha &&
+              (n.contains('raspberrypi.stackexchange') ||
+                  n.contains('home_assistant') ||
+                  n.contains('home assistant')));
+      final broad =
+          zim && n.contains('wikipedia_fa_all_') && (garden || travel);
+      final relevantPdf =
+          pdf &&
+          ha &&
           (n.contains('home_assistant') || n.contains('home assistant'));
       if (specialist || broad || relevantPdf) ids.add(id(row));
     }
     // Do not expand a project scope by "discovering" an unrelated archive.
     // If no specialist exists, leave original search behavior intact.
-    return ZimMultilingualSourceRoute(
-      sourceIds: ids.isEmpty ? null : ids,
-    );
+    return ZimMultilingualSourceRoute(sourceIds: ids.isEmpty ? null : ids);
   }
 }
