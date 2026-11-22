@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Pinned open-source Persian/English OCR dependency only.
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
