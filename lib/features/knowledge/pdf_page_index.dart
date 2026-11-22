@@ -37,6 +37,7 @@ class PdfPageIndex {
         source_id TEXT NOT NULL,
         page INTEGER NOT NULL,
         text TEXT NOT NULL,
+        ocr INTEGER NOT NULL DEFAULT 0,
         UNIQUE(source_id, page)
       )
     ''');
@@ -117,6 +118,7 @@ class PdfPageIndex {
     required int size,
     required int modified,
     required List<({int page, String text})> pages,
+    Set<int> recognizedByOcr = const {},
   }) {
     if (pages.isEmpty || pages.length > 16) {
       throw ArgumentError('Use 1..16 PDF pages per transaction');
@@ -147,8 +149,8 @@ class PdfPageIndex {
           textPages++;
         }
         db.execute(
-          'INSERT INTO pala_pdf_pages (source_id,page,text) VALUES (?,?,?)',
-          [sourceId, item.page, clean],
+          'INSERT INTO pala_pdf_pages (source_id,page,text,ocr) VALUES (?,?,?,?)',
+          [sourceId, item.page, clean, recognizedByOcr.contains(item.page) && clean.isNotEmpty ? 1 : 0],
         );
         if (clean.isNotEmpty) {
           final id = db.lastInsertRowId;
@@ -185,7 +187,7 @@ class PdfPageIndex {
 
   /// Only complete and revision-matching indexes can be queried.
   /// Quoted phrases take priority. All other terms are literal FTS tokens.
-  List<({int page, String text})> search({
+  List<({int page, String text, bool ocr})> search({
     required String sourceId,
     required int size,
     required int modified,
@@ -210,7 +212,7 @@ class PdfPageIndex {
         : terms.map((t) => '"$t"').join(' OR ');
     final rows = db.select(
       '''
-      SELECT p.page AS page, p.text AS text
+      SELECT p.page AS page, p.text AS text, p.ocr AS ocr
       FROM pala_pdf_fts
       JOIN pala_pdf_pages p ON p.id = pala_pdf_fts.rowid
       WHERE pala_pdf_fts MATCH ? AND p.source_id = ?
@@ -221,7 +223,11 @@ class PdfPageIndex {
     );
     return [
       for (final row in rows)
-        (page: row['page'] as int, text: row['text'] as String),
+        (
+          page: row['page'] as int,
+          text: row['text'] as String,
+          ocr: row['ocr'] == 1,
+        ),
     ];
   }
 
