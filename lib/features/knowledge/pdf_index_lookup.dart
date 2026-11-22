@@ -9,7 +9,7 @@ import 'pdf_page_index.dart';
 /// null = no complete revision index; [] = complete index with no matches.
 /// Only reads app-private derived data; original SAF files remain unopened.
 abstract final class PdfIndexLookup {
-  static Future<List<({int page, String text})>?> read({
+  static Future<List<({int page, String text, bool ocr})>?> read({
     required String sourceId,
     required int size,
     required int modified,
