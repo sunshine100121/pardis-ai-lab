@@ -90,33 +90,50 @@ void main() {
     );
   });
 
-  test('OCR-derived text stays marked as OCR evidence and not PDF text layer', () {
-    final db = sqlite3.openInMemory();
-    addTearDown(db.close);
-    final index = PdfPageIndex(db);
-    index.begin(sourceId: 'scan-ocr', size: 42, modified: 8, totalPages: 2);
-    index.append(
-      sourceId: 'scan-ocr',
-      size: 42,
-      modified: 8,
-      pages: [
-        (page: 1, text: 'Text-layer source passage.'),
-        (page: 2, text: 'Recognized Persian OCR passage.'),
-      ],
-      recognizedByOcr: {2},
-    );
-    expect(
-      index.search(sourceId: 'scan-ocr', size: 42, modified: 8,
-          query: '«Recognized Persian OCR passage»').single.ocr,
-      true,
-    );
-    expect(
-      index.search(sourceId: 'scan-ocr', size: 42, modified: 8,
-          query: '«Text-layer source passage»').single.ocr,
-      false,
-    );
-    expect(index.status('scan-ocr', size: 42, modified: 8)?.needsOcr, 0);
-  });
+  test(
+    'OCR-derived text stays marked as OCR evidence and not PDF text layer',
+    () {
+      final db = sqlite3.openInMemory();
+      addTearDown(db.close);
+      final index = PdfPageIndex(db);
+      index.begin(sourceId: 'scan-ocr', size: 42, modified: 8, totalPages: 2);
+      index.append(
+        sourceId: 'scan-ocr',
+        size: 42,
+        modified: 8,
+        pages: [
+          (page: 1, text: 'Text-layer source passage.'),
+          (page: 2, text: 'Recognized Persian OCR passage.'),
+        ],
+        recognizedByOcr: {2},
+      );
+      expect(
+        index
+            .search(
+              sourceId: 'scan-ocr',
+              size: 42,
+              modified: 8,
+              query: '«Recognized Persian OCR passage»',
+            )
+            .single
+            .ocr,
+        true,
+      );
+      expect(
+        index
+            .search(
+              sourceId: 'scan-ocr',
+              size: 42,
+              modified: 8,
+              query: '«Text-layer source passage»',
+            )
+            .single
+            .ocr,
+        false,
+      );
+      expect(index.status('scan-ocr', size: 42, modified: 8)?.needsOcr, 0);
+    },
+  );
 
   test(
     'one index pass resumes after stop and later skips PDFium scans',
