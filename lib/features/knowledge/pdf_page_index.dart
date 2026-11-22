@@ -13,10 +13,12 @@ class PdfPageIndex {
     this.db, {
     this.maxDatabaseBytes = 256 * 1024 * 1024,
     this.maxPageBytes = 128 * 1024,
+    bool initialize = true,
   }) {
     if (maxDatabaseBytes <= 0 || maxPageBytes <= 0) {
       throw ArgumentError('Invalid PDF index quota');
     }
+    if (!initialize) return;
     db.execute('''
       CREATE TABLE IF NOT EXISTS pala_pdf_documents (
         id TEXT PRIMARY KEY,
@@ -195,7 +197,7 @@ class PdfPageIndex {
     if (state == null || !state.complete || limit < 1 || limit > 12) {
       return [];
     }
-    final quoted = RegExp(r'[«\u201c"]([^»\u201d"]{4,})[»\u201d"]')
+    final quoted = RegExp(r'[«“"]([^»”"]{4,})[»”"]')
         .firstMatch(query);
     final clean = normalize(quoted?.group(1) ?? query);
     final terms = RegExp(r'[\p{L}\p{N}]{3,}', unicode: true)
