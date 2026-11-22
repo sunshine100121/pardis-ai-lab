@@ -146,8 +146,10 @@ class PdfIndexService {
           startPage: cursor?.nextPage ?? 1,
           cancelled: () => _stop || !allowed(),
           ocrPage: enableOcr
-              ? (page) async =>
-                    (await PdfOcrEngine.recognize(page, modelsVerified: true))?.text
+              ? (page) async => (await PdfOcrEngine.recognize(
+                  page,
+                  modelsVerified: true,
+                ))?.text
               : null,
           onOpened: (pageCount) async {
             if (!await unchanged()) throw StateError('مجوز PDF تغییر کرد');
