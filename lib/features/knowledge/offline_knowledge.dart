@@ -186,11 +186,11 @@ class OfflineKnowledge {
     }
   }
 
-  Future<KnowledgeReadReport> searchDetailed(String question) async {
+  Future<KnowledgeReadReport> searchDetailed(String question, {Set<String>? sourceIds}) async {
     final sources = <SearchResult>[];
     final checks = <Map<String, dynamic>>[];
     try {
-      final report = await library.searchDetailed(question);
+      final report = await library.searchDetailed(question, sourceIds: sourceIds);
       sources.addAll(report.sources);
       checks.addAll(report.checks);
     } catch (_) {
