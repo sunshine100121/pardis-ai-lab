@@ -58,9 +58,8 @@ class ZimQueryTranslation {
       (pattern: RegExp(r'زیگبی|zigbee'), terms: ['zigbee']),
       (pattern: RegExp(r'دریمی|dreame'), terms: ['dreame']),
     ];
-    final species = RegExp(
-      r'بادام|گردو|انجیر|almond|walnut|\bfig\b',
-    ).hasMatch(q);
+    final species = RegExp(r'بادام|گردو|انجیر|almond|walnut|\bfig\b')
+        .hasMatch(q);
     for (final item in entries) {
       // Generic "tree/plant" produces false title-only positives for a
       // question about a named tree. Keep the plant species as the anchor.
