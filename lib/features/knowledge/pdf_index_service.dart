@@ -6,6 +6,8 @@ import 'package:sqlite3/sqlite3.dart';
 import '../zim/zim_index_storage.dart';
 import 'folder_library.dart';
 import 'pdf_page_index.dart';
+import 'pdf_ocr_models.dart';
+import 'pdf_ocr_engine.dart';
 
 /// Owner-initiated and stoppable PDF text-layer indexing, never background
 /// scanning. Reuses the existing bounded SAF/PDFium reader. The original PDF
@@ -33,6 +35,7 @@ class PdfIndexService {
     required String uri,
     required bool Function() allowed,
     void Function(int page, int total)? onProgress,
+    bool enableOcr = false,
   }) async {
     if (_running) throw StateError('نمایه‌سازی PDF دیگری در حال اجراست');
     if (!allowed()) throw StateError('اجازه دسترسی به PDF وجود ندارد');
@@ -87,6 +90,9 @@ class PdfIndexService {
       }
 
       if (!await unchanged()) throw StateError('PDF تغییر کرده است');
+      if (enableOcr && !await PdfOcrModels.ready()) {
+        throw StateError('ابتدا مدل‌های OCR فارسی و انگلیسی را آماده کنید');
+      }
       db = openDatabase(indexPath);
       final index = PdfPageIndex(
         db,
@@ -94,15 +100,23 @@ class PdfIndexService {
       );
       var cursor = index.status(id, size: size, modified: modified);
       if (cursor?.complete == true) {
-        return (
-          scanned: cursor!.totalPages,
-          total: cursor.totalPages,
-          needsOcr: cursor.needsOcr,
-          cancelled: false,
-        );
+        if (enableOcr && cursor!.needsOcr > 0) {
+          // A document with image-only pages can be rebuilt with OCR once
+          // models become available. The original PDF is untouched.
+          index.discard(id);
+          cursor = null;
+        } else {
+          return (
+            scanned: cursor!.totalPages,
+            total: cursor.totalPages,
+            needsOcr: cursor.needsOcr,
+            cancelled: false,
+          );
+        }
       }
       var total = cursor?.totalPages ?? 0;
       final pending = <({int page, String text})>[];
+      final recognizedPages = <int>{};
       Future<void> commit() async {
         if (pending.isEmpty) return;
         if (!await unchanged() || !await storage.hasHeadroom()) {
@@ -113,8 +127,10 @@ class PdfIndexService {
           size: size,
           modified: modified,
           pages: List.of(pending),
+          recognizedByOcr: Set.of(recognizedPages),
         );
         pending.clear();
+        recognizedPages.clear();
         cursor = index.status(id, size: size, modified: modified);
         onProgress?.call((cursor?.nextPage ?? 1) - 1, total);
       }
@@ -129,6 +145,10 @@ class PdfIndexService {
           sourceName: 'pala-pdf-index:$id:$modified',
           startPage: cursor?.nextPage ?? 1,
           cancelled: () => _stop || !allowed(),
+          ocrPage: enableOcr
+              ? (page) async =>
+                    (await PdfOcrEngine.recognize(page, modelsVerified: true))?.text
+              : null,
           onOpened: (pageCount) async {
             if (!await unchanged()) throw StateError('مجوز PDF تغییر کرد');
             index.begin(
@@ -139,8 +159,9 @@ class PdfIndexService {
             );
             total = pageCount;
           },
-          onPageText: (page, text) async {
+          onPageText: (page, text, wasOcr) async {
             pending.add((page: page, text: text));
+            if (wasOcr) recognizedPages.add(page);
             if (pending.length >= 16) await commit();
           },
         );
