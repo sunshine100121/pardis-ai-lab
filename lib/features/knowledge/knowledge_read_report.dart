@@ -56,6 +56,11 @@ class KnowledgeReadReport {
       'pdf_page_scan' =>
         'همهٔ ${check['pagesScanned']} صفحهٔ PDF بررسی شدند؛ '
             '${check['pagesMatched']} نتیجهٔ برتر با شماره صفحه پیدا شد.',
+      'pdf_index_hit' =>
+        'نمایهٔ کامل صفحه‌های PDF جست‌وجو شد؛ '
+            '${check['pagesMatched']} نتیجه بدون بازخوانی PDF پیدا شد.',
+      'pdf_index_error' =>
+        'نمایه PDF خوانده نشد؛ برای نتیجه تأییدشده از روش قبلی جست‌وجوی صفحات استفاده شد.',
       'pdf_page_scan_failed' => 'جست‌وجوی صفحات PDF کامل نشد؛ مجوز فایل، خرابی یا رمز سند را بررسی کنید.',
       'ha_ambiguous' =>
         'حسگر یا محل پرسش مبهم است؛ دادهٔ حسگر دیگر جایگزین نشد',
