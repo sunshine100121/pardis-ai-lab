@@ -37,14 +37,15 @@ class PdfOcrModels {
   static Future<bool> _verified(File file, int length, String blob) async {
     try {
       if (!await file.exists() || await file.length() != length) return false;
-      final hash = AccumulatorSink<Digest>();
-      final digester = sha1.startChunkedConversion(hash);
-      digester.add(utf8.encode('blob $length\x00'));
-      await for (final chunk in file.openRead()) {
-        digester.add(chunk);
-      }
-      digester.close();
-      return hash.events.single.toString() == blob;
+      // Official models are below 5 MiB; one bounded buffer avoids depending
+      // on an unpinned chunked-hash sink implementation.
+      final bytes = await file.readAsBytes();
+      if (bytes.length != length) return false;
+      final gitBlob = <int>[
+        ...utf8.encode('blob $length\x00'),
+        ...bytes,
+      ];
+      return sha1.convert(gitBlob).toString() == blob;
     } catch (_) {
       return false;
     }
