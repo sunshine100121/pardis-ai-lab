@@ -1,4 +1,4 @@
-name: PALA M02 + M03 ZIM and PDF index source tests (no APK)
+name: PALA M03 PDF index + offline OCR source and Kotlin checks (no APK)
 
 on:
   push:
@@ -43,10 +43,13 @@ jobs:
             lib/features/knowledge/pdf_index_lookup.dart \
             lib/features/knowledge/folder_library.dart \
             lib/features/settings/presentation/screens/folder_knowledge_page.dart \
-            test/pdf_page_index_test.dart
-          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart lib/features/knowledge/pdf_page_index.dart lib/features/knowledge/pdf_index_service.dart lib/features/knowledge/pdf_index_lookup.dart lib/features/knowledge/folder_library.dart lib/features/settings/presentation/screens/folder_knowledge_page.dart test/pdf_page_index_test.dart; then
+            test/pdf_page_index_test.dart \
+            lib/features/knowledge/pdf_ocr_models.dart \
+            lib/features/knowledge/pdf_ocr_engine.dart \
+            test/pdf_ocr_models_test.dart
+          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart lib/features/knowledge/pdf_page_index.dart lib/features/knowledge/pdf_index_service.dart lib/features/knowledge/pdf_index_lookup.dart lib/features/knowledge/folder_library.dart lib/features/settings/presentation/screens/folder_knowledge_page.dart test/pdf_page_index_test.dart lib/features/knowledge/pdf_ocr_models.dart lib/features/knowledge/pdf_ocr_engine.dart test/pdf_ocr_models_test.dart; then
             echo 'M02_FORMAT_PATCH_BEGIN'
-            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart lib/features/knowledge/pdf_page_index.dart lib/features/knowledge/pdf_index_service.dart lib/features/knowledge/pdf_index_lookup.dart lib/features/knowledge/folder_library.dart lib/features/settings/presentation/screens/folder_knowledge_page.dart test/pdf_page_index_test.dart
+            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart lib/features/knowledge/pdf_page_index.dart lib/features/knowledge/pdf_index_service.dart lib/features/knowledge/pdf_index_lookup.dart lib/features/knowledge/folder_library.dart lib/features/settings/presentation/screens/folder_knowledge_page.dart test/pdf_page_index_test.dart lib/features/knowledge/pdf_ocr_models.dart lib/features/knowledge/pdf_ocr_engine.dart test/pdf_ocr_models_test.dart
             echo 'M02_FORMAT_PATCH_END'
             echo 'M02_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
           fi
@@ -64,7 +67,10 @@ jobs:
             lib/features/knowledge/pdf_index_lookup.dart \
             lib/features/knowledge/folder_library.dart \
             lib/features/settings/presentation/screens/folder_knowledge_page.dart \
-            test/pdf_page_index_test.dart
+            test/pdf_page_index_test.dart \
+            lib/features/knowledge/pdf_ocr_models.dart \
+            lib/features/knowledge/pdf_ocr_engine.dart \
+            test/pdf_ocr_models_test.dart
       - name: Prepare locked PDFium test asset if needed by library imports
         run: |
           dart run scripts/prepare_pdfium_assets.dart
@@ -84,7 +90,10 @@ jobs:
             test/offline_upgrade_compatibility_test.dart \
             test/pdf_page_index_test.dart \
             test/offline_pdf_native_test.dart \
-            test/offline_folder_library_test.dart
+            test/offline_folder_library_test.dart \
+            test/pdf_ocr_models_test.dart
+      - name: Compile Android host integration and pinned OCR library without APK
+        run: bash scripts/check_android_host.sh
       - name: Final lockfile and committed Dart formatting verification
         run: |
           python3 - <<'PY'
@@ -103,4 +112,4 @@ jobs:
             echo 'FORMAT_PATCH_NEEDS_REVIEW_AND_COMMIT' >&2
             exit 1
           fi
-          echo 'M02_M03_SOURCE_GATE=PASS; TABLET_PDF_OCR=NOT_VERIFIED; APK=NO'
+          echo 'M03_OCR_SOURCE_GATE=PASS; TABLET_PDF_OCR=NOT_VERIFIED; APK=NO'
