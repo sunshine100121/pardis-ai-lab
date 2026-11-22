@@ -156,15 +156,17 @@ class ZimIndexedProjectSearch {
               .isNotEmpty;
       // Avoid waking Qwen just to translate an already-answered Persian
       // query. English or mixed project archives still use local translation.
+      final fastQuery = ZimQueryTranslation.fastSpecialistTerms(question);
       final query = nativePersianEvidence
           ? null
-          : await ZimQueryTranslation.englishTerms(
-              question,
-              engine: engine,
-              settings: settings,
-              fallbackTemplate: fallbackTemplate,
-              cancelled: cancelled,
-            );
+          : fastQuery ??
+                await ZimQueryTranslation.englishTerms(
+                  question,
+                  engine: engine,
+                  settings: settings,
+                  fallbackTemplate: fallbackTemplate,
+                  cancelled: cancelled,
+                );
       if (query == null && !nativePersianEvidence) errors++;
       if (cancelled())
         return (
@@ -264,11 +266,21 @@ class ZimIndexedProjectSearch {
           field: specialist ? 1 : 0,
         ));
       }
+      // A specialist receives a modest bonus only after genuine lexical
+      // evidence exists; unrelated archive names never count as proof.
+      // Mixed Persian/English coverage is measured against the source
+      // language, so translated English excerpts are not penalized.
       candidates.sort((a, b) {
-        final relevance = b.coverage.compareTo(a.coverage);
-        return relevance != 0 ? relevance : b.field.compareTo(a.field);
+        final aScore = a.coverage + (a.coverage > 0 && a.field == 1 ? 20 : 0);
+        final bScore = b.coverage + (b.coverage > 0 && b.field == 1 ? 20 : 0);
+        final relevance = bScore.compareTo(aScore);
+        return relevance != 0 ? relevance : b.coverage.compareTo(a.coverage);
       });
-      final combined = candidates.take(4).map((hit) => hit.source).toList();
+      final combined = candidates
+          .where((hit) => hit.coverage > 0)
+          .take(4)
+          .map((hit) => hit.source)
+          .toList();
       return (
         sources: combined,
         incomplete: incomplete,
