@@ -17,7 +17,7 @@ import 'knowledge_read_report.dart';
 import 'pdf_index_lookup.dart';
 
 typedef LibraryFile = ({String uri, String name, int size, int modified});
-typedef IndexedPdfSearch = Future<List<({int page, String text})>?> Function({
+typedef IndexedPdfSearch = Future<List<({int page, String text, bool ocr})>?> Function({
   required String sourceId,
   required int size,
   required int modified,
@@ -502,7 +502,7 @@ class FolderLibrary {
       // bounded read-only page scan remains the safe fallback.
       if ((f['name'] as String).toLowerCase().endsWith('.pdf') &&
           terms.isNotEmpty) {
-        List<({int page, String text})>? indexed;
+        List<({int page, String text, bool ocr})>? indexed;
         try {
           indexed = await indexedPdfSearch(
             sourceId: sourceId(f['uri'] as String),
@@ -547,7 +547,9 @@ class FolderLibrary {
                 url:
                     'pala-knowledge://${sourceId(f['uri'] as String)}?page=${hit.page}',
                 snippet: '',
-                source: 'پوشه AI Knowledge',
+                source: hit.ocr
+                    ? 'پوشه AI Knowledge · متن استخراج‌شده با OCR'
+                    : 'پوشه AI Knowledge',
                 rank: 100,
                 pageText: snippet,
                 fetchedAt: DateTime.now().toUtc(),
