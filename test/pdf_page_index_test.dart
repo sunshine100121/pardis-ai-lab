@@ -81,10 +81,7 @@ void main() {
       sourceId: 'scan',
       size: 25,
       modified: 1,
-      pages: [
-        (page: 1, text: ''),
-        (page: 2, text: '  '),
-      ],
+      pages: [(page: 1, text: ''), (page: 2, text: '  ')],
     );
     expect(index.status('scan', size: 25, modified: 1)?.needsOcr, 2);
     expect(
@@ -93,99 +90,111 @@ void main() {
     );
   });
 
-  test('one index pass resumes after stop and later skips PDFium scans', () async {
-    SharedPreferences.setMockInitialValues({});
-    final dir = await Directory.systemTemp.createTemp('pala-m03-pdf-index-');
-    final previous = PathProviderPlatform.instance;
-    PathProviderPlatform.instance = PdfTestPaths(dir.path);
-    addTearDown(() async {
-      PathProviderPlatform.instance = previous;
-      await dir.delete(recursive: true);
-    });
-    final pdf = pw.Document();
-    for (var page = 1; page <= 130; page++) {
-      pdf.addPage(pw.Page(
-        build: (_) => pw.Text(page == 127
-            ? 'Distinct persimmon greenhouse signature on page 127.'
-            : 'Ordinary horticulture chapter $page.'),
-      ));
-    }
-    final original = Uint8List.fromList(await pdf.save());
-    final folder = TestFolder()..add('indexed.pdf', original);
-    final library = FolderLibrary(access: folder);
-    await library.refresh();
-    final storage = ZimIndexStorage(
-      directory: dir,
-      availableBytes: () async => 1024 * 1024 * 1024,
-      reserveBytes: 0,
-      maxDatabaseBytes: 64 * 1024 * 1024,
-    );
-    final first = PdfIndexService(library, storage);
-    final partial = await first.run(
-      uri: 'indexed.pdf',
-      allowed: () => true,
-      onProgress: (page, total) {
-        if (page == 16) first.stop();
-      },
-    );
-    expect(partial.cancelled, true);
-    expect(partial.scanned, 16);
-    final resumed = PdfIndexService(library, storage);
-    final finished = await resumed.run(
-      uri: 'indexed.pdf',
-      allowed: () => true,
-    );
-    expect(finished.cancelled, false);
-    expect(finished.scanned, 130);
-    expect(finished.total, 130);
-    expect(finished.needsOcr, 0);
+  test(
+    'one index pass resumes after stop and later skips PDFium scans',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final dir = await Directory.systemTemp.createTemp('pala-m03-pdf-index-');
+      final previous = PathProviderPlatform.instance;
+      PathProviderPlatform.instance = PdfTestPaths(dir.path);
+      addTearDown(() async {
+        PathProviderPlatform.instance = previous;
+        await dir.delete(recursive: true);
+      });
+      final pdf = pw.Document();
+      for (var page = 1; page <= 130; page++) {
+        pdf.addPage(
+          pw.Page(
+            build: (_) => pw.Text(
+              page == 127
+                  ? 'Distinct persimmon greenhouse signature on page 127.'
+                  : 'Ordinary horticulture chapter $page.',
+            ),
+          ),
+        );
+      }
+      final original = Uint8List.fromList(await pdf.save());
+      final folder = TestFolder()..add('indexed.pdf', original);
+      final library = FolderLibrary(access: folder);
+      await library.refresh();
+      final storage = ZimIndexStorage(
+        directory: dir,
+        availableBytes: () async => 1024 * 1024 * 1024,
+        reserveBytes: 0,
+        maxDatabaseBytes: 64 * 1024 * 1024,
+      );
+      final first = PdfIndexService(library, storage);
+      final partial = await first.run(
+        uri: 'indexed.pdf',
+        allowed: () => true,
+        onProgress: (page, total) {
+          if (page == 16) first.stop();
+        },
+      );
+      expect(partial.cancelled, true);
+      expect(partial.scanned, 16);
+      final resumed = PdfIndexService(library, storage);
+      final finished = await resumed.run(
+        uri: 'indexed.pdf',
+        allowed: () => true,
+      );
+      expect(finished.cancelled, false);
+      expect(finished.scanned, 130);
+      expect(finished.total, 130);
+      expect(finished.needsOcr, 0);
 
-    final db = sqlite3.open(resumed.indexPath, mode: OpenMode.readOnly);
-    final index = PdfPageIndex(db, initialize: false);
-    final matches = index.search(
-      sourceId: FolderLibrary.sourceId('indexed.pdf'),
-      size: original.length,
-      modified: 1,
-      query: '«Distinct persimmon greenhouse signature»',
-    );
-    expect(matches.single.page, 127);
-    db.close();
+      final db = sqlite3.open(resumed.indexPath, mode: OpenMode.readOnly);
+      final index = PdfPageIndex(db, initialize: false);
+      final matches = index.search(
+        sourceId: FolderLibrary.sourceId('indexed.pdf'),
+        size: original.length,
+        modified: 1,
+        query: '«Distinct persimmon greenhouse signature»',
+      );
+      expect(matches.single.page, 127);
+      db.close();
 
-    final opensBefore = folder.opens;
-    final cached = FolderLibrary(
-      access: folder,
-      indexedPdfSearch: ({
-        required sourceId,
-        required size,
-        required modified,
-        required query,
-      }) async {
-        final db = sqlite3.open(resumed.indexPath, mode: OpenMode.readOnly);
-        try {
-          return PdfPageIndex(db, initialize: false).search(
-            sourceId: sourceId,
-            size: size,
-            modified: modified,
-            query: query,
-          );
-        } finally {
-          db.close();
-        }
-      },
-    );
-    final report = await cached.searchDetailed(
-      'در indexed.pdf عبارت «Distinct persimmon greenhouse signature» را پیدا کن',
-    );
-    expect(report.sources, hasLength(1));
-    expect(report.sources.single.title, contains('صفحه 127'));
-    expect(report.checks.single['code'], 'pdf_index_hit');
-    expect(folder.opens, opensBefore);
-    expect(folder.bytes['indexed.pdf'], original);
-    await cached.setEnabled('indexed.pdf', false);
-    expect(
-      (await cached.searchDetailed('«Distinct persimmon greenhouse signature»'))
-          .sources,
-      isEmpty,
-    );
-  });
+      final opensBefore = folder.opens;
+      final cached = FolderLibrary(
+        access: folder,
+        indexedPdfSearch:
+            ({
+              required sourceId,
+              required size,
+              required modified,
+              required query,
+            }) async {
+              final db = sqlite3.open(
+                resumed.indexPath,
+                mode: OpenMode.readOnly,
+              );
+              try {
+                return PdfPageIndex(db, initialize: false).search(
+                  sourceId: sourceId,
+                  size: size,
+                  modified: modified,
+                  query: query,
+                );
+              } finally {
+                db.close();
+              }
+            },
+      );
+      final report = await cached.searchDetailed(
+        'در indexed.pdf عبارت «Distinct persimmon greenhouse signature» را پیدا کن',
+      );
+      expect(report.sources, hasLength(1));
+      expect(report.sources.single.title, contains('صفحه 127'));
+      expect(report.checks.single['code'], 'pdf_index_hit');
+      expect(folder.opens, opensBefore);
+      expect(folder.bytes['indexed.pdf'], original);
+      await cached.setEnabled('indexed.pdf', false);
+      expect(
+        (await cached.searchDetailed(
+          '«Distinct persimmon greenhouse signature»',
+        )).sources,
+        isEmpty,
+      );
+    },
+  );
 }
