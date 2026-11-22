@@ -144,7 +144,8 @@ class FolderLibrary {
     required String sourceName,
     int startPage = 1,
     Future<void> Function(int totalPages)? onOpened,
-    Future<void> Function(int page, String text)? onPageText,
+    Future<void> Function(int page, String text, bool wasOcr)? onPageText,
+    Future<String?> Function(PdfPage page)? ocrPage,
     bool Function()? cancelled,
   }) async {
     if (expectedBytes <= 0 || await source.length() != expectedBytes) {
@@ -199,8 +200,16 @@ class FolderLibrary {
       for (var i = startPage - 1; i < document.pages.length; i++) {
         if (cancelled?.call() == true) break;
         // Preserve bounded reads and the actual PDF page numbering.
-        final text = (await document.pages[i].loadText())?.fullText ?? '';
-        await onPageText?.call(i + 1, text);
+        var text = (await document.pages[i].loadText())?.fullText ?? '';
+        var wasOcr = false;
+        if (text.trim().isEmpty && ocrPage != null) {
+          final recognized = await ocrPage(document.pages[i]);
+          if (recognized != null && recognized.trim().isNotEmpty) {
+            text = recognized;
+            wasOcr = true;
+          }
+        }
+        await onPageText?.call(i + 1, text, wasOcr);
         if (text.trim().isEmpty) continue;
         pagesWithText++;
         if (questionTerms.isEmpty) continue;
