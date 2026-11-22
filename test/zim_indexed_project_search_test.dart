@@ -118,8 +118,10 @@ void main() {
     expect(opened.every((uri) => uri == 'garden.zim'), isTrue);
     expect(result.incomplete, 0);
     opened.clear();
+    // Unrecognized Persian wording exercises the guarded model fallback;
+    // the already-indexed common garden vocabulary does not wake Qwen.
     final revoked = await search.search(
-      question: 'آبیاری درخت گردو',
+      question: 'چرخه رشد چیست؟',
       sourceIds: {id},
       allowed: (source) => allowed && source == id,
       cancelled: () => false,
