@@ -85,7 +85,7 @@ jobs:
             test/pdf_page_index_test.dart \
             test/offline_pdf_native_test.dart \
             test/offline_folder_library_test.dart
-      - name: Final exact lockfile and formatting verification
+      - name: Final lockfile and committed Dart formatting verification
         run: |
           python3 - <<'PY'
           from pathlib import Path
