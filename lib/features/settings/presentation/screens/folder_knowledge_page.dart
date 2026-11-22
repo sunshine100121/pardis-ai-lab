@@ -138,6 +138,7 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
       final result = await service.run(
         uri: uri,
         allowed: () => mounted,
+        enableOcr: _ocrReady,
         onProgress: (page, total) {
           if (mounted) {
             setState(() => _indexMessage = 'نمایه PDF: $page از $total صفحه');
