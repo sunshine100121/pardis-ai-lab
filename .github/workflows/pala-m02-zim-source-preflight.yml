@@ -92,7 +92,7 @@ jobs:
             test/offline_pdf_native_test.dart \
             test/offline_folder_library_test.dart \
             test/pdf_ocr_models_test.dart
-      - name: Compile Android host integration and pinned OCR library without APK
+      - name: Validate Kotlin native OCR runtime integration without producing APK
         run: bash scripts/check_android_host.sh
       - name: Final lockfile and committed Dart formatting verification
         run: |
