@@ -134,6 +134,9 @@ flutter {
 dependencies {
     // Same bundled Latin recognizer as before, without the legacy plugin.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Optional local Persian/English PDF OCR; models are downloaded once
+    // by explicit owner action and SHA-1 Git-blob verified.
+    implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
     // Official Vosk Android runtime; the language model is downloaded separately.
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
     implementation("net.java.dev.jna:jna:5.18.1@aar")
