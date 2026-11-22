@@ -40,6 +40,7 @@ import '../../../zim/zim_wikipedia.dart';
 import '../../../zim/zim_index_storage.dart';
 import '../../../zim/zim_indexed_project_search.dart';
 import '../../../zim/zim_source_scope.dart';
+import '../../../zim/zim_multilingual_source_route.dart';
 import '../../../retrieval/claim_check_runner.dart';
 import '../../../retrieval/domain/claim_check.dart';
 import '../../../retrieval/domain/date_check.dart';
@@ -1932,12 +1933,29 @@ class ChatNotifier extends _ChatBase
           .where((p) => p.id == _projectId)
           .firstOrNull;
       final projectSourceIds = project?.sourceIds.toSet() ?? <String>{};
-      final local = _projectId == null
-          ? await localKnowledge.searchDetailed(input)
-          : await localKnowledge.searchProject(
+      final route = ZimMultilingualSourceRoute.choose(
+        input,
+        await localKnowledge.library.state(),
+        projectAllowed: _projectId == null ? null : projectSourceIds,
+      );
+      final localScope = route.sourceIds ??
+          (_projectId == null ? null : projectSourceIds);
+      // Explicit ONLY refers to a real owner-approved file. Never fall back
+      // to another PDF/ZIM, general HA readings, or old project sources.
+      final local = route.exclusive
+          ? await localKnowledge.library.searchDetailed(
               input,
-              sourceIds: projectSourceIds,
-            );
+              sourceIds: localScope,
+            )
+          : _projectId == null
+              ? await localKnowledge.searchDetailed(
+                  input,
+                  sourceIds: localScope,
+                )
+              : await localKnowledge.searchProject(
+                  input,
+                  sourceIds: localScope ?? projectSourceIds,
+                );
       if (_cancelled || !_alive) return null;
       final indexedSources = <SearchResult>[];
       final indexedChecks = <Map<String, dynamic>>[];
@@ -1945,9 +1963,12 @@ class ChatNotifier extends _ChatBase
       // In ordinary chats, use the same content index as project chats.
       // Previously only project chat entered this branch, so an ordinary
       // Persian question always fell back to title-only ZIM lookup.
-      final indexedSourceIds = scopedProjectId == null
+      final permittedIndexes = scopedProjectId == null
           ? ZimSourceScope.enabledArchives(await localKnowledge.library.state())
           : projectSourceIds;
+      final indexedSourceIds = route.sourceIds == null
+          ? permittedIndexes
+          : permittedIndexes.intersection(route.sourceIds!);
       if ((scopedProjectId == null || project != null) &&
           engine is LlamaEngine &&
           indexedSourceIds.isNotEmpty &&
@@ -2041,8 +2062,28 @@ class ChatNotifier extends _ChatBase
           ),
         if (!scopeChanged)
           ...local.sources.where((s) => !s.url.startsWith('pala-status:')),
-        if (!scopeChanged) ...t.sources,
+        if (!scopeChanged && !route.exclusive) ...t.sources,
       ];
+      if (route.exclusive) {
+        // A user asking for ONLY one named archive must not receive passages
+        // from other archives, indexed PDFs, recall or web results.
+        final allowedId = route.sourceIds?.singleOrNull;
+        t.sources = allowedId == null
+            ? <SearchResult>[]
+            : t.sources.where((source) {
+                if (!source.url.startsWith('zim://')) return false;
+                final uri = Uri.tryParse(source.url);
+                return uri?.queryParameters['source'] == allowedId;
+              }).toList();
+        if (t.sources.isEmpty) {
+          t.offlineRefusal = route.missingOrAmbiguous
+              ? 'این دانشنامه در منابع مجاز و فعال به‌صورت یکتا پیدا نشد. '
+                    'هیچ منبع دیگری جایگزین نمی‌کنم.'
+              : 'از دانشنامه درخواستی متن مرتبط و قابل‌استناد بازیابی نشد. '
+                    'وضعیت نمایه متن آن دانشنامه را در پوشه دانش بررسی کنید. '
+                    'از دانش مدل یا منابع دیگر پاسخی حدس نمی‌زنم.';
+        }
+      }
       if (scopeChanged) {
         t.offlineRefusal =
             'منابع پروژه هنگام جست‌وجو تغییر کردند؛ لطفاً دوباره درخواست کنید.';
@@ -2051,6 +2092,15 @@ class ChatNotifier extends _ChatBase
         requiredEncyclopedia: ZimWikipedia.requiresEncyclopedia(input),
         supplied: false,
       );
+      if (route.exclusive) {
+        (t.offlineRead!['checks'] as List).add({
+          'file': route.requestedFile ?? 'منبع انتخاب‌شده',
+          'code': route.missingOrAmbiguous
+              ? 'source_scope_unavailable'
+              : 'source_scope_exclusive',
+          'selected': route.sourceIds?.length ?? 0,
+        });
+      }
       if (!scopeChanged && indexedChecks.isNotEmpty) {
         t.offlineRead!['checks'] = [...local.checks, ...indexedChecks];
       }
