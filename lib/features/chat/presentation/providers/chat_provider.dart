@@ -1938,8 +1938,8 @@ class ChatNotifier extends _ChatBase
         await localKnowledge.library.state(),
         projectAllowed: _projectId == null ? null : projectSourceIds,
       );
-      final localScope = route.sourceIds ??
-          (_projectId == null ? null : projectSourceIds);
+      final localScope =
+          route.sourceIds ?? (_projectId == null ? null : projectSourceIds);
       // Explicit ONLY refers to a real owner-approved file. Never fall back
       // to another PDF/ZIM, general HA readings, or old project sources.
       final local = route.exclusive
