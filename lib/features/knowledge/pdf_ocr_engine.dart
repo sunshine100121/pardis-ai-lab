@@ -14,7 +14,10 @@ typedef PdfOcrReading = ({String text, int confidence});
 class PdfOcrEngine {
   static const MethodChannel channel = MethodChannel('pala/pdf_ocr');
 
-  static Future<PdfOcrReading?> recognize(PdfPage page, {bool modelsVerified = false}) async {
+  static Future<PdfOcrReading?> recognize(
+    PdfPage page, {
+    bool modelsVerified = false,
+  }) async {
     if (!modelsVerified && !await PdfOcrModels.ready()) {
       throw StateError('مدل‌های OCR فارسی و انگلیسی هنوز آماده نشده‌اند');
     }
@@ -42,14 +45,11 @@ class PdfOcrEngine {
       throw StateError('تصویر صفحه برای OCR بیش از حد بزرگ است');
     }
     final dataPath = (await PdfOcrModels.dataDirectory()).path;
-    final answer = await channel.invokeMapMethod<String, dynamic>(
-      'recognize',
-      {
-        'png': png,
-        'dataPath': dataPath,
-        'language': 'fas+eng',
-      },
-    );
+    final answer = await channel.invokeMapMethod<String, dynamic>('recognize', {
+      'png': png,
+      'dataPath': dataPath,
+      'language': 'fas+eng',
+    });
     final text = answer?['text'] as String? ?? '';
     final confidence = (answer?['confidence'] as num?)?.toInt() ?? 0;
     // Below threshold, treat uncertain OCR as missing evidence, never as
