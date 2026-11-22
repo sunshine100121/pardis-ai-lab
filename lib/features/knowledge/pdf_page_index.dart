@@ -150,7 +150,12 @@ class PdfPageIndex {
         }
         db.execute(
           'INSERT INTO pala_pdf_pages (source_id,page,text,ocr) VALUES (?,?,?,?)',
-          [sourceId, item.page, clean, recognizedByOcr.contains(item.page) && clean.isNotEmpty ? 1 : 0],
+          [
+            sourceId,
+            item.page,
+            clean,
+            recognizedByOcr.contains(item.page) && clean.isNotEmpty ? 1 : 0,
+          ],
         );
         if (clean.isNotEmpty) {
           final id = db.lastInsertRowId;
