@@ -38,7 +38,7 @@ jobs:
             lib/features/chat/presentation/providers/chat_web.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             test/zim_source_scope_test.dart \
-lib/features/knowledge/pdf_page_index.dart \
+            lib/features/knowledge/pdf_page_index.dart \
             lib/features/knowledge/pdf_index_service.dart \
             lib/features/knowledge/pdf_index_lookup.dart \
             lib/features/knowledge/folder_library.dart \
@@ -59,7 +59,7 @@ lib/features/knowledge/pdf_page_index.dart \
             lib/features/chat/presentation/providers/chat_web.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
             test/zim_source_scope_test.dart \
-lib/features/knowledge/pdf_page_index.dart \
+            lib/features/knowledge/pdf_page_index.dart \
             lib/features/knowledge/pdf_index_service.dart \
             lib/features/knowledge/pdf_index_lookup.dart \
             lib/features/knowledge/folder_library.dart \
