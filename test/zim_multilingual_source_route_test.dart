@@ -46,7 +46,8 @@ void main() {
 
   test('Persian gardening searches English specialist and relevant general article, NOT medical PDF', () {
     final route = ZimMultilingualSourceRoute.choose(
-      'تفاوت مقاومت درخت بادام و گردو به سرمای پاییز چیست؟', data,
+      'تفاوت مقاومت درخت بادام و گردو به سرمای پاییز چیست؟',
+      data,
     );
     expect(route.exclusive, false);
     expect(route.sourceIds, {id('gardening.zim'), id('wikipedia.zim')});
@@ -55,7 +56,8 @@ void main() {
 
   test('English cold-protection question routes to specialist', () {
     final route = ZimMultilingualSourceRoute.choose(
-      'How do I protect young fig trees from frost?', data,
+      'How do I protect young fig trees from frost?',
+      data,
     );
     expect(route.sourceIds, {id('gardening.zim'), id('wikipedia.zim')});
   });
@@ -65,47 +67,58 @@ void main() {
       'Search ONLY the local offline archive '
       'gardening.stackexchange.com_en_all_2026-10.zim. '
       'What is the best way to protect young fig trees from frost? '
-      'Do not use any other PDF.', data,
+      'Do not use any other PDF.',
+      data,
     );
     expect(route.exclusive, true);
     expect(route.missingOrAmbiguous, false);
     expect(route.sourceIds, {id('gardening.zim')});
   });
 
-  test('explicit missing, disabled or project-unapproved archive fails closed', () {
-    final question = 'Search ONLY gardening.stackexchange.com_en_all_2026-10.zim';
-    final project = ZimMultilingualSourceRoute.choose(
-      question, data, projectAllowed: {id('wikipedia.zim')},
-    );
-    expect(project.sourceIds, isEmpty);
-    expect(project.missingOrAmbiguous, true);
-    final missing = ZimMultilingualSourceRoute.choose(
-      'Search ONLY not_existing_2026.zim', data,
-    );
-    expect(missing.exclusive, true);
-    expect(missing.sourceIds, isEmpty);
-    expect(missing.missingOrAmbiguous, true);
-  });
+  test(
+    'explicit missing, disabled or project-unapproved archive fails closed',
+    () {
+      final question =
+          'Search ONLY gardening.stackexchange.com_en_all_2026-10.zim';
+      final project = ZimMultilingualSourceRoute.choose(
+        question,
+        data,
+        projectAllowed: {id('wikipedia.zim')},
+      );
+      expect(project.sourceIds, isEmpty);
+      expect(project.missingOrAmbiguous, true);
+      final missing = ZimMultilingualSourceRoute.choose(
+        'Search ONLY not_existing_2026.zim',
+        data,
+      );
+      expect(missing.exclusive, true);
+      expect(missing.sourceIds, isEmpty);
+      expect(missing.missingOrAmbiguous, true);
+    },
+  );
 
-  test('travel selects Wikivoyage and generic Persian source, not gardening', () {
-    final route = ZimMultilingualSourceRoute.choose(
-      'برای سفر سه روزه به اصفهان جاذبه های تاریخی کدامند؟', data,
-    );
-    expect(route.sourceIds, {id('wikivoyage.zim'), id('wikipedia.zim')});
-  });
+  test(
+    'travel selects Wikivoyage and generic Persian source, not gardening',
+    () {
+      final route = ZimMultilingualSourceRoute.choose(
+        'برای سفر سه روزه به اصفهان جاذبه های تاریخی کدامند؟',
+        data,
+      );
+      expect(route.sourceIds, {id('wikivoyage.zim'), id('wikipedia.zim')});
+    },
+  );
 
   test('Home Assistant favors existing Raspberry and HA document, not unrelated PDFs', () {
     final route = ZimMultilingualSourceRoute.choose(
-      'How do Home Assistant Zigbee sensors work on Raspberry Pi?', data,
+      'How do Home Assistant Zigbee sensors work on Raspberry Pi?',
+      data,
     );
     expect(route.sourceIds, {id('pi.zim'), id('dreame.pdf')});
     expect(route.sourceIds, isNot(contains(id('medical.pdf'))));
   });
 
   test('generic questions retain source scope; no forced source selection', () {
-    final route = ZimMultilingualSourceRoute.choose(
-      'What is gravity?', data,
-    );
+    final route = ZimMultilingualSourceRoute.choose('What is gravity?', data);
     expect(route.sourceIds, isNull);
     expect(route.exclusive, false);
   });
@@ -118,9 +131,7 @@ void main() {
       contains('almond'),
     );
     expect(
-      ZimQueryTranslation.fastSpecialistTerms(
-        'آبیاری درخت گردو',
-      ),
+      ZimQueryTranslation.fastSpecialistTerms('آبیاری درخت گردو'),
       contains('watering'),
     );
     final fig = ZimQueryTranslation.fastSpecialistTerms(
@@ -130,9 +141,6 @@ void main() {
     expect(fig, contains('fig'));
     expect(fig, contains('frost'));
     expect(fig, isNot(contains('archive')));
-    expect(
-      ZimQueryTranslation.fastSpecialistTerms('What is gravity?'),
-      isNull,
-    );
+    expect(ZimQueryTranslation.fastSpecialistTerms('What is gravity?'), isNull);
   });
 }
