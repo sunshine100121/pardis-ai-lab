@@ -17,12 +17,13 @@ import 'knowledge_read_report.dart';
 import 'pdf_index_lookup.dart';
 
 typedef LibraryFile = ({String uri, String name, int size, int modified});
-typedef IndexedPdfSearch = Future<List<({int page, String text, bool ocr})>?> Function({
-  required String sourceId,
-  required int size,
-  required int modified,
-  required String query,
-});
+typedef IndexedPdfSearch =
+    Future<List<({int page, String text, bool ocr})>?> Function({
+      required String sourceId,
+      required int size,
+      required int modified,
+      required String query,
+    });
 
 abstract interface class FolderAccess {
   Future<bool> pick();
