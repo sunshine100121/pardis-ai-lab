@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../knowledge/folder_library.dart';
+import '../../../knowledge/pdf_index_service.dart';
 import '../../../knowledge/ha_read_client.dart';
 import '../../../knowledge/offline_knowledge.dart';
 import '../../../knowledge/knowledge_read_status.dart';
@@ -25,11 +26,13 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
   String? _error;
   String? _indexMessage;
   ZimIndexService? _indexService;
+  PdfIndexService? _pdfIndexService;
   final _probe = TextEditingController(text: 'مریخ');
   List<dynamic> _checks = [];
   @override
   void dispose() {
     _indexService?.stop();
+    _pdfIndexService?.stop();
     _probe.dispose();
     super.dispose();
   }
@@ -107,6 +110,52 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
         );
     } finally {
       _indexService = null;
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _indexPdf(String uri) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _indexMessage = 'نمایه PDF آماده می‌شود؛ فایل اصلی تغییر نمی‌کند.';
+    });
+    try {
+      final storage = await ref.read(zimIndexStorageProvider.future);
+      if (!mounted) return;
+      if (storage == null) {
+        setState(() => _indexMessage = 'فضای امن ذخیره نمایه در دسترس نیست.');
+        return;
+      }
+      final service = PdfIndexService(
+        ref.read(folderLibraryProvider),
+        storage.withDatabaseLimit(256 * 1024 * 1024),
+      );
+      setState(() => _pdfIndexService = service);
+      final result = await service.run(
+        uri: uri,
+        allowed: () => mounted,
+        onProgress: (page, total) {
+          if (mounted) {
+            setState(() => _indexMessage = 'نمایه PDF: $page از $total صفحه');
+          }
+        },
+      );
+      if (mounted) {
+        setState(() => _indexMessage = result.cancelled
+            ? 'نمایه متوقف شد؛ ادامه از صفحه ${result.scanned + 1} ممکن است.'
+            : 'نمایه PDF آماده شد: ${result.total} صفحه. '
+              '${result.needsOcr} صفحه بدون متن، نیازمند OCR است.');
+      }
+    } on StateError catch (error) {
+      if (mounted) setState(() => _indexMessage = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _indexMessage =
+            'نمایه PDF کامل نشد؛ دسترسی، فایل و فضای حافظه را بررسی کنید.');
+      }
+    } finally {
+      _pdfIndexService = null;
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -222,16 +271,21 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
           if (_busy) const LinearProgressIndicator(),
           if (_error != null) Text(_error!),
           if (_indexMessage != null) Text(_indexMessage!),
-          if (_indexService != null)
+          if (_indexService != null || _pdfIndexService != null)
             TextButton(
-              onPressed: () => _indexService?.stop(),
+              onPressed: () {
+                _indexService?.stop();
+                _pdfIndexService?.stop();
+              },
               child: const Text('توقف نمایه‌سازی'),
             ),
           Text(
             'حجم نمایهٔ مشتق‌شده: $_bytes بایت از ${FolderLibrary.maxIndexBytes}',
           ),
           const Text(
-            'نمایهٔ اسناد حداکثر ۲۴ قطعه از ابتدای هر سند است؛ نبود نتیجه به معنی نبود مطلب در کل کتاب نیست. PDF اسکن‌شده در این مسیر OCR نمی‌شود.',
+            'کنار هر PDF آیکون نمایه را بزنید تا صفحه‌های متن‌دار با شماره صفحه ثبت شوند. '
+            'نمایه‌سازی قابل توقف و ادامه است. PDFهای تصویری به OCR آفلاین نیاز دارند؛ '
+            'تا آماده‌شدن موتور OCR، متن خیالی ساخته نمی‌شود.',
           ),
           const Text(
             'نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف فضای پایگاه انتخابی است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.',
@@ -249,6 +303,17 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
                       onPressed: _busy || f['enabled'] != true
                           ? null
                           : () => _indexArchive(f['uri'] as String),
+                    )
+                  : (f['name'] as String).toLowerCase().endsWith('.pdf')
+                  ? IconButton(
+                      key: ValueKey(
+                        'pdf-index-${FolderLibrary.sourceId(f['uri'] as String)}',
+                      ),
+                      tooltip: 'نمایه‌سازی همه صفحات PDF',
+                      icon: const Icon(Icons.text_snippet_outlined),
+                      onPressed: _busy || f['enabled'] != true
+                          ? null
+                          : () => _indexPdf(f['uri'] as String),
                     )
                   : null,
               subtitle: Text(
@@ -288,7 +353,7 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
                 _data['tree']?.toString() ?? 'هنوز پوشه انتخاب نشده است',
               ),
               const Text(
-                'یک مجوز فقط‌خواندنی پوشه؛ در صورت جابه‌جایی فایل یا لغو مجوز دوباره بازخوانی کنید. سقف سند ۸ MiB، PDF صد صفحه، نمایه ۲ MiB است. برای ZIM خواندن انتخابی انجام می‌شود.',
+                'یک مجوز فقط‌خواندنی پوشه؛ جابه‌جایی یا تغییر فایل نیازمند بازخوانی است. سقف ۸ MiB برای منابع غیر PDF باقی است. نمایه PDF مستقل است؛ OCR تصویری هنوز فعال نشده است.',
               ),
               ListTile(
                 title: const Text('Home Assistant · فقط خواندن'),
