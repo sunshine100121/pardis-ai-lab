@@ -1,0 +1,106 @@
+name: PALA M04 multilingual source routing regression (no APK)
+
+on:
+  push:
+    branches: [pala/m04-multilingual-source-routing-2026-11-22]
+    paths: ['.github/workflows/pala-m04-multilingual-source-gate.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pala-m04-sources-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  m04-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve existing off-first safety and no-APK baseline
+        run: python3 scripts/check_offline_baseline.py
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Install pinned Dart dependencies without upgrades
+        run: flutter pub get --enforce-lockfile
+      - name: Check source formatting and reveal exact patch
+        run: |
+          dart format \
+            lib/features/zim/zim_multilingual_source_route.dart \
+            lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/zim/zim_query_translation.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/knowledge/offline_knowledge.dart \
+            test/zim_multilingual_source_route_test.dart \
+            test/zim_indexed_project_search_test.dart
+          if ! git diff --quiet -- \
+            lib/features/zim/zim_multilingual_source_route.dart \
+            lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/zim/zim_query_translation.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/knowledge/offline_knowledge.dart \
+            test/zim_multilingual_source_route_test.dart \
+            test/zim_indexed_project_search_test.dart; then
+            echo M04_FORMAT_PATCH_BEGIN
+            git diff -- \
+              lib/features/zim/zim_multilingual_source_route.dart \
+              lib/features/zim/zim_indexed_project_search.dart \
+              lib/features/zim/zim_query_translation.dart \
+              lib/features/chat/presentation/providers/chat_provider.dart \
+              lib/features/knowledge/offline_knowledge.dart \
+              test/zim_multilingual_source_route_test.dart \
+              test/zim_indexed_project_search_test.dart
+            echo M04_FORMAT_PATCH_END
+            echo 'M04_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
+          fi
+      - name: Analyze scoped M04 and existing cross-feature code
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings \
+            lib/features/zim/zim_multilingual_source_route.dart \
+            lib/features/zim/zim_indexed_project_search.dart \
+            lib/features/zim/zim_query_translation.dart \
+            lib/features/chat/presentation/providers/chat_provider.dart \
+            lib/features/knowledge/offline_knowledge.dart \
+            test/zim_multilingual_source_route_test.dart \
+            test/zim_indexed_project_search_test.dart
+      - name: Prepare locked PDFium dependency for existing offline test fixtures
+        run: |
+          dart run scripts/prepare_pdfium_assets.dart
+          pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
+          test -n "$pdfium"
+          echo "PDFIUM_PATH=$pdfium" >> "$GITHUB_ENV"
+      - name: Test M04 natural-language routing, permission isolation and M02/M03 regressions
+        run: |
+          flutter test --concurrency=1 \
+            test/zim_multilingual_source_route_test.dart \
+            test/zim_source_scope_test.dart \
+            test/zim_indexed_project_search_test.dart \
+            test/zim_content_index_test.dart \
+            test/zim_query_translation_test.dart \
+            test/zim_index_service_test.dart \
+            test/offline_zim_chat_test.dart \
+            test/offline_folder_library_test.dart \
+            test/pdf_page_index_test.dart \
+            test/offline_upgrade_compatibility_test.dart
+      - name: Verify dependency and formatting drift are absent
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          original=subprocess.check_output(['git','show','HEAD:pubspec.lock'],text=True)
+          current=Path('pubspec.lock').read_text()
+          if current != original:
+              old='sdks:\n  dart: ">=3.12.0 <4.0.0"\n  flutter: ">=3.44.0"\n'
+              new='sdks:\n  dart: ">=3.13.4 <4.0.0"\n  flutter: ">=3.47.5"\n'
+              if not original.endswith(old) or current != original[:-len(old)]+new:
+                  raise SystemExit('UNREVIEWED_LOCKFILE_DRIFT')
+          PY
+          if [ "${M04_FORMAT_CHANGED:-false}" = true ]; then
+            echo FORMAT_PATCH_NEEDS_REVIEW_AND_COMMIT >&2
+            exit 1
+          fi
+          echo 'M04_SOURCE_GATE=PASS; TABLET=NOT_VERIFIED; APK=NO'
