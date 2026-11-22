@@ -132,6 +132,10 @@ class FolderLibrary {
     int expectedBytes,
     Set<String> questionTerms, {
     required String sourceName,
+    int startPage = 1,
+    Future<void> Function(int totalPages)? onOpened,
+    Future<void> Function(int page, String text)? onPageText,
+    bool Function()? cancelled,
   }) async {
     if (expectedBytes <= 0 || await source.length() != expectedBytes) {
       throw const FormatException('اندازه PDF تغییر کرده یا نامعتبر است');
@@ -178,9 +182,15 @@ class FolderLibrary {
     try {
       final matches = <({int page, int score, String text})>[];
       var pagesWithText = 0;
-      for (var i = 0; i < document.pages.length; i++) {
-        // Drop each page's text after scoring; keep only four short excerpts.
+      if (startPage < 1 || startPage > document.pages.length + 1) {
+        throw RangeError('PDF resume cursor outside document');
+      }
+      await onOpened?.call(document.pages.length);
+      for (var i = startPage - 1; i < document.pages.length; i++) {
+        if (cancelled?.call() == true) break;
+        // Preserve bounded reads and the actual PDF page numbering.
         final text = (await document.pages[i].loadText())?.fullText ?? '';
+        await onPageText?.call(i + 1, text);
         if (text.trim().isEmpty) continue;
         pagesWithText++;
         if (questionTerms.isEmpty) continue;
