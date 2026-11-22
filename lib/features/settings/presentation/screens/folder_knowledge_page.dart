@@ -176,24 +176,27 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
       var lastShown = 0;
       await PdfOcrModels.prepare(
         onProgress: (lang, received, total) {
-          if (!mounted || received - lastShown < 256 * 1024 &&
-              received != total) return;
+          if (!mounted ||
+              received - lastShown < 256 * 1024 && received != total)
+            return;
           lastShown = received;
-          setState(() => _indexMessage =
-              'دریافت مدل OCR $lang: $received از $total بایت');
+          setState(
+            () => _indexMessage =
+                'دریافت مدل OCR $lang: $received از $total بایت',
+          );
         },
       );
       if (mounted) {
         setState(() {
           _ocrReady = true;
-          _indexMessage =
-              'OCR آفلاین آماده شد؛ با آیکون هر PDF صفحات اسکن‌شده را نمایه کنید.';
+          _indexMessage = 'OCR آفلاین آماده شد؛ با آیکون هر PDF صفحات اسکن‌شده را نمایه کنید.';
         });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _indexMessage =
-            'آماده‌سازی OCR تأیید نشد؛ اینترنت یا یکپارچگی مدل را بررسی کنید.');
+        setState(
+          () => _indexMessage = 'آماده‌سازی OCR تأیید نشد؛ اینترنت یا یکپارچگی مدل را بررسی کنید.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -311,9 +314,11 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
               ),
               OutlinedButton(
                 onPressed: _busy || _ocrReady ? null : _prepareOcr,
-                child: Text(_ocrReady
-                    ? 'OCR آفلاین آماده است'
-                    : 'آماده‌سازی OCR فارسی (یک‌بار با اینترنت)'),
+                child: Text(
+                  _ocrReady
+                      ? 'OCR آفلاین آماده است'
+                      : 'آماده‌سازی OCR فارسی (یک‌بار با اینترنت)',
+                ),
               ),
             ],
           ),
