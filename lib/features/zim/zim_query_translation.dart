@@ -43,7 +43,17 @@ class ZimQueryTranslation {
       (pattern: RegExp(r'زیگبی|zigbee'), terms: ['zigbee']),
       (pattern: RegExp(r'دریمی|dreame'), terms: ['dreame']),
     ];
+    final species = RegExp(
+      r'بادام|گردو|انجیر|almond|walnut|\bfig\b',
+    ).hasMatch(q);
     for (final item in entries) {
+      // Generic "tree/plant" produces false title-only positives for a
+      // question about a named tree. Keep the plant species as the anchor.
+      if (species &&
+          item.terms.contains('tree') &&
+          item.terms.contains('plant')) {
+        continue;
+      }
       if (item.pattern.hasMatch(q)) terms.addAll(item.terms);
     }
     if (terms.isEmpty) return null;
@@ -51,6 +61,10 @@ class ZimQueryTranslation {
     // not invoked just to translate these common questions.
     for (final word in latin) {
       if (terms.length >= 10) break;
+      if (species &&
+          const {'tree', 'trees', 'plant', 'gardening'}.contains(word)) {
+        continue;
+      }
       if (_englishTopicTerms.contains(word)) terms.add(word);
     }
     return terms.take(12).join(' ');
