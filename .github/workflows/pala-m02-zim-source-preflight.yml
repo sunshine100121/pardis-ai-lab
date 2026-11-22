@@ -53,6 +53,17 @@ jobs:
             echo 'M02_FORMAT_PATCH_END'
             echo 'M02_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
           fi
+      - name: Guard against OCR flag leakage into ZIM service
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('lib/features/settings/presentation/screens/folder_knowledge_page.dart').read_text()
+          zim=s.split('final service = ZimIndexService(',1)[1].split('final service = PdfIndexService(',1)[0]
+          pdf=s.split('final service = PdfIndexService(',1)[1]
+          assert 'enableOcr:' not in zim, 'OCR_WRONGLY_FORWARDED_TO_ZIM'
+          assert 'enableOcr: _ocrReady' in pdf, 'PDF_OCR_FLAG_MISSING'
+          print('OCR_TARGETING=PDF_ONLY')
+          PY
       - name: Analyze scoped public-chat and indexed retrieval code
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings \
