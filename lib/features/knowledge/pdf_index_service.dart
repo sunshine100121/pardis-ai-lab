@@ -74,13 +74,15 @@ class PdfIndexService {
         );
         if (selected.length != 1) return false;
         final live = await library.access.list();
-        return live.files.where(
-              (f) =>
-                  f.uri == uri &&
-                  f.name == name &&
-                  f.size == size &&
-                  f.modified == modified,
-            ).length ==
+        return live.files
+                .where(
+                  (f) =>
+                      f.uri == uri &&
+                      f.name == name &&
+                      f.size == size &&
+                      f.modified == modified,
+                )
+                .length ==
             1;
       }
 
