@@ -88,7 +88,6 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
       final result = await service.run(
         uri: uri,
         allowed: () => mounted,
-        enableOcr: _ocrReady,
         onProgress: (cursor, total, skipped) {
           if (mounted)
             setState(
