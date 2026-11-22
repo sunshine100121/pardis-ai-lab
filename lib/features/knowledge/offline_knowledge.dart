@@ -186,7 +186,15 @@ class OfflineKnowledge {
     }
   }
 
-  Future<KnowledgeReadReport> searchDetailed(String question, {Set<String>? sourceIds}) async {
+  Future<KnowledgeReadReport> searchDetailed(String question) =>
+      searchDetailedScoped(question);
+
+  /// Filtered variant; keep searchDetailed's original signature so existing
+  /// app overrides and old project tests remain source compatible.
+  Future<KnowledgeReadReport> searchDetailedScoped(
+    String question, {
+    Set<String>? sourceIds,
+  }) async {
     final sources = <SearchResult>[];
     final checks = <Map<String, dynamic>>[];
     try {
