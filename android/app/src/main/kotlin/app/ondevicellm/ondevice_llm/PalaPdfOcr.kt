@@ -33,7 +33,7 @@ class PalaPdfOcr(
                     val dataPath = call.argument<String>("dataPath")
                     val language = call.argument<String>("language")
                     if (closed || png == null || png.size > 12 * 1024 * 1024 ||
-                        png.isEmpty || dataPath.isNullOrBlank() ||
+                        png.isEmpty() || dataPath.isNullOrBlank() ||
                         language !in setOf("fas", "eng", "fas+eng")
                     ) {
                         result.error("PDF_OCR_BAD_INPUT", "Invalid OCR page request", null)
