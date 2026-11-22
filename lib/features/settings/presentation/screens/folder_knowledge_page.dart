@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../knowledge/folder_library.dart';
 import '../../../knowledge/pdf_index_service.dart';
+import '../../../knowledge/pdf_ocr_models.dart';
 import '../../../knowledge/ha_read_client.dart';
 import '../../../knowledge/offline_knowledge.dart';
 import '../../../knowledge/knowledge_read_status.dart';
@@ -27,6 +28,7 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
   String? _indexMessage;
   ZimIndexService? _indexService;
   PdfIndexService? _pdfIndexService;
+  bool _ocrReady = false;
   final _probe = TextEditingController(text: 'مریخ');
   List<dynamic> _checks = [];
   @override
@@ -86,6 +88,7 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
       final result = await service.run(
         uri: uri,
         allowed: () => mounted,
+        enableOcr: _ocrReady,
         onProgress: (cursor, total, skipped) {
           if (mounted)
             setState(
@@ -164,10 +167,46 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
     }
   }
 
+  Future<void> _prepareOcr() async {
+    setState(() {
+      _busy = true;
+      _indexMessage = 'آماده‌سازی یک‌باره OCR فارسی و انگلیسی...';
+    });
+    try {
+      var lastShown = 0;
+      await PdfOcrModels.prepare(
+        onProgress: (lang, received, total) {
+          if (!mounted || received - lastShown < 256 * 1024 &&
+              received != total) return;
+          lastShown = received;
+          setState(() => _indexMessage =
+              'دریافت مدل OCR $lang: $received از $total بایت');
+        },
+      );
+      if (mounted) {
+        setState(() {
+          _ocrReady = true;
+          _indexMessage =
+              'OCR آفلاین آماده شد؛ با آیکون هر PDF صفحات اسکن‌شده را نمایه کنید.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _indexMessage =
+            'آماده‌سازی OCR تأیید نشد؛ اینترنت یا یکپارچگی مدل را بررسی کنید.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+    PdfOcrModels.ready().then((ready) {
+      if (mounted) setState(() => _ocrReady = ready);
+    });
   }
 
   Future<void> _load() async {
@@ -270,6 +309,12 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
                 onPressed: _busy ? null : () => _refresh(false),
                 child: const Text('بازخوانی منابع'),
               ),
+              OutlinedButton(
+                onPressed: _busy || _ocrReady ? null : _prepareOcr,
+                child: Text(_ocrReady
+                    ? 'OCR آفلاین آماده است'
+                    : 'آماده‌سازی OCR فارسی (یک‌بار با اینترنت)'),
+              ),
             ],
           ),
           if (_busy) const LinearProgressIndicator(),
@@ -287,9 +332,9 @@ class _FolderKnowledgePageState extends ConsumerState<FolderKnowledgePage> {
             'حجم نمایهٔ مشتق‌شده: $_bytes بایت از ${FolderLibrary.maxIndexBytes}',
           ),
           const Text(
-            'کنار هر PDF آیکون نمایه را بزنید تا صفحه‌های متن‌دار با شماره صفحه ثبت شوند. '
-            'نمایه‌سازی قابل توقف و ادامه است. PDFهای تصویری به OCR آفلاین نیاز دارند؛ '
-            'تا آماده‌شدن موتور OCR، متن خیالی ساخته نمی‌شود.',
+            'کنار هر PDF آیکون نمایه را بزنید. نمایه‌سازی قابل توقف و ادامه است. '
+            'برای خواندن صفحه‌های اسکن‌شده، OCR فارسی را یک‌بار آماده کنید؛ '
+            'سپس همان آیکون PDF را مجدداً بزنید تا صفحه‌های تصویری خوانده شوند.',
           ),
           const Text(
             'نمایه‌سازی متن دانشنامه با انتخاب شما انجام می‌شود و فایل اصلی را کپی نمی‌کند. سقف فضای پایگاه انتخابی است؛ ممکن است نمایه ناتمام بماند یا برخی مقاله‌ها رد شوند.',
