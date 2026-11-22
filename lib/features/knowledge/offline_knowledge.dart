@@ -198,7 +198,10 @@ class OfflineKnowledge {
     final sources = <SearchResult>[];
     final checks = <Map<String, dynamic>>[];
     try {
-      final report = await library.searchDetailed(question, sourceIds: sourceIds);
+      final report = await library.searchDetailed(
+        question,
+        sourceIds: sourceIds,
+      );
       sources.addAll(report.sources);
       checks.addAll(report.checks);
     } catch (_) {
