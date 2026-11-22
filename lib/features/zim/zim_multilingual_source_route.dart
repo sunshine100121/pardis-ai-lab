@@ -45,10 +45,16 @@ class ZimMultilingualSourceRoute {
     String id(Map row) => FolderLibrary.sourceId(row['uri'] as String);
 
     final q = question.toLowerCase().replaceAll('ي', 'ی').replaceAll('ك', 'ک');
-    final only = RegExp(
+    final restrictiveWords = RegExp(
       r'\bonly\b|\bexclusively\b|\bdo not use\b|\bdo not search\b|فقط|صرفاً|صرفا|منحصراً|منحصرا',
       caseSensitive: false,
     ).hasMatch(q);
+    final mentionsArchive = RegExp(
+      r'\.zim\b|\barchive\b|\bencyclopedia\b|\bwikivoyage\b|\bgardening stack exchange\b|دانشنامه|ویکی.?سفر',
+      caseSensitive: false,
+    ).hasMatch(q);
+    // "Only answer briefly" or "only two days" is not a source restriction.
+    final only = restrictiveWords && mentionsArchive;
     // Explicit source requests require an unambiguous exact filename or a
     // recognizable named archive. Never guess a source from a general noun.
     final filenames = RegExp(r'[a-z0-9_.-]+\.zim\b', caseSensitive: false)
