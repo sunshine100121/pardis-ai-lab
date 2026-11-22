@@ -14,8 +14,8 @@ typedef PdfOcrReading = ({String text, int confidence});
 class PdfOcrEngine {
   static const MethodChannel channel = MethodChannel('pala/pdf_ocr');
 
-  static Future<PdfOcrReading?> recognize(PdfPage page) async {
-    if (!await PdfOcrModels.ready()) {
+  static Future<PdfOcrReading?> recognize(PdfPage page, {bool modelsVerified = false}) async {
+    if (!modelsVerified && !await PdfOcrModels.ready()) {
       throw StateError('مدل‌های OCR فارسی و انگلیسی هنوز آماده نشده‌اند');
     }
     final maxDimension = math.max(page.width, page.height);
