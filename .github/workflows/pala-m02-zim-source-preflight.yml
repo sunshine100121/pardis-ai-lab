@@ -1,8 +1,8 @@
-name: PALA M02 ZIM content retrieval focused source check (no APK)
+name: PALA M02 + M03 ZIM and PDF index source tests (no APK)
 
 on:
   push:
-    branches: [pala/m02-zim-real-retrieval-2026-11-22]
+    branches: [pala/m03-pdf-index-ocr-2026-11-22]
     paths: ['.github/workflows/pala-m02-zim-source-preflight.yml']
   workflow_dispatch:
 
@@ -37,10 +37,16 @@ jobs:
             lib/features/chat/domain/turn_prompts.dart \
             lib/features/chat/presentation/providers/chat_web.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
-            test/zim_source_scope_test.dart
-          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart; then
+            test/zim_source_scope_test.dart \
+lib/features/knowledge/pdf_page_index.dart \
+            lib/features/knowledge/pdf_index_service.dart \
+            lib/features/knowledge/pdf_index_lookup.dart \
+            lib/features/knowledge/folder_library.dart \
+            lib/features/settings/presentation/screens/folder_knowledge_page.dart \
+            test/pdf_page_index_test.dart
+          if ! git diff --quiet -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart lib/features/knowledge/pdf_page_index.dart lib/features/knowledge/pdf_index_service.dart lib/features/knowledge/pdf_index_lookup.dart lib/features/knowledge/folder_library.dart lib/features/settings/presentation/screens/folder_knowledge_page.dart test/pdf_page_index_test.dart; then
             echo 'M02_FORMAT_PATCH_BEGIN'
-            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart
+            git diff -- lib/features/zim/zim_source_scope.dart lib/features/zim/zim_indexed_project_search.dart lib/features/chat/domain/turn_prompts.dart lib/features/chat/presentation/providers/chat_web.dart lib/features/chat/presentation/providers/chat_provider.dart test/zim_source_scope_test.dart lib/features/knowledge/pdf_page_index.dart lib/features/knowledge/pdf_index_service.dart lib/features/knowledge/pdf_index_lookup.dart lib/features/knowledge/folder_library.dart lib/features/settings/presentation/screens/folder_knowledge_page.dart test/pdf_page_index_test.dart
             echo 'M02_FORMAT_PATCH_END'
             echo 'M02_FORMAT_CHANGED=true' >> "$GITHUB_ENV"
           fi
@@ -52,7 +58,13 @@ jobs:
             lib/features/chat/domain/turn_prompts.dart \
             lib/features/chat/presentation/providers/chat_web.dart \
             lib/features/chat/presentation/providers/chat_provider.dart \
-            test/zim_source_scope_test.dart
+            test/zim_source_scope_test.dart \
+lib/features/knowledge/pdf_page_index.dart \
+            lib/features/knowledge/pdf_index_service.dart \
+            lib/features/knowledge/pdf_index_lookup.dart \
+            lib/features/knowledge/folder_library.dart \
+            lib/features/settings/presentation/screens/folder_knowledge_page.dart \
+            test/pdf_page_index_test.dart
       - name: Prepare locked PDFium test asset if needed by library imports
         run: |
           dart run scripts/prepare_pdfium_assets.dart
@@ -69,7 +81,10 @@ jobs:
             test/zim_query_translation_test.dart \
             test/citation_match_test.dart \
             test/offline_zim_chat_test.dart \
-            test/offline_upgrade_compatibility_test.dart
+            test/offline_upgrade_compatibility_test.dart \
+            test/pdf_page_index_test.dart \
+            test/offline_pdf_native_test.dart \
+            test/offline_folder_library_test.dart
       - name: Final exact lockfile and formatting verification
         run: |
           python3 - <<'PY'
@@ -88,4 +103,4 @@ jobs:
             echo 'FORMAT_PATCH_NEEDS_REVIEW_AND_COMMIT' >&2
             exit 1
           fi
-          echo 'M02_SOURCE_GATE=PASS; USER_ZIM_INDEX_COMPLETENESS=NOT_VERIFIED; TABLET=NOT_VERIFIED; APK=NO'
+          echo 'M02_M03_SOURCE_GATE=PASS; TABLET_PDF_OCR=NOT_VERIFIED; APK=NO'
