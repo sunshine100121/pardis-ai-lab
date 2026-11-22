@@ -23,6 +23,15 @@ jobs:
           fetch-depth: 0
       - name: Preserve baseline, data and native engine protections
         run: python3 scripts/check_offline_baseline.py
+      - name: Guard Kotlin OCR ByteArray validation before expensive host build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('android/app/src/main/kotlin/app/ondevicellm/ondevice_llm/PalaPdfOcr.kt').read_text()
+          assert 'png.isEmpty()' in source, 'OCR_BYTEARRAY_ISEMPTY_MUST_BE_INVOKED'
+          assert 'png.isEmpty ||' not in source, 'OCR_KOTLIN_COMPILATION_REGRESSION'
+          print('OCR_KOTLIN_BYTEARRAY_SOURCE=PASS')
+          PY
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.5'
