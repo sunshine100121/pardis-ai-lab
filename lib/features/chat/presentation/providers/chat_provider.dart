@@ -1948,10 +1948,12 @@ class ChatNotifier extends _ChatBase
               sourceIds: localScope,
             )
           : _projectId == null
-              ? await localKnowledge.searchDetailed(
-                  input,
-                  sourceIds: localScope,
-                )
+              ? route.sourceIds == null
+                  ? await localKnowledge.searchDetailed(input)
+                  : await localKnowledge.searchDetailedScoped(
+                      input,
+                      sourceIds: localScope,
+                    )
               : await localKnowledge.searchProject(
                   input,
                   sourceIds: localScope ?? projectSourceIds,
