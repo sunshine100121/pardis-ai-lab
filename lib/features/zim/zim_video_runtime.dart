@@ -6,6 +6,7 @@ import '../models/domain/entities/model_info.dart';
 import '../settings/domain/entities/inference_settings.dart';
 import '../knowledge/knowledge_media.dart';
 import '../voice/sherpa_voice.dart';
+import '../voice/voice_pipeline.dart';
 import 'zim_subtitles.dart';
 
 /// Translation and optional speech transcription stay on the tablet.
@@ -121,7 +122,8 @@ abstract final class ZimVideoRuntime {
           final samples = await KnowledgeMedia.transcriptionSamples(segment);
           if (!samples.any((x) => x.abs() > 0.0005)) continue;
           final heard = await speech.transcribe(samples, language: '');
-          final original = heard?.text.trim() ?? '';
+          final original = WhisperListener.cleanTranscript(
+              heard?.text.trim() ?? '');
           if (original.isEmpty) continue;
           final alreadyPersian = heard?.language.toLowerCase()
                   .startsWith('fa') == true &&
