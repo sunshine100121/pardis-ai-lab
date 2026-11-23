@@ -521,7 +521,7 @@ class ZimArchive {
   });
 
 
-  /// Resolve a linked asset within this ZIM, rejecting foreign namespaces.
+  /// Resolve strictly local media from the same approved archive.
   Future<ZimEntry?> _localMediaAsset(
     ZimEntry article, String reference, Set<String> mimes,
   ) async {
@@ -549,15 +549,15 @@ class ZimArchive {
     return resolved;
   }
 
-  /// One read-only extraction to app scratch; stored video is copied in
-  /// 256-KiB chunks instead of loading the whole movie into RAM.
+  /// Extract local video to scratch, bounded by 256 MiB or the existing
+  /// 64 MiB decompressed cluster limit. Never copies a whole ZIM.
   Future<bool> extractLocalVideo(
     ZimEntry article, String reference, File scratch, {
     int maxVideoBytes = 256 * 1024 * 1024,
     bool Function()? cancelled,
   }) => _run(() async {
     if (maxVideoBytes <= 0 || maxVideoBytes > 256 * 1024 * 1024 ||
-        !RegExp(r'\.(mp4|m4v|webm|ogv) using this embedded Xapian index requires a compatible
+        !RegExp(r'\.(mp4|m4v|webm|ogv) requires a compatible
   /// search implementation; this reader does not treat it as searchable.
   Future<bool> hasEmbeddedFullTextIndex() => _run(
     () async =>
@@ -615,8 +615,8 @@ class _BoundedClusterOutput extends OutputMemoryStream {
     });
     if (media == null || cancelled?.call() == true) return false;
     final stored = await _storedBlobRange(media);
-    final length = stored?.$2;
-    if (length != null && (length < 1 || length > maxVideoBytes)) return false;
+    final size = stored?.$2;
+    if (size != null && (size < 1 || size > maxVideoBytes)) return false;
     var success = false;
     try {
       await scratch.parent.create(recursive: true);
@@ -626,14 +626,15 @@ class _BoundedClusterOutput extends OutputMemoryStream {
           var offset = 0;
           while (offset < stored.$2) {
             if (cancelled?.call() == true) return false;
-            final n = (stored.$2 - offset).clamp(0, 256 * 1024);
-            final bytes = await _readAt(_file, stored.$1 + offset, n);
-            if (bytes.length != n) throw const FormatException('ZIM: truncated video');
+            final chunk = (stored.$2 - offset).clamp(0, 256 * 1024);
+            final bytes = await _readAt(_file, stored.$1 + offset, chunk);
+            if (bytes.length != chunk) {
+              throw const FormatException('ZIM: truncated video');
+            }
             await output.writeFrom(bytes);
-            offset += n;
+            offset += chunk;
           }
         } else {
-          // Legacy compressed cluster: keep the existing 64-MiB safety cap.
           final bytes = await _content(media);
           if (bytes.isEmpty || bytes.length > maxVideoBytes) return false;
           await output.writeFrom(bytes);
@@ -651,11 +652,10 @@ class _BoundedClusterOutput extends OutputMemoryStream {
     }
   });
 
-  /// Small local SRT/VTT track, never a network or executable resource.
-  Future<String?> localSubtitle(
-    ZimEntry article, String reference,
-  ) => _run(() async {
-    if (!RegExp(r'\.(srt|vtt) using this embedded Xapian index requires a compatible
+  /// Read bounded embedded SRT/VTT, not any remote URL.
+  Future<String?> localSubtitle(ZimEntry article, String reference) =>
+      _run(() async {
+        if (!RegExp(r'\.(srt|vtt) requires a compatible
   /// search implementation; this reader does not treat it as searchable.
   Future<bool> hasEmbeddedFullTextIndex() => _run(
     () async =>
@@ -706,20 +706,19 @@ class _BoundedClusterOutput extends OutputMemoryStream {
     super.writeBackReference(distance, count);
   }
 }
-, caseSensitive: false).hasMatch(reference)) {
-      return null;
-    }
-    final media = await _localMediaAsset(article, reference, const {
-      'text/vtt', 'text/plain', 'application/x-subrip',
-      'application/octet-stream',
-    });
-    if (media == null) return null;
-    final range = await _storedBlobRange(media);
-    if (range != null && range.$2 > 1024 * 1024) return null;
-    final bytes = await _content(media);
-    return bytes.length > 1024 * 1024 ? null :
-        utf8.decode(bytes, allowMalformed: true);
-  });
+, caseSensitive: false)
+            .hasMatch(reference)) return null;
+        final media = await _localMediaAsset(article, reference, const {
+          'text/vtt', 'text/plain', 'application/x-subrip',
+          'application/octet-stream',
+        });
+        if (media == null) return null;
+        final stored = await _storedBlobRange(media);
+        if (stored != null && stored.$2 > 1024 * 1024) return null;
+        final bytes = await _content(media);
+        if (bytes.length > 1024 * 1024) return null;
+        return utf8.decode(bytes, allowMalformed: true);
+      });
 
   /// Presence only: using this embedded Xapian index requires a compatible
   /// search implementation; this reader does not treat it as searchable.
