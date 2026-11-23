@@ -10,6 +10,7 @@ import '../chat/domain/conversation_workspace.dart';
 import '../chat/presentation/providers/chat_provider.dart';
 import '../settings/presentation/providers/effective_settings_provider.dart';
 import 'zim_inline_gallery.dart';
+import 'zim_video_page.dart';
 
 /// Local article links stay inside the imported archive. The saved excerpt
 /// remains available if that archive has since been replaced or removed.
@@ -132,6 +133,12 @@ class ZimArticlePage extends ConsumerWidget {
                   },
                 ],
                 question: title,
+              ),
+            if (s.data != null && archiveId != null)
+              ZimInlineVideos(
+                url: url,
+                archiveId: archiveId!,
+                archiveDate: archiveDate,
               ),
           ],
         );
