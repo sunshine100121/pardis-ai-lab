@@ -7,6 +7,7 @@ on:
       - docs/PALA_M01_M06_ONE_SHOT_2026-11-23.trigger
       - docs/PALA_M01_M06_SYNTAX_RETRY_2026-11-23.trigger
       - docs/PALA_M01_M06_DEPENDENCY_RETRY_2026-11-23.trigger
+      - docs/PALA_M01_M06_NATIVE_RETRY_2026-11-23.trigger
   workflow_dispatch:
 permissions:
   contents: write
@@ -15,6 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   source-test-and-one-signed-apk:
+    if: ${{ !contains(github.event.head_commit.message, '[native-retry-once]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
@@ -100,6 +102,97 @@ jobs:
             test/m11_memory_approval_test.dart \
             test/m12_project_scope_test.dart \
             test/chat_test.dart
+      - name: Verify Android host source, without installation
+        run: bash scripts/check_android_host.sh
+      - name: Verify existing owner certificate without exporting private key
+        env:
+          PALA_F1_KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          PALA_F1_KEYSTORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          PALA_F1_KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          PALA_F1_KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          java scripts/CheckUpgradeSigner.java > "$RUNNER_TEMP/owner-signer-check.json"
+          grep -Fq '"owner_key_usable":true' "$RUNNER_TEMP/owner-signer-check.json"
+      - name: Build one ARM64 APK using the existing signed-upgrade path
+        env:
+          PALA_F1_KEYSTORE_BASE64: ${{ secrets.PALA_F1_KEYSTORE_BASE64 }}
+          PALA_F1_KEYSTORE_PASSWORD: ${{ secrets.PALA_F1_KEYSTORE_PASSWORD }}
+          PALA_F1_KEY_ALIAS: ${{ secrets.PALA_F1_KEY_ALIAS }}
+          PALA_F1_KEY_PASSWORD: ${{ secrets.PALA_F1_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          set +x
+          umask 077
+          keystore="$RUNNER_TEMP/pala-owner-upgrade.p12"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$PALA_F1_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          export ODLLM_ANDROID_KEYSTORE_PATH="$keystore"
+          export ODLLM_ANDROID_STORE_PASSWORD="$PALA_F1_KEYSTORE_PASSWORD"
+          export ODLLM_ANDROID_KEY_ALIAS="$PALA_F1_KEY_ALIAS"
+          export ODLLM_ANDROID_KEY_PASSWORD="$PALA_F1_KEY_PASSWORD"
+          export ODLLM_REQUIRE_RELEASE_SIGNING=true
+          export ODLLM_RELEASE_VERSION='0.3.4+7'
+          export ODLLM_RELEASE_SOURCE="git:$(git rev-parse --short HEAD)"
+          bash scripts/build_android.sh
+      - name: Verify package, signing and data safety
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          test -s "$apk"
+          out="build/app/outputs/flutter-apk"
+          aapt=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -1)
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          "$aapt" dump badging "$apk" > "$out/upgrade-package.txt"
+          grep -Fq "package: name='ir.pardis.ai.pala.f1diag2' versionCode='7' versionName='0.3.4'" "$out/upgrade-package.txt"
+          "$signer" verify --verbose --print-certs "$apk" > "$out/upgrade-signing.txt"
+          grep -Fiq 'c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52' "$out/upgrade-signing.txt"
+          unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/libondevice_llm_cpu_i8mm.so' "$RUNNER_TEMP/apk-members.txt"
+          if grep -Ei '\.(p12|jks|keystore|gguf)$' "$RUNNER_TEMP/apk-members.txt"; then exit 1; fi
+          sha256sum "$apk" > "$out/app-release.sha256"
+          echo 'SIGNED_APK_CREATED=YES; DEVICE_TEST_AND_ROLLBACK=NOT_VERIFIED'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PALA-0.3.4-code7-M01-M06-signed-Android-trial
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-release.sha256
+            build/app/outputs/flutter-apk/upgrade-package.txt
+            build/app/outputs/flutter-apk/upgrade-signing.txt
+          retention-days: 60
+          if-no-files-found: error
+          compression-level: 0
+
+  native-retry-signed-trial-once:
+    if: ${{ contains(github.event.head_commit.message, '[native-retry-once]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 135
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify source is byte-for-byte identical to the 133-PASS commit
+        run: |
+          set -euo pipefail
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          git diff --quiet 54e6fc5c0fd00bdb18a0e853f5d171ff78e66b8a HEAD -- lib/ android/ native/ test/ scripts/ pubspec.yaml pubspec.lock
+          git diff --check
+          python3 scripts/check_offline_baseline.py
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          echo 'SOURCE_133_TESTS_PASSED_AND_UNCHANGED=PASS'
       - name: Verify Android host source, without installation
         run: bash scripts/check_android_host.sh
       - name: Verify existing owner certificate without exporting private key
