@@ -33,10 +33,11 @@ abstract final class ZimVideoRuntime {
         messages: [
           {
             'role': 'system',
-            'content': 'Translate the USER text accurately into natural Persian. '
+            'content':
+                'Translate the USER text accurately into natural Persian. '
                 'Output only the translation. Preserve names and numbers. '
                 'Do not summarize, explain, hallucinate or add statements '
-                'that are not present in the source.'
+                'that are not present in the source.',
           },
           {'role': 'user', 'content': source},
         ],
@@ -55,7 +56,8 @@ abstract final class ZimVideoRuntime {
         }
         out.write(piece);
       }
-      final translated = out.toString()
+      final translated = out
+          .toString()
           .replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '')
           .trim();
       return translated.isEmpty ? null : translated;
@@ -78,9 +80,16 @@ abstract final class ZimVideoRuntime {
       if (cancelled?.call() == true) break;
       final cue = captions[i];
       final fa = await translateToPersian(
-          cue.text, engine, modelFamily, settings, cancelled: cancelled);
+        cue.text,
+        engine,
+        modelFamily,
+        settings,
+        cancelled: cancelled,
+      );
       if (fa == null || fa.trim().isEmpty) {
-        throw StateError('ترجمه بخش ${i + 1} کامل نشد؛ زیرنویس ناقص ذخیره نشد.');
+        throw StateError(
+          'ترجمه بخش ${i + 1} کامل نشد؛ زیرنویس ناقص ذخیره نشد.',
+        );
       }
       result.add(ZimSubtitleCue(cue.start, cue.end, fa.trim()));
       progress?.call(i + 1, captions.length);
@@ -108,37 +117,55 @@ abstract final class ZimVideoRuntime {
     }
     File? wav;
     try {
-      final decoded = await KnowledgeMedia.decodeAudio(video,
-          maxSeconds: maxMovieSeconds, cancelled: cancelled);
+      final decoded = await KnowledgeMedia.decodeAudio(
+        video,
+        maxSeconds: maxMovieSeconds,
+        cancelled: cancelled,
+      );
       wav = decoded.$1;
       final length = decoded.$2;
       final cues = <ZimSubtitleCue>[];
       for (var index = 0; index * segmentSeconds < length; index++) {
         if (cancelled?.call() == true) break;
         final segment = await KnowledgeMedia.wavSegment(
-            wav, index, seconds: segmentSeconds);
+          wav,
+          index,
+          seconds: segmentSeconds,
+        );
         if (segment == null) break;
         try {
           final samples = await KnowledgeMedia.transcriptionSamples(segment);
           if (!samples.any((x) => x.abs() > 0.0005)) continue;
           final heard = await speech.transcribe(samples, language: '');
           final original = WhisperListener.cleanTranscript(
-              heard?.text.trim() ?? '');
+            heard?.text.trim() ?? '',
+          );
           if (original.isEmpty) continue;
-          final alreadyPersian = heard?.language.toLowerCase()
-                  .startsWith('fa') == true &&
+          final alreadyPersian =
+              heard?.language.toLowerCase().startsWith('fa') == true &&
               RegExp(r'[\u0600-\u06FF]').hasMatch(original);
-          final translated = alreadyPersian ? original :
-              await translateToPersian(original, engine, modelFamily,
-                  settings, cancelled: cancelled);
+          final translated = alreadyPersian
+              ? original
+              : await translateToPersian(
+                  original,
+                  engine,
+                  modelFamily,
+                  settings,
+                  cancelled: cancelled,
+                );
           if (translated == null || translated.trim().isEmpty) continue;
-          cues.add(ZimSubtitleCue(
-            Duration(seconds: index * segmentSeconds),
-            Duration(milliseconds:
-                ((index + 1) * segmentSeconds * 1000)
-                    .clamp(0, (length * 1000).round())),
-            translated.trim(),
-          ));
+          cues.add(
+            ZimSubtitleCue(
+              Duration(seconds: index * segmentSeconds),
+              Duration(
+                milliseconds: ((index + 1) * segmentSeconds * 1000).clamp(
+                  0,
+                  (length * 1000).round(),
+                ),
+              ),
+              translated.trim(),
+            ),
+          );
         } finally {
           if (await segment.exists()) await segment.delete();
           progress?.call(index + 1);

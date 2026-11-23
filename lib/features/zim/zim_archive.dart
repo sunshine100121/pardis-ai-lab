@@ -520,19 +520,29 @@ class ZimArchive {
     return Uint8List.fromList(bytes);
   });
 
-
   /// Resolve a linked asset in this ZIM, never accepting a remote URL.
   Future<ZimEntry?> _localMediaAsset(
-    ZimEntry article, String reference, Set<String> mimes,
+    ZimEntry article,
+    String reference,
+    Set<String> mimes,
   ) async {
-    if (!article.isArticle || reference.isEmpty || reference.length > 2048 ||
-        reference.startsWith('//')) return null;
+    if (!article.isArticle ||
+        reference.isEmpty ||
+        reference.length > 2048 ||
+        reference.startsWith('//'))
+      return null;
     final relative = Uri.tryParse(reference);
-    if (relative == null || relative.hasScheme || relative.hasAuthority ||
-        relative.hasFragment || relative.hasQuery) return null;
+    if (relative == null ||
+        relative.hasScheme ||
+        relative.hasAuthority ||
+        relative.hasFragment ||
+        relative.hasQuery)
+      return null;
     final path = Uri(path: '/${article.namespace}/${article.url}')
-        .resolveUri(relative).pathSegments
-        .where((s) => s.isNotEmpty).toList();
+        .resolveUri(relative)
+        .pathSegments
+        .where((s) => s.isNotEmpty)
+        .toList();
     if (path.length < 2 || !const {'I', 'C', 'A'}.contains(path.first)) {
       return null;
     }
@@ -552,15 +562,24 @@ class ZimArchive {
   /// Read-only extraction into scratch, 256-KiB chunks for stored blobs.
   /// The original ZIM is never written to or duplicated.
   Future<bool> extractLocalVideo(
-    ZimEntry article, String reference, File scratch, {
+    ZimEntry article,
+    String reference,
+    File scratch, {
     int maxVideoBytes = 256 * 1024 * 1024,
     bool Function()? cancelled,
   }) => _run(() async {
-    if (maxVideoBytes <= 0 || maxVideoBytes > 256 * 1024 * 1024 ||
-        !RegExp(r'\.(mp4|m4v|webm|ogv)$', caseSensitive: false)
-            .hasMatch(reference)) return false;
+    if (maxVideoBytes <= 0 ||
+        maxVideoBytes > 256 * 1024 * 1024 ||
+        !RegExp(
+          r'\.(mp4|m4v|webm|ogv)$',
+          caseSensitive: false,
+        ).hasMatch(reference))
+      return false;
     final media = await _localMediaAsset(article, reference, const {
-      'video/mp4', 'video/webm', 'video/ogg', 'video/x-m4v',
+      'video/mp4',
+      'video/webm',
+      'video/ogg',
+      'video/x-m4v',
     });
     if (media == null || cancelled?.call() == true) return false;
     final stored = await _storedBlobRange(media);
@@ -603,23 +622,26 @@ class ZimArchive {
   });
 
   /// Optional local SRT/VTT; do not load a large subtitle into memory.
-  Future<String?> localSubtitle(
-    ZimEntry article, String reference,
-  ) => _run(() async {
-    if (!RegExp(r'\.(srt|vtt)$', caseSensitive: false).hasMatch(reference)) {
-      return null;
-    }
-    final media = await _localMediaAsset(article, reference, const {
-      'text/vtt', 'text/plain', 'application/x-subrip',
-      'application/octet-stream',
-    });
-    if (media == null) return null;
-    final range = await _storedBlobRange(media);
-    if (range != null && range.$2 > 1024 * 1024) return null;
-    final bytes = await _content(media);
-    return bytes.length > 1024 * 1024 ? null :
-        utf8.decode(bytes, allowMalformed: true);
-  });
+  Future<String?> localSubtitle(ZimEntry article, String reference) => _run(
+    () async {
+      if (!RegExp(r'\.(srt|vtt)$', caseSensitive: false).hasMatch(reference)) {
+        return null;
+      }
+      final media = await _localMediaAsset(article, reference, const {
+        'text/vtt',
+        'text/plain',
+        'application/x-subrip',
+        'application/octet-stream',
+      });
+      if (media == null) return null;
+      final range = await _storedBlobRange(media);
+      if (range != null && range.$2 > 1024 * 1024) return null;
+      final bytes = await _content(media);
+      return bytes.length > 1024 * 1024
+          ? null
+          : utf8.decode(bytes, allowMalformed: true);
+    },
+  );
 
   /// Presence only: using this embedded Xapian index requires a compatible
   /// search implementation; this reader does not treat it as searchable.

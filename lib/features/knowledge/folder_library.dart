@@ -696,25 +696,32 @@ class FolderLibrary {
     ]);
   }
 
-
   /// Scoped read from the exact, currently enabled ZIM and article.
   /// SAF, project and source revision are checked before and after reading.
   Future<T?> _withVideoArticle<T>(
-    String url, String archiveId, String? date,
+    String url,
+    String archiveId,
+    String? date,
     Future<T?> Function(
-      ZimArchive archive, ZimEntry article, LibraryFile source,
-    ) read, {
+      ZimArchive archive,
+      ZimEntry article,
+      LibraryFile source,
+    )
+    read, {
     bool Function(String uri)? allowSource,
   }) async {
     final parsed = Uri.tryParse(url);
-    if (parsed == null || parsed.scheme != 'zim' ||
-        parsed.host != archiveId || parsed.pathSegments.length != 1 ||
+    if (parsed == null ||
+        parsed.scheme != 'zim' ||
+        parsed.host != archiveId ||
+        parsed.pathSegments.length != 1 ||
         parsed.hasFragment ||
         parsed.queryParametersAll.keys.any(
           (key) => key != 'entry' && key != 'source',
         ) ||
         (parsed.queryParametersAll['entry']?.length ?? 0) > 1 ||
-        (parsed.queryParametersAll['source']?.length ?? 0) > 1) return null;
+        (parsed.queryParametersAll['source']?.length ?? 0) > 1)
+      return null;
     final rawIndex = parsed.queryParameters['entry'];
     final index = rawIndex == null ? null : int.tryParse(rawIndex);
     if (rawIndex != null && (index == null || index < 0)) return null;
@@ -728,31 +735,40 @@ class FolderLibrary {
     final data = await state();
     for (final row in data['files'] as List) {
       final fileUri = row['uri'] as String;
-      if (exactSource != null && FolderLibrary.sourceId(fileUri) != exactSource) {
+      if (exactSource != null &&
+          FolderLibrary.sourceId(fileUri) != exactSource) {
         continue;
       }
       if (row['enabled'] != true || allowSource?.call(fileUri) == false) {
         continue;
       }
       final source = current[fileUri];
-      if (source == null || !source.name.toLowerCase().endsWith('.zim') ||
-          source.size != row['size'] || source.modified != row['modified']) {
+      if (source == null ||
+          !source.name.toLowerCase().endsWith('.zim') ||
+          source.size != row['size'] ||
+          source.modified != row['modified']) {
         continue;
       }
       ZimArchive? archive;
       try {
-        archive = await ZimArchive.open(fileUri, openSource: (uri) async {
-          if (allowSource?.call(uri) == false) {
-            throw StateError('محدوده منابع پروژه تغییر کرده است');
-          }
-          return access.open(uri);
-        });
+        archive = await ZimArchive.open(
+          fileUri,
+          openSource: (uri) async {
+            if (allowSource?.call(uri) == false) {
+              throw StateError('محدوده منابع پروژه تغییر کرده است');
+            }
+            return access.open(uri);
+          },
+        );
         if (archive.identity != archiveId ||
-            await archive.metadata('Date') != date) continue;
+            await archive.metadata('Date') != date)
+          continue;
         final title = parsed.pathSegments.single.replaceAll('_', ' ');
         final article = index == null
             ? await archive.findByTitle(title)
-            : index < archive.entryCount ? await archive.entry(index) : null;
+            : index < archive.entryCount
+            ? await archive.entry(index)
+            : null;
         if (article == null || !article.isArticle || article.title != title) {
           continue;
         }
@@ -762,11 +778,17 @@ class FolderLibrary {
         final same = after.files.where((f) => f.uri == fileUri).firstOrNull;
         final latest = await state();
         final enabled = (latest['files'] as List).any(
-          (f) => f['uri'] == fileUri && f['enabled'] == true &&
-              f['size'] == source.size && f['modified'] == source.modified,
+          (f) =>
+              f['uri'] == fileUri &&
+              f['enabled'] == true &&
+              f['size'] == source.size &&
+              f['modified'] == source.modified,
         );
-        if (!enabled || same == null || same.size != source.size ||
-            same.modified != source.modified) return null;
+        if (!enabled ||
+            same == null ||
+            same.size != source.size ||
+            same.modified != source.modified)
+          return null;
         return result;
       } catch (_) {
         // Optional media never prevents reading the underlying article.
@@ -779,53 +801,74 @@ class FolderLibrary {
 
   /// Metadata only: no media bytes until the owner explicitly plays.
   Future<List<ZimVideoCandidate>?> articleVideos(
-    String url, String archiveId, String? date, {
+    String url,
+    String archiveId,
+    String? date, {
     bool Function(String uri)? allowSource,
-  }) => _withVideoArticle(url, archiveId, date,
-      (archive, article, source) async {
-    final html = utf8.decode(await archive.content(article),
-        allowMalformed: true);
-    return ZimVideoSelection.fromArticleHtml(html);
-  }, allowSource: allowSource);
+  }) =>
+      _withVideoArticle(url, archiveId, date, (archive, article, source) async {
+        final html = utf8.decode(
+          await archive.content(article),
+          allowMalformed: true,
+        );
+        return ZimVideoSelection.fromArticleHtml(html);
+      }, allowSource: allowSource);
 
   /// Scratch video is removed if permission, archive revision or user choice
   /// changes. Extraction never writes to the actual ZIM source.
   Future<ZimPlayableVideo?> openArticleVideo(
-    String url, String archiveId, String? date, String videoReference, {
+    String url,
+    String archiveId,
+    String? date,
+    String videoReference, {
     bool Function(String uri)? allowSource,
     bool Function()? cancelled,
   }) async {
     File? scratch;
     ZimPlayableVideo? opened;
     try {
-      opened = await _withVideoArticle(url, archiveId, date,
-          (archive, article, source) async {
+      opened = await _withVideoArticle(url, archiveId, date, (
+        archive,
+        article,
+        source,
+      ) async {
         if (cancelled?.call() == true) return null;
-        final html = utf8.decode(await archive.content(article),
-            allowMalformed: true);
+        final html = utf8.decode(
+          await archive.content(article),
+          allowMalformed: true,
+        );
         final listed = ZimVideoSelection.fromArticleHtml(html);
-        final match = listed.where((v) => v.reference == videoReference)
+        final match = listed
+            .where((v) => v.reference == videoReference)
             .firstOrNull;
         if (match == null) return null;
         final suffix = p.extension(videoReference).toLowerCase();
         final tmp = await getTemporaryDirectory();
-        scratch = File(p.join(tmp.path, 'pala-zim-video',
-            '${const Uuid().v4()}$suffix'));
-        final ok = await archive.extractLocalVideo(article,
-            videoReference, scratch!, cancelled: cancelled);
+        scratch = File(
+          p.join(tmp.path, 'pala-zim-video', '${const Uuid().v4()}$suffix'),
+        );
+        final ok = await archive.extractLocalVideo(
+          article,
+          videoReference,
+          scratch!,
+          cancelled: cancelled,
+        );
         if (!ok || cancelled?.call() == true) return null;
         var cues = <ZimSubtitleCue>[];
         if (match.subtitleReference != null) {
           try {
             final subtitle = await archive.localSubtitle(
-                article, match.subtitleReference!);
+              article,
+              match.subtitleReference!,
+            );
             if (subtitle != null) cues = ZimSubtitles.parse(subtitle);
           } catch (_) {
             // Broken subtitles must not prevent offline video playback.
           }
         }
         return ZimPlayableVideo(
-          file: scratch!, cues: cues,
+          file: scratch!,
+          cues: cues,
           revision: '${source.size}:${source.modified}',
           subtitleLanguage: match.subtitleLanguage,
         );

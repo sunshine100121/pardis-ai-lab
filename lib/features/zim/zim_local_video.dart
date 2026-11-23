@@ -11,6 +11,7 @@ class ZimPlayableVideo {
     this.subtitleLanguage,
   });
   final File file;
+
   /// Exact approved SAF/file revision; prevents using stale caption caches.
   final String revision;
   final List<ZimSubtitleCue> cues;
