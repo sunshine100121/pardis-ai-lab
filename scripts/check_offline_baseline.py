@@ -1,5 +1,5 @@
 """Fail closed if Qwen/native/model/storage or F1 hosting drift from 0.2.0."""
-import ast, json, pathlib, subprocess
+import ast, json, pathlib, re, subprocess
 
 BASE='b848d9920e59b0af7bed6d1d335ece6652987cc1'
 ROOT=pathlib.Path(__file__).resolve().parents[1]
@@ -52,6 +52,29 @@ for path in compatibility_paths:
         continue  # Exact reviewed blob SHA pinned above; additive changes covered by dedicated tests.
     installed=git('show','5663b264afb77026014f81b69e04b1d00ab8a098:'+path)
     installed=installed.replace(b'\r\n',b'\n')
+
+    if path == 'pubspec.lock':
+        # One reviewed, additive media dependency only. Installed dependency
+        # versions and sources must remain byte-for-byte unchanged; never
+        # silently change the original Qwen/PDF/STT runtime package set.
+        def packages(raw):
+            body = raw.decode('utf-8').split('packages:\n', 1)[1].split('\nsdks:', 1)[0]
+            matches = list(re.finditer(r'(?m)^  ([a-zA-Z0-9_]+):\\s*$', body))
+            return {m.group(1): body[m.start():matches[i+1].start()].strip()
+                    if i+1 < len(matches) else body[m.start():].strip()
+                    for i,m in enumerate(matches)}
+        old_packages = packages(installed)
+        new_packages = packages((ROOT/path).read_bytes().replace(b'\r\n', b'\n'))
+        assert all(new_packages.get(n) == record for n,record in old_packages.items()), 'EXISTING_DEPENDENCY_DRIFT'
+        additional = set(new_packages) - set(old_packages)
+        allowed = {'video_player','video_player_android',
+                   'video_player_avfoundation','video_player_platform_interface',
+                   'video_player_web'}
+        assert 'video_player' in additional and additional <= allowed, 'UNREVIEWED_NEW_DEPENDENCY'
+        old_sdks = installed.decode('utf-8').split('\nsdks:',1)[-1]
+        new_sdks = (ROOT/path).read_text(encoding='utf-8').split('\nsdks:',1)[-1]
+        assert old_sdks == new_sdks, 'PUBSPEC_SDK_CONSTRAINT_DRIFT'
+        continue
     if path == 'lib/features/settings/domain/entities/inference_settings.dart':
         old=b"""      listeningModel: text('listeningModel', 32) == 'parakeet-v3'
           ? 'parakeet-v3'
