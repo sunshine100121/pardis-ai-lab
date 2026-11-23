@@ -59,7 +59,7 @@ for path in compatibility_paths:
         # silently change the original Qwen/PDF/STT runtime package set.
         def packages(raw):
             body = raw.decode('utf-8').split('packages:\n', 1)[1].split('\nsdks:', 1)[0]
-            matches = list(re.finditer(r'(?m)^  ([a-zA-Z0-9_]+):\\s*$', body))
+            matches = list(re.finditer(r'(?m)^  ([a-zA-Z0-9_]+):\s*$', body))
             return {m.group(1): body[m.start():matches[i+1].start()].strip()
                     if i+1 < len(matches) else body[m.start():].strip()
                     for i,m in enumerate(matches)}
