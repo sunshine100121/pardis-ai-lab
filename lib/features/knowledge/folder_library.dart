@@ -701,7 +701,7 @@ class FolderLibrary {
   /// SAF checks used for images. Never fall back to a similarly titled file.
   Future<T?> _withVideoArticle<T>(
     String url, String archiveId, String? date,
-    Future<T?> Function(ZimArchive archive, ZimEntry article) read, {
+    Future<T?> Function(ZimArchive archive, ZimEntry article, LibraryFile source) read, {
     bool Function(String uri)? allowSource,
   }) async {
     final parsed = Uri.tryParse(url);
@@ -930,7 +930,7 @@ class _MeteredZimSource implements ZimSource {
         if (article == null || !article.isArticle || article.title != title) {
           continue;
         }
-        final result = await read(archive, article);
+        final result = await read(archive, article, source);
         if (allowSource?.call(fileUri) == false) return null;
         final after = await access.list();
         final same = after.files.where((f) => f.uri == fileUri).firstOrNull;
@@ -955,7 +955,7 @@ class _MeteredZimSource implements ZimSource {
   Future<List<ZimVideoCandidate>?> articleVideos(
     String url, String archiveId, String? date, {
     bool Function(String uri)? allowSource,
-  }) => _withVideoArticle(url, archiveId, date, (archive, article) async {
+  }) => _withVideoArticle(url, archiveId, date, (archive, article, source) async {
     final html = utf8.decode(await archive.content(article),
         allowMalformed: true);
     return ZimVideoSelection.fromArticleHtml(html);
@@ -972,7 +972,7 @@ class _MeteredZimSource implements ZimSource {
     ZimPlayableVideo? opened;
     try {
       opened = await _withVideoArticle(url, archiveId, date,
-          (archive, article) async {
+          (archive, article, source) async {
         if (cancelled?.call() == true) return null;
         final html = utf8.decode(await archive.content(article),
             allowMalformed: true);
@@ -998,6 +998,7 @@ class _MeteredZimSource implements ZimSource {
           }
         }
         return ZimPlayableVideo(file: scratch!, cues: cues,
+            revision: '${source.size}:${source.modified}',
             subtitleLanguage: match.subtitleLanguage);
       }, allowSource: allowSource);
       return opened;
