@@ -1,4 +1,4 @@
-name: PALA M16 source gates and one guarded 0.3.4 signed trial APK
+name: PALA M01-M06 unified source gates and one guarded 0.3.5 signed trial APK
 on:
   # One-shot source validation. Future source/docs changes do not trigger CI again.
   push:
@@ -35,7 +35,7 @@ jobs:
       - name: Verify identity and get exact dependency lock
         run: |
           set -euo pipefail
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
           grep -Fq 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           flutter pub get
           dart format lib/features/knowledge/folder_library.dart lib/features/zim/zim_archive.dart lib/features/zim/zim_article_page.dart lib/features/zim/zim_local_video.dart lib/features/zim/zim_subtitles.dart lib/features/zim/zim_video_page.dart lib/features/zim/zim_video_runtime.dart lib/features/zim/zim_video_selection.dart test/zim_video_subtitles_test.dart
@@ -92,7 +92,7 @@ jobs:
           python3 scripts/check_offline_baseline.py
           flutter pub get --enforce-lockfile
           git diff --exit-code -- pubspec.lock
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
       - name: Compile Android host, retry only Maven rate limits
         shell: bash
         run: |
@@ -130,9 +130,9 @@ jobs:
         run: |
           grep '^version:' pubspec.yaml
           grep 'applicationId = ' android/app/build.gradle.kts
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
           grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
-          echo 'SOURCE_VERSION_ONLY_0.3.4+7; NO_APK_IN_SOURCE_GATE'
+          echo 'SOURCE_VERSION_ONLY_0.3.5+8; NO_APK_IN_SOURCE_GATE'
       - name: Verify committed source, dependencies and storage BEFORE any generator
         run: python3 scripts/check_offline_baseline.py
       - name: Resolve only exact committed dependency versions
@@ -351,7 +351,7 @@ jobs:
           # This script only loads the keystore in memory and signs a random
           # challenge; no keystore, password or private key is written to disk.
           java scripts/CheckUpgradeSigner.java
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
           grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           echo 'SIGNER_PRIVATE_KEY_AND_HISTORICAL_OWNER_CERTIFICATE=PASS'
           echo 'INSTALLED_0.3.3_CODE6_DEVICE_CERTIFICATE=NOT_VERIFIED'
@@ -360,7 +360,7 @@ jobs:
   signed-single-trial-apk:
     # Only the exact owner-approved project branch and a dedicated commit
     # can ask GitHub to build one signed candidate. No device installation.
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/pala/m16-release-gate-034-2026-11-21' && contains(github.event.head_commit.message, '[m16-build-once]') }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/pala/m01-m06-unified-device-trial-2026-11-23' && contains(github.event.head_commit.message, '[m16-build-once]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -390,7 +390,7 @@ jobs:
               *) echo "UNTESTED_RUNTIME_CHANGE:$changed" >&2; exit 1 ;;
             esac
           done < <(git diff --name-only 66806b220052505fb7f8e767f790dcdae22b8837 HEAD)
-          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
           grep -Fq 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           grep -Fq 'ODLLM_REQUIRE_RELEASE_SIGNING' android/app/build.gradle.kts
           grep -Fq 'ODLLM_RELEASE_VERSION' scripts/build_android.sh
@@ -421,7 +421,7 @@ jobs:
           export ODLLM_ANDROID_KEY_ALIAS="$PALA_F1_KEY_ALIAS"
           export ODLLM_ANDROID_KEY_PASSWORD="$PALA_F1_KEY_PASSWORD"
           export ODLLM_REQUIRE_RELEASE_SIGNING=true
-          export ODLLM_RELEASE_VERSION='0.3.4+7'
+          export ODLLM_RELEASE_VERSION='0.3.5+8'
           export ODLLM_RELEASE_SOURCE="git:${GITHUB_SHA:0:12}"
           bash scripts/build_android.sh
           # No credential material survives this build step.
@@ -439,7 +439,7 @@ jobs:
           test -x "$aapt"
           test -x "$signer"
           "$aapt" dump badging "$apk" > "$out/upgrade-package.txt"
-          grep -Fq "package: name='ir.pardis.ai.pala.f1diag2' versionCode='7' versionName='0.3.4'" "$out/upgrade-package.txt"
+          grep -Fq "package: name='ir.pardis.ai.pala.f1diag2' versionCode='8' versionName='0.3.5'" "$out/upgrade-package.txt"
           "$signer" verify --verbose --print-certs "$apk" > "$out/upgrade-signing.txt"
           grep -Fiq 'c8e89c07b45ed7789cf2e5484180a7d423d2a5e2040e1ac2a4192f0f14d1eb52' "$out/upgrade-signing.txt"
           unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-members.txt"
@@ -454,7 +454,7 @@ jobs:
       - name: Upload the single inspectable signed candidate
         uses: actions/upload-artifact@v4
         with:
-          name: PALA-0.3.4-code7-one-signed-trial
+          name: PALA-0.3.5-code8-unified-signed-trial
           retention-days: 60
           if-no-files-found: error
           compression-level: 0
