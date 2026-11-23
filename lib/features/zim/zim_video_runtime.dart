@@ -136,7 +136,7 @@ abstract final class ZimVideoRuntime {
             Duration(seconds: index * segmentSeconds),
             Duration(milliseconds:
                 ((index + 1) * segmentSeconds * 1000)
-                    .clamp(0, (length * 1000).round())),
+                    .clamp(0, (length * 1000).round()).toInt()),
             translated.trim(),
           ));
         } finally {
