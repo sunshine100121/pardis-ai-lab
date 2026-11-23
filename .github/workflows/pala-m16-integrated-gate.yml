@@ -10,6 +10,7 @@ on:
       - docs/PALA_M16_BUILD_ONCE_2026-11-21.trigger
       - docs/PALA_M01_M06_ONE_SHOT_2026-11-23.trigger
       - docs/PALA_M01_M06_NATIVE_ONLY_RETRY_2026-11-23.trigger
+      - docs/PALA_M01_M06_MAVEN_CANONICAL_FALLBACK_2026-11-23.trigger
   workflow_dispatch:
 permissions:
   contents: read
@@ -114,8 +115,52 @@ jobs:
             sleep 55
           done
 
+  m01-m06-maven-canonical-fallback:
+    # Gradle network-only recovery; exact signed release will use the M16 job.
+    if: \${{ github.event_name == 'push' && github.ref == 'refs/heads/pala/m01-m06-unified-device-trial-2026-11-23' && contains(github.event.head_commit.message, '[m01m06-maven-fallback]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Baseline and exact locked dependencies
+        run: |
+          set -euo pipefail
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
+          python3 scripts/check_offline_baseline.py
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+      - name: Gradle temporary official Maven Central alternate host; never modify repository
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ('android/settings.gradle.kts','android/build.gradle.kts'):
+              p=Path(name)
+              original=p.read_text()
+              assert original.count('mavenCentral()')==1, f'UNEXPECTED_GRADLE_REPOS:{name}'
+              p.write_text(original.replace(
+                  'mavenCentral()',
+                  'maven { url = uri("https://repo1.maven.org/maven2") }'
+              ))
+          PY
+          echo 'ONLY_EPHEMERAL_BUILD_REPOSITORY_URL_CHANGED; SOURCE_AND_RELEASE_UNTOUCHED'
+          curl --fail --silent --show-error --location --head --max-time 15 https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.2.0/kotlin-stdlib-2.2.0.pom >/dev/null
+      - name: Compile Android Kotlin host without APK
+        run: |
+          set -euo pipefail
+          bash scripts/check_android_host.sh
+          echo 'M01_M06_ANDROID_HOST_COMPILE=PASS; NO_APK; NO_INSTALL'
+
   integrated-source-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') && !contains(github.event.head_commit.message, '[m01m06-preflight]') && !contains(github.event.head_commit.message, '[m01m06-android-only]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') && !contains(github.event.head_commit.message, '[m01m06-preflight]') && !contains(github.event.head_commit.message, '[m01m06-android-only]') && !contains(github.event.head_commit.message, '[m01m06-maven-fallback]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
