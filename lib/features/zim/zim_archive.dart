@@ -521,7 +521,7 @@ class ZimArchive {
   });
 
 
-  /// Resolve a linked asset within this ZIM, rejecting foreign namespaces.
+  /// Resolve a linked asset in this ZIM, never accepting a remote URL.
   Future<ZimEntry?> _localMediaAsset(
     ZimEntry article, String reference, Set<String> mimes,
   ) async {
@@ -549,66 +549,15 @@ class ZimArchive {
     return resolved;
   }
 
-  /// One read-only extraction to app scratch; stored video is copied in
-  /// 256-KiB chunks instead of loading the whole movie into RAM.
+  /// Read-only extraction into scratch, 256-KiB chunks for stored blobs.
+  /// The original ZIM is never written to or duplicated.
   Future<bool> extractLocalVideo(
     ZimEntry article, String reference, File scratch, {
     int maxVideoBytes = 256 * 1024 * 1024,
     bool Function()? cancelled,
   }) => _run(() async {
     if (maxVideoBytes <= 0 || maxVideoBytes > 256 * 1024 * 1024 ||
-        !RegExp(r'\.(mp4|m4v|webm|ogv) using this embedded Xapian index requires a compatible
-  /// search implementation; this reader does not treat it as searchable.
-  Future<bool> hasEmbeddedFullTextIndex() => _run(
-    () async =>
-        await _findPath('X', 'fulltext/xapian') != null ||
-        await _findPath('Z', '/fulltextIndex/xapian') != null,
-  );
-
-  Future<String?> metadata(String name) => _run(() async {
-    final e = await _findPath('M', name);
-    if (e == null) return null;
-    final resolved = await _resolve(e);
-    return resolved == null
-        ? null
-        : utf8.decode(await _content(resolved), allowMalformed: true);
-  });
-}
-
-class _BoundedClusterOutput extends OutputMemoryStream {
-  final int limit;
-  _BoundedClusterOutput(this.limit);
-  void _check(int count) {
-    if (count < 0 || count > limit - length) {
-      throw const FormatException('ZIM: expanded cluster exceeds safety limit');
-    }
-  }
-
-  @override
-  void writeByte(int value) {
-    _check(1);
-    super.writeByte(value);
-  }
-
-  @override
-  void writeBytes(List<int> bytes, {int? length}) {
-    _check(length ?? bytes.length);
-    super.writeBytes(bytes, length: length);
-  }
-
-  @override
-  void writeStream(InputStream stream) {
-    _check(stream.length);
-    super.writeStream(stream);
-  }
-
-  @override
-  void writeBackReference(int distance, int count) {
-    _check(count);
-    super.writeBackReference(distance, count);
-  }
-}
-, caseSensitive: false)
+        !RegExp(r'\.(mp4|m4v|webm|ogv)$', caseSensitive: false)
             .hasMatch(reference)) return false;
     final media = await _localMediaAsset(article, reference, const {
       'video/mp4', 'video/webm', 'video/ogg', 'video/x-m4v',
@@ -628,12 +577,14 @@ class _BoundedClusterOutput extends OutputMemoryStream {
             if (cancelled?.call() == true) return false;
             final n = (stored.$2 - offset).clamp(0, 256 * 1024);
             final bytes = await _readAt(_file, stored.$1 + offset, n);
-            if (bytes.length != n) throw const FormatException('ZIM: truncated video');
+            if (bytes.length != n) {
+              throw const FormatException('ZIM: truncated video');
+            }
             await output.writeFrom(bytes);
             offset += n;
           }
         } else {
-          // Legacy compressed cluster: keep the existing 64-MiB safety cap.
+          // Current decompressor's existing 64-MiB limit still applies.
           final bytes = await _content(media);
           if (bytes.isEmpty || bytes.length > maxVideoBytes) return false;
           await output.writeFrom(bytes);
@@ -651,62 +602,11 @@ class _BoundedClusterOutput extends OutputMemoryStream {
     }
   });
 
-  /// Small local SRT/VTT track, never a network or executable resource.
+  /// Optional local SRT/VTT; do not load a large subtitle into memory.
   Future<String?> localSubtitle(
     ZimEntry article, String reference,
   ) => _run(() async {
-    if (!RegExp(r'\.(srt|vtt) using this embedded Xapian index requires a compatible
-  /// search implementation; this reader does not treat it as searchable.
-  Future<bool> hasEmbeddedFullTextIndex() => _run(
-    () async =>
-        await _findPath('X', 'fulltext/xapian') != null ||
-        await _findPath('Z', '/fulltextIndex/xapian') != null,
-  );
-
-  Future<String?> metadata(String name) => _run(() async {
-    final e = await _findPath('M', name);
-    if (e == null) return null;
-    final resolved = await _resolve(e);
-    return resolved == null
-        ? null
-        : utf8.decode(await _content(resolved), allowMalformed: true);
-  });
-}
-
-class _BoundedClusterOutput extends OutputMemoryStream {
-  final int limit;
-  _BoundedClusterOutput(this.limit);
-  void _check(int count) {
-    if (count < 0 || count > limit - length) {
-      throw const FormatException('ZIM: expanded cluster exceeds safety limit');
-    }
-  }
-
-  @override
-  void writeByte(int value) {
-    _check(1);
-    super.writeByte(value);
-  }
-
-  @override
-  void writeBytes(List<int> bytes, {int? length}) {
-    _check(length ?? bytes.length);
-    super.writeBytes(bytes, length: length);
-  }
-
-  @override
-  void writeStream(InputStream stream) {
-    _check(stream.length);
-    super.writeStream(stream);
-  }
-
-  @override
-  void writeBackReference(int distance, int count) {
-    _check(count);
-    super.writeBackReference(distance, count);
-  }
-}
-, caseSensitive: false).hasMatch(reference)) {
+    if (!RegExp(r'\.(srt|vtt)$', caseSensitive: false).hasMatch(reference)) {
       return null;
     }
     final media = await _localMediaAsset(article, reference, const {
