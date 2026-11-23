@@ -2,12 +2,13 @@ name: PALA M16 source gates and one guarded 0.3.4 signed trial APK
 on:
   # One-shot source validation. Future source/docs changes do not trigger CI again.
   push:
-    branches: [pala/m16-release-gate-034-2026-11-21]
+    branches: [pala/m16-release-gate-034-2026-11-21, pala/m01-m06-unified-device-trial-2026-11-23]
     paths:
       - docs/PALA_M16_ONE_SHOT_CI_2026-11-21.trigger
       - docs/PALA_M16_FORMAT_ONLY_2026-11-21.trigger
       - docs/PALA_M16_SIGN_ONLY_2026-11-21.trigger
       - docs/PALA_M16_BUILD_ONCE_2026-11-21.trigger
+      - docs/PALA_M01_M06_ONE_SHOT_2026-11-23.trigger
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,8 +16,61 @@ concurrency:
   group: pala-m16-source-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  m01-m06-unified-one-shot:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/pala/m01-m06-unified-device-trial-2026-11-23' && contains(github.event.head_commit.message, '[m01m06-preflight]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Verify identity and get exact dependency lock
+        run: |
+          set -euo pipefail
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+          grep -Fq 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
+          flutter pub get
+          dart format lib/features/knowledge/folder_library.dart lib/features/zim/zim_archive.dart lib/features/zim/zim_article_page.dart lib/features/zim/zim_local_video.dart lib/features/zim/zim_subtitles.dart lib/features/zim/zim_video_page.dart lib/features/zim/zim_video_runtime.dart lib/features/zim/zim_video_selection.dart test/zim_video_subtitles_test.dart
+          python3 scripts/check_offline_baseline.py
+          git add pubspec.lock lib/features/knowledge/folder_library.dart lib/features/zim/zim_archive.dart lib/features/zim/zim_article_page.dart lib/features/zim/zim_local_video.dart lib/features/zim/zim_subtitles.dart lib/features/zim/zim_video_page.dart lib/features/zim/zim_video_runtime.dart lib/features/zim/zim_video_selection.dart test/zim_video_subtitles_test.dart
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'build(pala-m01-m06): pin video plugin and format reviewed Dart [skip ci]'
+            git push origin HEAD:refs/heads/pala/m01-m06-unified-device-trial-2026-11-23
+          fi
+      - name: Verify installed-data baseline, exact lock and application
+        run: |
+          set -euo pipefail
+          python3 scripts/check_offline_baseline.py
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Run combined M01–M06 regression tests
+        run: |
+          set -euo pipefail
+          dart run scripts/prepare_pdfium_assets.dart
+          pdfium=$(find "$PWD/.dart_tool" -name libpdfium.so -type f | head -1)
+          test -n "$pdfium"
+          export PDFIUM_PATH="$pdfium"
+          flutter test --concurrency=1 test/zim_video_subtitles_test.dart test/zim_test.dart test/zim_inline_gallery_test.dart test/zim_source_scope_test.dart test/zim_indexed_project_search_test.dart test/zim_multilingual_source_route_test.dart test/pdf_ocr_models_test.dart test/pdf_page_index_test.dart test/offline_folder_library_test.dart test/project_tabs_test.dart test/citation_match_test.dart test/offline_upgrade_compatibility_test.dart
+      - name: Android compilation without creating APK
+        run: bash scripts/check_android_host.sh
+      - name: Record gate boundary
+        run: |
+          echo 'SOURCE_GATE=PASS; APK_BUILT=NO; INSTALLED=NO'
+          echo 'REAL_TABLET_BACKUP_SIGNER_VIDEO_QUALITY=NOT_VERIFIED'
+
   integrated-source-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') && !contains(github.event.head_commit.message, '[m01m06-preflight]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
