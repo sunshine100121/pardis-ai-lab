@@ -697,274 +697,86 @@ class FolderLibrary {
   }
 
 
-  /// Read an exact, currently enabled ZIM article under the same project and
-  /// SAF checks used for images. Never fall back to a similarly titled file.
+  /// Scope and revision-validated ZIM read, identical policy to articleGallery.
   Future<T?> _withVideoArticle<T>(
     String url, String archiveId, String? date,
-    Future<T?> Function(ZimArchive archive, ZimEntry article, LibraryFile source) read, {
-    bool Function(String uri)? allowSource,
-  }) async {
-    final parsed = Uri.tryParse(url);
-    if (parsed == null || parsed.scheme != 'zim' ||
-        parsed.host != archiveId || parsed.pathSegments.length != 1 ||
-        parsed.hasFragment ||
-        parsed.queryParametersAll.keys.any(
-          (key) => key != 'entry' && key != 'source',
-        ) ||
-        (parsed.queryParametersAll['entry']?.length ?? 0) > 1 ||
-        (parsed.queryParametersAll['source']?.length ?? 0) > 1) return null;
-    final rawIndex = parsed.queryParameters['entry'];
-    final index = rawIndex == null ? null : int.tryParse(rawIndex);
-    if (rawIndex != null && (index == null || index < 0)) return null;
-    final exactSource = parsed.queryParameters['source'];
-    if (exactSource != null &&
-        (!RegExp(r'^[0-9a-f]{64}
-  /// SAF permission, archive revision and project membership are checked
-  /// before and after I/O. No remote image URL is ever opened here.
-  Future<ZimLocalGallery?> articleGallery(
-    String url,
-    String archiveId,
-    String? date, {
-    required String question,
-    int maxImages = 2,
+    Future<T?> Function(ZimArchive archive, ZimEntry entry, LibraryFile source) read, {
     bool Function(String uri)? allowSource,
   }) async {
     final uri = Uri.tryParse(url);
-    if (uri == null ||
-        uri.scheme != 'zim' ||
-        uri.host != archiveId ||
-        uri.pathSegments.length != 1 ||
-        uri.hasFragment ||
-        uri.queryParametersAll.keys.any(
-          (key) => key != 'entry' && key != 'source',
-        ) ||
+    if (uri == null || uri.scheme != 'zim' || uri.host != archiveId ||
+        uri.pathSegments.length != 1 || uri.hasFragment ||
+        uri.queryParametersAll.keys.any((k) => k != 'entry' && k != 'source') ||
         (uri.queryParametersAll['entry']?.length ?? 0) > 1 ||
-        (uri.queryParametersAll['source']?.length ?? 0) > 1) {
-      return null;
-    }
+        (uri.queryParametersAll['source']?.length ?? 0) > 1) return null;
     final entryText = uri.queryParameters['entry'];
-    final entry = entryText == null ? null : int.tryParse(entryText);
-    if (entryText != null && (entry == null || entry < 0)) return null;
-    final sourceId = uri.queryParameters['source'];
-    if (sourceId != null &&
-        (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sourceId) || entry == null)) {
+    final index = entryText == null ? null : int.tryParse(entryText);
+    if (entryText != null && (index == null || index < 0)) return null;
+    final exactId = uri.queryParameters['source'];
+    if (exactId != null &&
+        (!RegExp(r'^[0-9a-f]{64}$').hasMatch(exactId) || index == null)) {
       return null;
     }
     final listing = await access.list();
     final live = {for (final f in listing.files) f.uri: f};
-    final data = await state();
-    for (final row in data['files'] as List) {
+    final catalog = await state();
+    for (final row in catalog['files'] as List) {
       final fileUri = row['uri'] as String;
-      if (sourceId != null && FolderLibrary.sourceId(fileUri) != sourceId) {
-        continue;
-      }
-      if (allowSource != null && !allowSource(fileUri)) continue;
+      if (exactId != null && FolderLibrary.sourceId(fileUri) != exactId) continue;
+      if (row['enabled'] != true || allowSource?.call(fileUri) == false) continue;
       final file = live[fileUri];
-      if (row['enabled'] != true ||
-          file == null ||
-          !file.name.toLowerCase().endsWith('.zim') ||
-          file.size != row['size'] ||
-          file.modified != row['modified']) {
-        continue;
-      }
-      final wiki = ZimWikipedia(
-        fileUri,
-        openSource: (uri) {
-          if (allowSource != null && !allowSource(uri)) {
-            throw StateError('محدوده منابع پروژه تغییر کرده است.');
+      if (file == null || !file.name.toLowerCase().endsWith('.zim') ||
+          file.size != row['size'] || file.modified != row['modified']) continue;
+      ZimArchive? archive;
+      try {
+        archive = await ZimArchive.open(fileUri, openSource: (location) async {
+          if (allowSource?.call(location) == false) {
+            throw StateError('محدوده منابع پروژه تغییر کرده است');
           }
-          return access.open(uri);
-        },
-      );
-      try {
-        if (await wiki.archiveIdentity() != archiveId ||
-            await wiki.archiveMetadata('Date') != date) {
-          continue;
-        }
-        final result = await wiki.gallery(
-          uri.pathSegments.single.replaceAll('_', ' '),
-          entryIndex: entry,
-          question: question,
-          maxImages: maxImages,
-        );
-        if (allowSource != null && !allowSource(fileUri)) return null;
-        final checked = await access.list();
-        final current = checked.files
-            .where((f) => f.uri == fileUri)
-            .firstOrNull;
-        if (current == null ||
-            current.size != file.size ||
-            current.modified != file.modified) {
-          return null;
-        }
-        return result;
-      } catch (_) {
-        // Optional pictures never prevent a valid textual answer.
-      } finally {
-        await wiki.close();
-      }
-    }
-    return null;
-  }
-
-  Future<SearchResult?> article(
-    String url,
-    String archiveId,
-    String? date, {
-    bool Function(String uri)? allowSource,
-  }) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        uri.scheme != 'zim' ||
-        uri.host != archiveId ||
-        uri.pathSegments.length != 1 ||
-        uri.hasFragment ||
-        uri.queryParametersAll.keys.any(
-          (key) => key != 'entry' && key != 'source',
-        ) ||
-        (uri.queryParametersAll['entry']?.length ?? 0) > 1 ||
-        (uri.queryParametersAll['source']?.length ?? 0) > 1)
-      return null;
-    final entryText = uri.queryParameters['entry'];
-    final entry = entryText == null ? null : int.tryParse(entryText);
-    if (entryText != null && (entry == null || entry < 0)) return null;
-    final sourceId = uri.queryParameters['source'];
-    if (sourceId != null &&
-        (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sourceId) || entry == null))
-      return null;
-    final listing = await access.list();
-    final live = {for (final f in listing.files) f.uri: f};
-    final data = await state();
-    for (final row in data['files'] as List) {
-      if (sourceId != null &&
-          FolderLibrary.sourceId(row['uri'] as String) != sourceId)
-        continue;
-      if (allowSource != null && !allowSource(row['uri'] as String)) continue;
-      final file = live[row['uri']];
-      if (row['enabled'] != true ||
-          file == null ||
-          !file.name.toLowerCase().endsWith('.zim') ||
-          file.size != row['size'] ||
-          file.modified != row['modified'])
-        continue;
-      final wiki = ZimWikipedia(
-        file.uri,
-        openSource: (uri) {
-          if (allowSource != null && !allowSource(uri)) {
-            throw StateError('محدوده منابع پروژه تغییر کرده است.');
-          }
-          return access.open(uri);
-        },
-      );
-      try {
-        if (await wiki.archiveIdentity() != archiveId ||
-            await wiki.archiveMetadata('Date') != date)
-          continue;
-        final title = uri.pathSegments.single.replaceAll('_', ' ');
-        return entry == null
-            ? await wiki.article(title)
-            : await wiki.articleAt(entry, expectedTitle: title);
-      } catch (_) {
-        /* Keep the saved excerpt if access was revoked. */
-      } finally {
-        await wiki.close();
-      }
-    }
-    return null;
-  }
-}
-
-final folderLibraryProvider = Provider<FolderLibrary>((ref) => FolderLibrary());
-
-class _MeteredZimSource implements ZimSource {
-  final ZimSource source;
-  final Map<String, dynamic> check;
-  _MeteredZimSource(this.source, this.check);
-  @override
-  Future<int> length() => source.length();
-  @override
-  Future<Uint8List> readAt(int offset, int count) async {
-    check['readCalls'] = (check['readCalls'] as int) + 1;
-    if (offset > (check['highestOffset'] as int))
-      check['highestOffset'] = offset;
-    final bytes = await source.readAt(offset, count);
-    check['readBytes'] = (check['readBytes'] as int) + bytes.length;
-    return bytes;
-  }
-
-  @override
-  Future<void> close() => source.close();
-}
-).hasMatch(exactSource) || index == null)) {
-      return null;
-    }
-    final initial = await access.list();
-    final current = {for (final f in initial.files) f.uri: f};
-    final data = await state();
-    for (final row in data['files'] as List) {
-      final fileUri = row['uri'] as String;
-      if (exactSource != null && FolderLibrary.sourceId(fileUri) != exactSource) {
-        continue;
-      }
-      if (row['enabled'] != true || allowSource?.call(fileUri) == false) {
-        continue;
-      }
-      final source = current[fileUri];
-      if (source == null || !source.name.toLowerCase().endsWith('.zim') ||
-          source.size != row['size'] || source.modified != row['modified']) {
-        continue;
-      }
-      final archive = await ZimArchive.open(fileUri, openSource: (uri) async {
-        if (allowSource?.call(uri) == false) {
-          throw StateError('محدوده منابع پروژه تغییر کرده است');
-        }
-        return access.open(uri);
-      });
-      try {
+          return access.open(location);
+        });
         if (archive.identity != archiveId ||
             await archive.metadata('Date') != date) continue;
-        final title = parsed.pathSegments.single.replaceAll('_', ' ');
+        final title = uri.pathSegments.single.replaceAll('_', ' ');
         final article = index == null
             ? await archive.findByTitle(title)
             : index < archive.entryCount ? await archive.entry(index) : null;
         if (article == null || !article.isArticle || article.title != title) {
           continue;
         }
-        final result = await read(archive, article, source);
+        final value = await read(archive, article, file);
         if (allowSource?.call(fileUri) == false) return null;
-        final after = await access.list();
-        final same = after.files.where((f) => f.uri == fileUri).firstOrNull;
+        final checked = await access.list();
+        final same = checked.files.where((f) => f.uri == fileUri).firstOrNull;
         final latest = await state();
-        final enabled = (latest['files'] as List).any(
-          (f) => f['uri'] == fileUri && f['enabled'] == true &&
-              f['size'] == source.size && f['modified'] == source.modified,
-        );
-        if (!enabled || same == null || same.size != source.size ||
-            same.modified != source.modified) return null;
-        return result;
+        final enabled = (latest['files'] as List).any((f) =>
+            f['uri'] == fileUri && f['enabled'] == true &&
+            f['size'] == file.size && f['modified'] == file.modified);
+        if (!enabled || same == null || same.size != file.size ||
+            same.modified != file.modified) return null;
+        return value;
       } catch (_) {
-        // A broken optional media element must not prevent reading the article.
+        // A missing optional asset must never prevent the text result.
       } finally {
-        await archive.close();
+        await archive?.close();
       }
     }
     return null;
   }
 
-  /// Metadata-only: does not load any video bytes until the owner taps Play.
+  /// No media bytes are read before a deliberate playback action.
   Future<List<ZimVideoCandidate>?> articleVideos(
     String url, String archiveId, String? date, {
     bool Function(String uri)? allowSource,
-  }) => _withVideoArticle(url, archiveId, date, (archive, article, source) async {
-    final html = utf8.decode(await archive.content(article),
-        allowMalformed: true);
-    return ZimVideoSelection.fromArticleHtml(html);
-  }, allowSource: allowSource);
+  }) => _withVideoArticle(url, archiveId, date,
+      (archive, article, source) async {
+        final html = utf8.decode(await archive.content(article),
+            allowMalformed: true);
+        return ZimVideoSelection.fromArticleHtml(html);
+      }, allowSource: allowSource);
 
-  /// Only an exact reference present in this article can be played.
-  /// The scratch copy is deleted on every rejected or failed validation.
   Future<ZimPlayableVideo?> openArticleVideo(
-    String url, String archiveId, String? date, String videoReference, {
+    String url, String archiveId, String? date, String reference, {
     bool Function(String uri)? allowSource,
     bool Function()? cancelled,
   }) async {
@@ -976,25 +788,25 @@ class _MeteredZimSource implements ZimSource {
         if (cancelled?.call() == true) return null;
         final html = utf8.decode(await archive.content(article),
             allowMalformed: true);
-        final listed = ZimVideoSelection.fromArticleHtml(html);
-        final match = listed.where((v) => v.reference == videoReference)
+        final selected = ZimVideoSelection.fromArticleHtml(html);
+        final match = selected.where((item) => item.reference == reference)
             .firstOrNull;
         if (match == null) return null;
-        final suffix = p.extension(videoReference).toLowerCase();
-        final tmp = await getTemporaryDirectory();
-        scratch = File(p.join(tmp.path, 'pala-zim-video',
+        final suffix = p.extension(reference).toLowerCase();
+        final temp = await getTemporaryDirectory();
+        scratch = File(p.join(temp.path, 'pala-zim-video',
             '${const Uuid().v4()}$suffix'));
-        final ok = await archive.extractLocalVideo(article,
-            videoReference, scratch!, cancelled: cancelled);
+        final ok = await archive.extractLocalVideo(article, reference,
+            scratch!, cancelled: cancelled);
         if (!ok || cancelled?.call() == true) return null;
         var cues = <ZimSubtitleCue>[];
         if (match.subtitleReference != null) {
           try {
-            final subtitle = await archive.localSubtitle(
+            final track = await archive.localSubtitle(
                 article, match.subtitleReference!);
-            if (subtitle != null) cues = ZimSubtitles.parse(subtitle);
+            if (track != null) cues = ZimSubtitles.parse(track);
           } catch (_) {
-            // An absent or malformed subtitle never prevents video playback.
+            // Invalid subtitles never block the movie itself.
           }
         }
         return ZimPlayableVideo(file: scratch!, cues: cues,
