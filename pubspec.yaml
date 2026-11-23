@@ -1,7 +1,7 @@
 name: ondevice_llm
 description: Private, offline AI assistant for Android and Windows that runs local LLMs (Gemma 4, Qwen, any GGUF) with llama.cpp.
 publish_to: 'none'
-version: 0.3.4+7
+version: 0.3.5+8
 
 environment:
   sdk: '>=3.13.4 <4.0.0'
