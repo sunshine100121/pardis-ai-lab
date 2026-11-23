@@ -399,7 +399,7 @@ jobs:
           test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
           grep -q 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           echo 'SIGNER_PRIVATE_KEY_AND_HISTORICAL_OWNER_CERTIFICATE=PASS'
-          echo 'INSTALLED_0.3.3_CODE6_DEVICE_CERTIFICATE=NOT_VERIFIED'
+          echo 'INSTALLED_0.3.4_CODE7_DEVICE_CERTIFICATE=NOT_VERIFIED'
           echo 'APK_BUILD=NO; INSTALL=NO; RELEASE_APPROVAL=BLOCKED_PENDING_BACKUP_AND_DEVICE_CHECK'
 
   signed-single-trial-apk:
@@ -426,15 +426,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor 66806b220052505fb7f8e767f790dcdae22b8837 HEAD
-          # After 240/240 source tests, only release metadata, workflow,
-          # build-identity injection and checkpoints may have changed.
+          git merge-base --is-ancestor 3d77470ba4dc9d33b05e14fe0b9f02f1d3d9bebc HEAD
+          # New unified M01-M06 code was tested: 66 focused Flutter tests,
+          # Flutter analyze, Android Kotlin compile-only and pin verification.
+          # Any new application/runtime change must pass a new source gate.
           while IFS= read -r changed; do
             case "$changed" in
-              docs/*|.github/workflows/pala-m16-integrated-gate.yml|pubspec.yaml|scripts/build_android.sh|scripts/bootstrap.sh) ;;
+              docs/*|.github/workflows/pala-m16-integrated-gate.yml) ;;
               *) echo "UNTESTED_RUNTIME_CHANGE:$changed" >&2; exit 1 ;;
             esac
-          done < <(git diff --name-only 66806b220052505fb7f8e767f790dcdae22b8837 HEAD)
+          done < <(git diff --name-only 3d77470ba4dc9d33b05e14fe0b9f02f1d3d9bebc HEAD)
           test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.5+8'
           grep -Fq 'applicationId = "ir.pardis.ai.pala.f1diag2"' android/app/build.gradle.kts
           grep -Fq 'ODLLM_REQUIRE_RELEASE_SIGNING' android/app/build.gradle.kts
@@ -444,6 +445,19 @@ jobs:
           flutter pub get --enforce-lockfile
           git diff --exit-code -- pubspec.lock
           echo 'RELEASE_SOURCE_AND_COMPATIBILITY=PASS'
+      - name: Use already-compiled official Maven Central endpoint (CI runner only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ('android/settings.gradle.kts','android/build.gradle.kts'):
+              p=Path(name)
+              current=p.read_text()
+              assert current.count('mavenCentral()') == 1, 'UNEXPECTED_MAVEN_CONFIG'
+              p.write_text(current.replace('mavenCentral()', 'maven { url = uri("https://repo1.maven.org/maven2") }'))
+          PY
+          echo 'OFFICIAL_MAVEN_CENTRAL_ONLY; EPHEMERAL_CI_CHANGE_NO_COMMIT'
       - name: Sign and build exactly one arm64 APK with the existing owner key
         shell: bash
         env:
@@ -472,7 +486,7 @@ jobs:
           # No credential material survives this build step.
           git diff --exit-code -- pubspec.lock
           echo 'ONE_ARM64_BUILD_COMPLETED; SIGNED_APK_MUST_STILL_PASS_VERIFICATION'
-      - name: Verify package, code 7, owner signature, native arm64 library and no secrets
+      - name: Verify package, code 8, owner signature, native arm64 library and no secrets
         shell: bash
         run: |
           set -euo pipefail
@@ -494,7 +508,7 @@ jobs:
             exit 1
           fi
           sha256sum "$apk" > "$out/app-release.sha256"
-          echo 'OWNER_SIGNATURE_PACKAGE_CODE7_ARM64=PASS'
+          echo 'OWNER_SIGNATURE_PACKAGE_CODE8_ARM64=PASS'
           echo 'NOT_INSTALLED; LIVE_TABLET_ACCEPTANCE_AND_ROLLBACK_NOT_YET_VERIFIED'
       - name: Upload the single inspectable signed candidate
         uses: actions/upload-artifact@v4
