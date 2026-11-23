@@ -9,6 +9,7 @@ on:
       - docs/PALA_M16_SIGN_ONLY_2026-11-21.trigger
       - docs/PALA_M16_BUILD_ONCE_2026-11-21.trigger
       - docs/PALA_M01_M06_ONE_SHOT_2026-11-23.trigger
+      - docs/PALA_M01_M06_NATIVE_ONLY_RETRY_2026-11-23.trigger
   workflow_dispatch:
 permissions:
   contents: read
@@ -69,8 +70,52 @@ jobs:
           echo 'SOURCE_GATE=PASS; APK_BUILT=NO; INSTALLED=NO'
           echo 'REAL_TABLET_BACKUP_SIGNER_VIDEO_QUALITY=NOT_VERIFIED'
 
+  m01-m06-android-only-retry:
+    # Source tests and analyzer already passed on the locked M01-M06 commit.
+    # Only Gradle's Maven download received HTTP 429; never rebuild APK.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/pala/m01-m06-unified-device-trial-2026-11-23' && contains(github.event.head_commit.message, '[m01m06-android-only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Verify exact previously-accepted code and lock
+        run: |
+          set -euo pipefail
+          python3 scripts/check_offline_baseline.py
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+          test "$(sed -n 's/^version: //p' pubspec.yaml)" = '0.3.4+7'
+      - name: Compile Android host, retry only Maven rate limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            set +e
+            bash scripts/check_android_host.sh 2>&1 | tee "$RUNNER_TEMP/pala-android-gradle.log"
+            code=${PIPESTATUS[0]}
+            set -e
+            if ((code == 0)); then
+              echo 'ANDROID_HOST_COMPILE=PASS; APK=NO'
+              exit 0
+            fi
+            if ((attempt == 2)) || ! grep -Eq 'status code 429|Too Many Requests' "$RUNNER_TEMP/pala-android-gradle.log"; then
+              echo 'ANDROID_HOST_COMPILE=NOT_VERIFIED; REAL_COMPILATION_FAILURE_OR_MAVEN_RATE_LIMIT' >&2
+              exit "$code"
+            fi
+            echo 'TRANSIENT_MAVEN_429: wait before single retry; NO_SOURCE_CHANGE'
+            sleep 55
+          done
+
   integrated-source-gate:
-    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') && !contains(github.event.head_commit.message, '[m01m06-preflight]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[m16-format-only]') && !contains(github.event.head_commit.message, '[m16-sign-only]') && !contains(github.event.head_commit.message, '[m16-build-once]') && !contains(github.event.head_commit.message, '[m01m06-preflight]') && !contains(github.event.head_commit.message, '[m01m06-android-only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
