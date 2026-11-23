@@ -101,7 +101,8 @@ class _ZimInlineVideosState extends ConsumerState<ZimInlineVideos> {
           '${widget.url}|${candidate.reference}';
       await Navigator.of(context).push<void>(MaterialPageRoute(
         builder: (_) => _ZimMovieScreen(
-          video: video!, title: candidate.caption, identity: identity,
+          video: video!, title: candidate.caption,
+          identity: '$identity|${video.revision}',
         ),
       ));
     } catch (e) {
