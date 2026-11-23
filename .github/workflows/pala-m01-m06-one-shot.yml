@@ -6,6 +6,7 @@ on:
     paths:
       - docs/PALA_M01_M06_ONE_SHOT_2026-11-23.trigger
       - docs/PALA_M01_M06_SYNTAX_RETRY_2026-11-23.trigger
+      - docs/PALA_M01_M06_DEPENDENCY_RETRY_2026-11-23.trigger
   workflow_dispatch:
 permissions:
   contents: write
