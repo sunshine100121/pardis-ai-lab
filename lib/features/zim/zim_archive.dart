@@ -521,118 +521,46 @@ class ZimArchive {
   });
 
 
-  /// Resolve strictly local media from the same approved archive.
-  Future<ZimEntry?> _localMediaAsset(
-    ZimEntry article, String reference, Set<String> mimes,
-  ) async {
-    if (!article.isArticle || reference.isEmpty || reference.length > 2048 ||
-        reference.startsWith('//')) return null;
-    final relative = Uri.tryParse(reference);
-    if (relative == null || relative.hasScheme || relative.hasAuthority ||
-        relative.hasFragment || relative.hasQuery) return null;
-    final path = Uri(path: '/${article.namespace}/${article.url}')
-        .resolveUri(relative).pathSegments
-        .where((s) => s.isNotEmpty).toList();
-    if (path.length < 2 || !const {'I', 'C', 'A'}.contains(path.first)) {
-      return null;
-    }
-    final ns = path.first;
-    var asset = await _findPath(ns, path.skip(1).join('/'));
-    if (asset == null && ns == 'I') {
-      asset = await _findPath('C', path.join('/'));
-    }
-    if (asset == null) return null;
-    final resolved = await _resolve(asset);
-    if (resolved == null || !mimes.contains(resolved.mime.toLowerCase())) {
-      return null;
-    }
-    return resolved;
+  Future<ZimEntry?> _localVideoEntry(ZimEntry article, String ref, Set<String> types) async {
+    if (!article.isArticle || ref.isEmpty || ref.length > 2048 ||
+        ref.startsWith('//')) return null;
+    final uri = Uri.tryParse(ref);
+    if (uri == null || uri.hasScheme || uri.hasAuthority || uri.hasQuery || uri.hasFragment) return null;
+    final segments = Uri(path: '/${article.namespace}/${article.url}')
+        .resolveUri(uri).pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.length < 2 || !const {'I', 'C', 'A'}.contains(segments.first)) return null;
+    final ns = segments.first;
+    var entry = await _findPath(ns, segments.skip(1).join('/'));
+    if (entry == null && ns == 'I') entry = await _findPath('C', segments.join('/'));
+    final found = entry == null ? null : await _resolve(entry);
+    return found == null || !types.contains(found.mime.toLowerCase()) ? null : found;
   }
 
-  /// Extract local video to scratch, bounded by 256 MiB or the existing
-  /// 64 MiB decompressed cluster limit. Never copies a whole ZIM.
   Future<bool> extractLocalVideo(
-    ZimEntry article, String reference, File scratch, {
+    ZimEntry article, String reference, File target, {
     int maxVideoBytes = 256 * 1024 * 1024,
     bool Function()? cancelled,
   }) => _run(() async {
-    if (maxVideoBytes <= 0 || maxVideoBytes > 256 * 1024 * 1024 ||
-        !RegExp(r'\.(mp4|m4v|webm|ogv) requires a compatible
-  /// search implementation; this reader does not treat it as searchable.
-  Future<bool> hasEmbeddedFullTextIndex() => _run(
-    () async =>
-        await _findPath('X', 'fulltext/xapian') != null ||
-        await _findPath('Z', '/fulltextIndex/xapian') != null,
-  );
-
-  Future<String?> metadata(String name) => _run(() async {
-    final e = await _findPath('M', name);
-    if (e == null) return null;
-    final resolved = await _resolve(e);
-    return resolved == null
-        ? null
-        : utf8.decode(await _content(resolved), allowMalformed: true);
-  });
-}
-
-class _BoundedClusterOutput extends OutputMemoryStream {
-  final int limit;
-  _BoundedClusterOutput(this.limit);
-  void _check(int count) {
-    if (count < 0 || count > limit - length) {
-      throw const FormatException('ZIM: expanded cluster exceeds safety limit');
-    }
-  }
-
-  @override
-  void writeByte(int value) {
-    _check(1);
-    super.writeByte(value);
-  }
-
-  @override
-  void writeBytes(List<int> bytes, {int? length}) {
-    _check(length ?? bytes.length);
-    super.writeBytes(bytes, length: length);
-  }
-
-  @override
-  void writeStream(InputStream stream) {
-    _check(stream.length);
-    super.writeStream(stream);
-  }
-
-  @override
-  void writeBackReference(int distance, int count) {
-    _check(count);
-    super.writeBackReference(distance, count);
-  }
-}
-, caseSensitive: false)
-            .hasMatch(reference)) return false;
-    final media = await _localMediaAsset(article, reference, const {
-      'video/mp4', 'video/webm', 'video/ogg', 'video/x-m4v',
-    });
+    if (maxVideoBytes < 1 || maxVideoBytes > 256 * 1024 * 1024 ||
+        !RegExp(r'\.(mp4|webm|ogv|m4v)$', caseSensitive: false).hasMatch(reference)) return false;
+    final media = await _localVideoEntry(article, reference,
+        const {'video/mp4','video/webm','video/ogg','video/x-m4v'});
     if (media == null || cancelled?.call() == true) return false;
-    final stored = await _storedBlobRange(media);
-    final size = stored?.$2;
-    if (size != null && (size < 1 || size > maxVideoBytes)) return false;
-    var success = false;
+    final range = await _storedBlobRange(media);
+    if (range != null && (range.$2 == 0 || range.$2 > maxVideoBytes)) return false;
+    var succeeded = false;
     try {
-      await scratch.parent.create(recursive: true);
-      final output = await scratch.open(mode: FileMode.write);
+      await target.parent.create(recursive: true);
+      final output = await target.open(mode: FileMode.write);
       try {
-        if (stored != null) {
-          var offset = 0;
-          while (offset < stored.$2) {
+        if (range != null) {
+          for (var at = 0; at < range.$2;) {
             if (cancelled?.call() == true) return false;
-            final chunk = (stored.$2 - offset).clamp(0, 256 * 1024);
-            final bytes = await _readAt(_file, stored.$1 + offset, chunk);
-            if (bytes.length != chunk) {
-              throw const FormatException('ZIM: truncated video');
-            }
+            final count = (range.$2 - at).clamp(0, 256 * 1024);
+            final bytes = await _readAt(_file, range.$1 + at, count);
+            if (bytes.length != count) throw const FormatException('Video truncated');
             await output.writeFrom(bytes);
-            offset += chunk;
+            at += count;
           }
         } else {
           final bytes = await _content(media);
@@ -643,81 +571,26 @@ class _BoundedClusterOutput extends OutputMemoryStream {
       } finally {
         await output.close();
       }
-      success = cancelled?.call() != true;
-      return success;
+      succeeded = cancelled?.call() != true;
+      return succeeded;
     } catch (_) {
       return false;
     } finally {
-      if (!success && await scratch.exists()) await scratch.delete();
+      if (!succeeded && await target.exists()) await target.delete();
     }
   });
 
-  /// Read bounded embedded SRT/VTT, not any remote URL.
   Future<String?> localSubtitle(ZimEntry article, String reference) =>
       _run(() async {
-        if (!RegExp(r'\.(srt|vtt) requires a compatible
-  /// search implementation; this reader does not treat it as searchable.
-  Future<bool> hasEmbeddedFullTextIndex() => _run(
-    () async =>
-        await _findPath('X', 'fulltext/xapian') != null ||
-        await _findPath('Z', '/fulltextIndex/xapian') != null,
-  );
-
-  Future<String?> metadata(String name) => _run(() async {
-    final e = await _findPath('M', name);
-    if (e == null) return null;
-    final resolved = await _resolve(e);
-    return resolved == null
-        ? null
-        : utf8.decode(await _content(resolved), allowMalformed: true);
-  });
-}
-
-class _BoundedClusterOutput extends OutputMemoryStream {
-  final int limit;
-  _BoundedClusterOutput(this.limit);
-  void _check(int count) {
-    if (count < 0 || count > limit - length) {
-      throw const FormatException('ZIM: expanded cluster exceeds safety limit');
-    }
-  }
-
-  @override
-  void writeByte(int value) {
-    _check(1);
-    super.writeByte(value);
-  }
-
-  @override
-  void writeBytes(List<int> bytes, {int? length}) {
-    _check(length ?? bytes.length);
-    super.writeBytes(bytes, length: length);
-  }
-
-  @override
-  void writeStream(InputStream stream) {
-    _check(stream.length);
-    super.writeStream(stream);
-  }
-
-  @override
-  void writeBackReference(int distance, int count) {
-    _check(count);
-    super.writeBackReference(distance, count);
-  }
-}
-, caseSensitive: false)
-            .hasMatch(reference)) return null;
-        final media = await _localMediaAsset(article, reference, const {
-          'text/vtt', 'text/plain', 'application/x-subrip',
-          'application/octet-stream',
-        });
+        if (!RegExp(r'\.(srt|vtt)$', caseSensitive: false).hasMatch(reference)) return null;
+        final media = await _localVideoEntry(article, reference,
+            const {'text/vtt','text/plain','application/x-subrip','application/octet-stream'});
         if (media == null) return null;
         final stored = await _storedBlobRange(media);
         if (stored != null && stored.$2 > 1024 * 1024) return null;
         final bytes = await _content(media);
-        if (bytes.length > 1024 * 1024) return null;
-        return utf8.decode(bytes, allowMalformed: true);
+        return bytes.length > 1024 * 1024
+            ? null : utf8.decode(bytes, allowMalformed: true);
       });
 
   /// Presence only: using this embedded Xapian index requires a compatible
