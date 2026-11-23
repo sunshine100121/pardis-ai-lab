@@ -30,6 +30,8 @@ dependencies:
   share_plus: ^13.3.0
   image_picker: ^1.2.3
   pdfrx: ^2.4.8
+  # Play verified local ZIM videos, never remote URLs.
+  video_player: ^2.14.1
   speech_to_text: ^7.5.0
   flutter_tts: ^4.2.5
   # On-device voice (Whisper + Silero VAD + Kokoro), owner 2026-10-07.
