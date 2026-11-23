@@ -72,6 +72,25 @@ for path in compatibility_paths:
                   .every((x) => x)"""
         assert installed.count(format_old)==1, 'UNEXPECTED_SETTINGS_FORMAT_BASELINE'
         installed=installed.replace(format_old,format_new,1)
+    if path == 'pubspec.lock':
+        # Only five known video_player packages may be added. Preserve every
+        # original locked package hash/version; never weaken model/data checks.
+        import re
+        current=(ROOT/path).read_bytes().replace(b'\r\n',b'\n')
+        for name in (b'video_player', b'video_player_android',
+                     b'video_player_avfoundation',
+                     b'video_player_platform_interface', b'video_player_web'):
+            pattern=rb'(?m)^  '+name+rb':\\n(?: {4,}[^\\n]*\\n)*'
+            # Build with literal newline regex escapes, not escaped backslash.
+            pattern=pattern.replace(b'\\\\n', b'\\n')
+            current,count=re.subn(pattern,b'',current)
+            assert count==1, 'VIDEO_DEPENDENCY_MISSING_OR_DUPLICATED:'+name.decode()
+        for new,old in ((b'  dart: ">=3.13.4 <4.0.0"',b'  dart: ">=3.12.0 <4.0.0"'),
+                        (b'  flutter: ">=3.47.5"',b'  flutter: ">=3.44.0"')):
+            assert current.count(new)==1, 'SDK_LOCK_CHANGE_UNEXPECTED'
+            current=current.replace(new,old,1)
+        assert current==installed, 'UNRELATED_DEPENDENCY_OR_STORAGE_DRIFT'
+        continue
     assert (ROOT/path).read_bytes().replace(b'\r\n',b'\n')==installed, 'INSTALL_STORAGE_SETTINGS_OR_DEPENDENCY_DIFF:'+path
 print(json.dumps({'runtime_baseline':'PASS','f1_absent':'PASS','persian_334_keys':'PASS',
                   'installed_model_path_and_database_source_compatibility':'PASS',
