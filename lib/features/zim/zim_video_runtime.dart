@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import '../../inference/engine/llama_engine.dart';
 import '../models/domain/entities/model_info.dart';
@@ -79,8 +78,10 @@ abstract final class ZimVideoRuntime {
       final cue = captions[i];
       final fa = await translateToPersian(
           cue.text, engine, modelFamily, settings, cancelled: cancelled);
-      result.add(ZimSubtitleCue(cue.start, cue.end,
-          fa?.trim().isNotEmpty == true ? fa! : cue.text));
+      if (fa == null || fa.trim().isEmpty) {
+        throw StateError('ترجمه بخش ${i + 1} کامل نشد؛ زیرنویس ناقص ذخیره نشد.');
+      }
+      result.add(ZimSubtitleCue(cue.start, cue.end, fa.trim()));
       progress?.call(i + 1, captions.length);
     }
     return result;
