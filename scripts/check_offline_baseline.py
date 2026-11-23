@@ -71,9 +71,23 @@ for path in compatibility_paths:
                    'video_player_avfoundation','video_player_platform_interface',
                    'video_player_web'}
         assert 'video_player' in additional and additional <= allowed, 'UNREVIEWED_NEW_DEPENDENCY'
-        old_sdks = installed.decode('utf-8').split('\nsdks:',1)[-1]
-        new_sdks = (ROOT/path).read_text(encoding='utf-8').split('\nsdks:',1)[-1]
-        assert old_sdks == new_sdks, 'PUBSPEC_SDK_CONSTRAINT_DRIFT'
+        # Dart SDK lower bounds may rise due to Flutter 3.47.5; reject
+        # any lowering, upper-bound change, or a new/unreviewed SDK key.
+        def sdk_limits(raw):
+            block = raw.split('\nsdks:', 1)[-1]
+            matches = re.findall(r'(?m)^  (dart|flutter): "([^"]+)"$', block)
+            assert len(matches) == 2, 'UNEXPECTED_LOCKFILE_SDK_KEYS'
+            return dict(matches)
+        before = sdk_limits(installed.decode('utf-8'))
+        after = sdk_limits((ROOT/path).read_text(encoding='utf-8'))
+        for sdk, ceiling in {'dart': (3,13,4), 'flutter': (3,47,5)}.items():
+            a = re.fullmatch(r'>=(\d+)\.(\d+)\.(\d+)(.*)', before[sdk])
+            b = re.fullmatch(r'>=(\d+)\.(\d+)\.(\d+)(.*)', after[sdk])
+            assert a and b and a.group(4) == b.group(4), 'PUBSPEC_SDK_RANGE_CHANGED'
+            old_min = tuple(int(a.group(i)) for i in (1,2,3))
+            new_min = tuple(int(b.group(i)) for i in (1,2,3))
+            assert old_min <= new_min <= ceiling, 'UNREVIEWED_SDK_MINIMUM'
+        continue
         continue
     if path == 'lib/features/settings/domain/entities/inference_settings.dart':
         old=b"""      listeningModel: text('listeningModel', 32) == 'parakeet-v3'
