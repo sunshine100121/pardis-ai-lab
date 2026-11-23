@@ -520,34 +520,64 @@ class ZimArchive {
     return Uint8List.fromList(bytes);
   });
 
-
-  Future<ZimEntry?> _localVideoEntry(ZimEntry article, String ref, Set<String> types) async {
-    if (!article.isArticle || ref.isEmpty || ref.length > 2048 ||
-        ref.startsWith('//')) return null;
+  Future<ZimEntry?> _localVideoEntry(
+    ZimEntry article,
+    String ref,
+    Set<String> types,
+  ) async {
+    if (!article.isArticle ||
+        ref.isEmpty ||
+        ref.length > 2048 ||
+        ref.startsWith('//'))
+      return null;
     final uri = Uri.tryParse(ref);
-    if (uri == null || uri.hasScheme || uri.hasAuthority || uri.hasQuery || uri.hasFragment) return null;
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasQuery ||
+        uri.hasFragment)
+      return null;
     final segments = Uri(path: '/${article.namespace}/${article.url}')
-        .resolveUri(uri).pathSegments.where((s) => s.isNotEmpty).toList();
-    if (segments.length < 2 || !const {'I', 'C', 'A'}.contains(segments.first)) return null;
+        .resolveUri(uri)
+        .pathSegments
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (segments.length < 2 || !const {'I', 'C', 'A'}.contains(segments.first))
+      return null;
     final ns = segments.first;
     var entry = await _findPath(ns, segments.skip(1).join('/'));
-    if (entry == null && ns == 'I') entry = await _findPath('C', segments.join('/'));
+    if (entry == null && ns == 'I')
+      entry = await _findPath('C', segments.join('/'));
     final found = entry == null ? null : await _resolve(entry);
-    return found == null || !types.contains(found.mime.toLowerCase()) ? null : found;
+    return found == null || !types.contains(found.mime.toLowerCase())
+        ? null
+        : found;
   }
 
   Future<bool> extractLocalVideo(
-    ZimEntry article, String reference, File target, {
+    ZimEntry article,
+    String reference,
+    File target, {
     int maxVideoBytes = 256 * 1024 * 1024,
     bool Function()? cancelled,
   }) => _run(() async {
-    if (maxVideoBytes < 1 || maxVideoBytes > 256 * 1024 * 1024 ||
-        !RegExp(r'\.(mp4|webm|ogv|m4v)$', caseSensitive: false).hasMatch(reference)) return false;
-    final media = await _localVideoEntry(article, reference,
-        const {'video/mp4','video/webm','video/ogg','video/x-m4v'});
+    if (maxVideoBytes < 1 ||
+        maxVideoBytes > 256 * 1024 * 1024 ||
+        !RegExp(
+          r'\.(mp4|webm|ogv|m4v)$',
+          caseSensitive: false,
+        ).hasMatch(reference))
+      return false;
+    final media = await _localVideoEntry(article, reference, const {
+      'video/mp4',
+      'video/webm',
+      'video/ogg',
+      'video/x-m4v',
+    });
     if (media == null || cancelled?.call() == true) return false;
     final range = await _storedBlobRange(media);
-    if (range != null && (range.$2 == 0 || range.$2 > maxVideoBytes)) return false;
+    if (range != null && (range.$2 == 0 || range.$2 > maxVideoBytes))
+      return false;
     var succeeded = false;
     try {
       await target.parent.create(recursive: true);
@@ -558,7 +588,8 @@ class ZimArchive {
             if (cancelled?.call() == true) return false;
             final count = (range.$2 - at).clamp(0, 256 * 1024);
             final bytes = await _readAt(_file, range.$1 + at, count);
-            if (bytes.length != count) throw const FormatException('Video truncated');
+            if (bytes.length != count)
+              throw const FormatException('Video truncated');
             await output.writeFrom(bytes);
             at += count;
           }
@@ -582,15 +613,21 @@ class ZimArchive {
 
   Future<String?> localSubtitle(ZimEntry article, String reference) =>
       _run(() async {
-        if (!RegExp(r'\.(srt|vtt)$', caseSensitive: false).hasMatch(reference)) return null;
-        final media = await _localVideoEntry(article, reference,
-            const {'text/vtt','text/plain','application/x-subrip','application/octet-stream'});
+        if (!RegExp(r'\.(srt|vtt)$', caseSensitive: false).hasMatch(reference))
+          return null;
+        final media = await _localVideoEntry(article, reference, const {
+          'text/vtt',
+          'text/plain',
+          'application/x-subrip',
+          'application/octet-stream',
+        });
         if (media == null) return null;
         final stored = await _storedBlobRange(media);
         if (stored != null && stored.$2 > 1024 * 1024) return null;
         final bytes = await _content(media);
         return bytes.length > 1024 * 1024
-            ? null : utf8.decode(bytes, allowMalformed: true);
+            ? null
+            : utf8.decode(bytes, allowMalformed: true);
       });
 
   /// Presence only: using this embedded Xapian index requires a compatible

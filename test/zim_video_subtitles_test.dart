@@ -27,8 +27,10 @@ void main() {
     expect(ZimVideoSelection.localReference('javascript:bad.mp4'), isNull);
   });
 
-  test('SRT and VTT captions preserve exact times and searchable transcript', () {
-    const vtt = '''WEBVTT
+  test(
+    'SRT and VTT captions preserve exact times and searchable transcript',
+    () {
+      const vtt = '''WEBVTT
 
 00:00:01.250 --> 00:00:02.500 line:90%
 <v Speaker>سلام</v>
@@ -36,14 +38,15 @@ void main() {
 00:00:03.000 --> 00:00:05.000
 این یک <b>فیلم</b> است
 ''';
-    final cues = ZimSubtitles.parse(vtt);
-    expect(cues, hasLength(2));
-    expect(ZimSubtitles.at(cues, const Duration(milliseconds: 1500)), 'سلام');
-    expect(ZimSubtitles.at(cues, const Duration(milliseconds: 2800)), isNull);
-    expect(ZimSubtitles.fullText(cues), contains('فیلم'));
-    expect(ZimSubtitles.parse(ZimSubtitles.srt(cues)), hasLength(2));
-    expect(ZimSubtitles.parse('00:00:04,000 --> 00:00:03,000\nbad'), isEmpty);
-  });
+      final cues = ZimSubtitles.parse(vtt);
+      expect(cues, hasLength(2));
+      expect(ZimSubtitles.at(cues, const Duration(milliseconds: 1500)), 'سلام');
+      expect(ZimSubtitles.at(cues, const Duration(milliseconds: 2800)), isNull);
+      expect(ZimSubtitles.fullText(cues), contains('فیلم'));
+      expect(ZimSubtitles.parse(ZimSubtitles.srt(cues)), hasLength(2));
+      expect(ZimSubtitles.parse('00:00:04,000 --> 00:00:03,000\nbad'), isEmpty);
+    },
+  );
 
   test('unrelated or remote media never produces a scratch video', () async {
     final zim = await ZimArchive.open('test/fixtures/zim/mini.zim');
@@ -51,10 +54,14 @@ void main() {
     final article = await zim.findByTitle('Paris');
     expect(article, isNotNull);
     final scratch = File('${Directory.systemTemp.path}/zim-video-invalid.mp4');
-    expect(await zim.extractLocalVideo(article!, 'https://bad.org/a.mp4',
-        scratch), isFalse);
-    expect(await zim.extractLocalVideo(article, 'not-in-archive.mp4',
-        scratch), isFalse);
+    expect(
+      await zim.extractLocalVideo(article!, 'https://bad.org/a.mp4', scratch),
+      isFalse,
+    );
+    expect(
+      await zim.extractLocalVideo(article, 'not-in-archive.mp4', scratch),
+      isFalse,
+    );
     expect(await scratch.exists(), isFalse);
     expect(await zim.localSubtitle(article, 'https://bad.org/a.vtt'), isNull);
   });

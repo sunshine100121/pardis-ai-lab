@@ -12,8 +12,10 @@ abstract final class ZimSubtitles {
     if (raw.length > maxCaptionCharacters) {
       throw const FormatException('زیرنویس بیش از حد بزرگ است');
     }
-    final normalized = raw.replaceFirst('\uFEFF', '')
-        .replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final normalized = raw
+        .replaceFirst('\uFEFF', '')
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
     final blocks = normalized.split(RegExp(r'\n\s*\n'));
     final result = <ZimSubtitleCue>[];
     final pattern = RegExp(
@@ -28,10 +30,16 @@ abstract final class ZimSubtitles {
       final start = _timestamp(match.group(1)!);
       final end = _timestamp(match.group(2)!);
       if (start == null || end == null || end <= start) continue;
-      final text = lines.skip(at + 1).map((line) => line
-          .replaceAll(RegExp(r'<[^>]*>'), '')
-          .replaceAll(RegExp(r'\{\\an\d+\}'), '')
-          .trim()).where((line) => line.isNotEmpty).join('\n');
+      final text = lines
+          .skip(at + 1)
+          .map(
+            (line) => line
+                .replaceAll(RegExp(r'<[^>]*>'), '')
+                .replaceAll(RegExp(r'\{\\an\d+\}'), '')
+                .trim(),
+          )
+          .where((line) => line.isNotEmpty)
+          .join('\n');
       if (text.isEmpty) continue;
       result.add(ZimSubtitleCue(start, end, text));
       if (result.length >= 5000) break;
@@ -49,10 +57,19 @@ abstract final class ZimSubtitles {
     final fraction = int.tryParse(last[1].padRight(3, '0'));
     final minutes = int.tryParse(parts[parts.length - 2]);
     final hours = parts.length == 3 ? int.tryParse(parts[0]) : 0;
-    if (seconds == null || minutes == null || hours == null ||
-        fraction == null || minutes > 59 || seconds > 59) return null;
-    return Duration(hours: hours, minutes: minutes,
-        seconds: seconds, milliseconds: fraction);
+    if (seconds == null ||
+        minutes == null ||
+        hours == null ||
+        fraction == null ||
+        minutes > 59 ||
+        seconds > 59)
+      return null;
+    return Duration(
+      hours: hours,
+      minutes: minutes,
+      seconds: seconds,
+      milliseconds: fraction,
+    );
   }
 
   static String? at(List<ZimSubtitleCue> cues, Duration elapsed) {
@@ -74,7 +91,8 @@ abstract final class ZimSubtitles {
       cues.map((c) => '${clock(c.start)}  ${c.text}').join('\n\n');
 
   static String srt(List<ZimSubtitleCue> cues) {
-    String stamp(Duration d) => '${clock(d)},${(d.inMilliseconds % 1000).toString().padLeft(3, '0')}';
+    String stamp(Duration d) =>
+        '${clock(d)},${(d.inMilliseconds % 1000).toString().padLeft(3, '0')}';
     return [
       for (var i = 0; i < cues.length; i++)
         '${i + 1}\n${stamp(cues[i].start)} --> ${stamp(cues[i].end)}\n${cues[i].text}',

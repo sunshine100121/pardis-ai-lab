@@ -696,19 +696,25 @@ class FolderLibrary {
     ]);
   }
 
-
   /// Scope and revision-validated ZIM read, identical policy to articleGallery.
   Future<T?> _withVideoArticle<T>(
-    String url, String archiveId, String? date,
-    Future<T?> Function(ZimArchive archive, ZimEntry entry, LibraryFile source) read, {
+    String url,
+    String archiveId,
+    String? date,
+    Future<T?> Function(ZimArchive archive, ZimEntry entry, LibraryFile source)
+    read, {
     bool Function(String uri)? allowSource,
   }) async {
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.scheme != 'zim' || uri.host != archiveId ||
-        uri.pathSegments.length != 1 || uri.hasFragment ||
+    if (uri == null ||
+        uri.scheme != 'zim' ||
+        uri.host != archiveId ||
+        uri.pathSegments.length != 1 ||
+        uri.hasFragment ||
         uri.queryParametersAll.keys.any((k) => k != 'entry' && k != 'source') ||
         (uri.queryParametersAll['entry']?.length ?? 0) > 1 ||
-        (uri.queryParametersAll['source']?.length ?? 0) > 1) return null;
+        (uri.queryParametersAll['source']?.length ?? 0) > 1)
+      return null;
     final entryText = uri.queryParameters['entry'];
     final index = entryText == null ? null : int.tryParse(entryText);
     if (entryText != null && (index == null || index < 0)) return null;
@@ -722,25 +728,36 @@ class FolderLibrary {
     final catalog = await state();
     for (final row in catalog['files'] as List) {
       final fileUri = row['uri'] as String;
-      if (exactId != null && FolderLibrary.sourceId(fileUri) != exactId) continue;
-      if (row['enabled'] != true || allowSource?.call(fileUri) == false) continue;
+      if (exactId != null && FolderLibrary.sourceId(fileUri) != exactId)
+        continue;
+      if (row['enabled'] != true || allowSource?.call(fileUri) == false)
+        continue;
       final file = live[fileUri];
-      if (file == null || !file.name.toLowerCase().endsWith('.zim') ||
-          file.size != row['size'] || file.modified != row['modified']) continue;
+      if (file == null ||
+          !file.name.toLowerCase().endsWith('.zim') ||
+          file.size != row['size'] ||
+          file.modified != row['modified'])
+        continue;
       ZimArchive? archive;
       try {
-        archive = await ZimArchive.open(fileUri, openSource: (location) async {
-          if (allowSource?.call(location) == false) {
-            throw StateError('محدوده منابع پروژه تغییر کرده است');
-          }
-          return access.open(location);
-        });
+        archive = await ZimArchive.open(
+          fileUri,
+          openSource: (location) async {
+            if (allowSource?.call(location) == false) {
+              throw StateError('محدوده منابع پروژه تغییر کرده است');
+            }
+            return access.open(location);
+          },
+        );
         if (archive.identity != archiveId ||
-            await archive.metadata('Date') != date) continue;
+            await archive.metadata('Date') != date)
+          continue;
         final title = uri.pathSegments.single.replaceAll('_', ' ');
         final article = index == null
             ? await archive.findByTitle(title)
-            : index < archive.entryCount ? await archive.entry(index) : null;
+            : index < archive.entryCount
+            ? await archive.entry(index)
+            : null;
         if (article == null || !article.isArticle || article.title != title) {
           continue;
         }
@@ -749,11 +766,18 @@ class FolderLibrary {
         final checked = await access.list();
         final same = checked.files.where((f) => f.uri == fileUri).firstOrNull;
         final latest = await state();
-        final enabled = (latest['files'] as List).any((f) =>
-            f['uri'] == fileUri && f['enabled'] == true &&
-            f['size'] == file.size && f['modified'] == file.modified);
-        if (!enabled || same == null || same.size != file.size ||
-            same.modified != file.modified) return null;
+        final enabled = (latest['files'] as List).any(
+          (f) =>
+              f['uri'] == fileUri &&
+              f['enabled'] == true &&
+              f['size'] == file.size &&
+              f['modified'] == file.modified,
+        );
+        if (!enabled ||
+            same == null ||
+            same.size != file.size ||
+            same.modified != file.modified)
+          return null;
         return value;
       } catch (_) {
         // A missing optional asset must never prevent the text result.
@@ -766,52 +790,75 @@ class FolderLibrary {
 
   /// No media bytes are read before a deliberate playback action.
   Future<List<ZimVideoCandidate>?> articleVideos(
-    String url, String archiveId, String? date, {
+    String url,
+    String archiveId,
+    String? date, {
     bool Function(String uri)? allowSource,
-  }) => _withVideoArticle(url, archiveId, date,
-      (archive, article, source) async {
-        final html = utf8.decode(await archive.content(article),
-            allowMalformed: true);
+  }) =>
+      _withVideoArticle(url, archiveId, date, (archive, article, source) async {
+        final html = utf8.decode(
+          await archive.content(article),
+          allowMalformed: true,
+        );
         return ZimVideoSelection.fromArticleHtml(html);
       }, allowSource: allowSource);
 
   Future<ZimPlayableVideo?> openArticleVideo(
-    String url, String archiveId, String? date, String reference, {
+    String url,
+    String archiveId,
+    String? date,
+    String reference, {
     bool Function(String uri)? allowSource,
     bool Function()? cancelled,
   }) async {
     File? scratch;
     ZimPlayableVideo? opened;
     try {
-      opened = await _withVideoArticle(url, archiveId, date,
-          (archive, article, source) async {
+      opened = await _withVideoArticle(url, archiveId, date, (
+        archive,
+        article,
+        source,
+      ) async {
         if (cancelled?.call() == true) return null;
-        final html = utf8.decode(await archive.content(article),
-            allowMalformed: true);
+        final html = utf8.decode(
+          await archive.content(article),
+          allowMalformed: true,
+        );
         final selected = ZimVideoSelection.fromArticleHtml(html);
-        final match = selected.where((item) => item.reference == reference)
+        final match = selected
+            .where((item) => item.reference == reference)
             .firstOrNull;
         if (match == null) return null;
         final suffix = p.extension(reference).toLowerCase();
         final temp = await getTemporaryDirectory();
-        scratch = File(p.join(temp.path, 'pala-zim-video',
-            '${const Uuid().v4()}$suffix'));
-        final ok = await archive.extractLocalVideo(article, reference,
-            scratch!, cancelled: cancelled);
+        scratch = File(
+          p.join(temp.path, 'pala-zim-video', '${const Uuid().v4()}$suffix'),
+        );
+        final ok = await archive.extractLocalVideo(
+          article,
+          reference,
+          scratch!,
+          cancelled: cancelled,
+        );
         if (!ok || cancelled?.call() == true) return null;
         var cues = <ZimSubtitleCue>[];
         if (match.subtitleReference != null) {
           try {
             final track = await archive.localSubtitle(
-                article, match.subtitleReference!);
+              article,
+              match.subtitleReference!,
+            );
             if (track != null) cues = ZimSubtitles.parse(track);
           } catch (_) {
             // Invalid subtitles never block the movie itself.
           }
         }
-        return ZimPlayableVideo(file: scratch!, cues: cues,
-            revision: '${source.size}:${source.modified}',
-            subtitleLanguage: match.subtitleLanguage);
+        return ZimPlayableVideo(
+          file: scratch!,
+          cues: cues,
+          revision: '${source.size}:${source.modified}',
+          subtitleLanguage: match.subtitleLanguage,
+        );
       }, allowSource: allowSource);
       return opened;
     } finally {

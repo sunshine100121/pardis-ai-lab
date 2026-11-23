@@ -26,7 +26,10 @@ import 'zim_video_selection.dart';
 /// A local video list on the cited article, not on an arbitrary webpage.
 class ZimInlineVideos extends ConsumerStatefulWidget {
   const ZimInlineVideos({
-    super.key, required this.url, required this.archiveId, this.archiveDate,
+    super.key,
+    required this.url,
+    required this.archiveId,
+    this.archiveDate,
   });
   final String url, archiveId;
   final String? archiveDate;
@@ -47,13 +50,15 @@ class _ZimInlineVideosState extends ConsumerState<ZimInlineVideos> {
     if (!workspace.loaded || !workspace.readable || chat != _chatId) {
       return false;
     }
-    final project = chat == null ? ref.read(newChatProjectProvider)
+    final project = chat == null
+        ? ref.read(newChatProjectProvider)
         : workspace.memberships[chat];
     if (project != _projectId) return false;
     if (project == null) return true;
-    return workspace.projects.any((p) =>
-        p.id == project &&
-        p.sourceIds.contains(FolderLibrary.sourceId(uri)));
+    return workspace.projects.any(
+      (p) =>
+          p.id == project && p.sourceIds.contains(FolderLibrary.sourceId(uri)),
+    );
   }
 
   Future<List<ZimVideoCandidate>?> _read() async {
@@ -62,11 +67,17 @@ class _ZimInlineVideosState extends ConsumerState<ZimInlineVideos> {
     final workspace = ref.read(conversationWorkspaceProvider);
     if (!workspace.loaded || !workspace.readable) return null;
     _chatId = ref.read(chatProvider).chatId;
-    _projectId = _chatId == null ? ref.read(newChatProjectProvider)
+    _projectId = _chatId == null
+        ? ref.read(newChatProjectProvider)
         : workspace.memberships[_chatId];
-    return ref.read(folderLibraryProvider).articleVideos(
-      widget.url, widget.archiveId, widget.archiveDate, allowSource: _allowed,
-    );
+    return ref
+        .read(folderLibraryProvider)
+        .articleVideos(
+          widget.url,
+          widget.archiveId,
+          widget.archiveDate,
+          allowSource: _allowed,
+        );
   }
 
   @override
@@ -78,33 +89,49 @@ class _ZimInlineVideosState extends ConsumerState<ZimInlineVideos> {
   @override
   void didUpdateWidget(covariant ZimInlineVideos old) {
     super.didUpdateWidget(old);
-    if (old.url != widget.url || old.archiveId != widget.archiveId ||
-        old.archiveDate != widget.archiveDate) _items = _read();
+    if (old.url != widget.url ||
+        old.archiveId != widget.archiveId ||
+        old.archiveDate != widget.archiveDate)
+      _items = _read();
   }
 
   Future<void> _open(ZimVideoCandidate candidate) async {
     if (_opening) return;
-    setState(() { _opening = true; _error = null; });
+    setState(() {
+      _opening = true;
+      _error = null;
+    });
     ZimPlayableVideo? video;
     bool handedOff = false;
     try {
-      video = await ref.read(folderLibraryProvider).openArticleVideo(
-        widget.url, widget.archiveId, widget.archiveDate,
-        candidate.reference, allowSource: _allowed,
-        cancelled: () => !mounted,
-      );
-      if (video == null) throw StateError(
-        'فیلم قابل دسترسی نیست یا حجم/قالب آن در نسخه فعلی پشتیبانی نمی‌شود.');
+      video = await ref
+          .read(folderLibraryProvider)
+          .openArticleVideo(
+            widget.url,
+            widget.archiveId,
+            widget.archiveDate,
+            candidate.reference,
+            allowSource: _allowed,
+            cancelled: () => !mounted,
+          );
+      if (video == null)
+        throw StateError(
+          'فیلم قابل دسترسی نیست یا حجم/قالب آن در نسخه فعلی پشتیبانی نمی‌شود.',
+        );
       if (!mounted) return;
       handedOff = true;
-      final identity = '${widget.archiveId}|${widget.archiveDate}|'
+      final identity =
+          '${widget.archiveId}|${widget.archiveDate}|'
           '${widget.url}|${candidate.reference}';
-      await Navigator.of(context).push<void>(MaterialPageRoute(
-        builder: (_) => _ZimMovieScreen(
-          video: video!, title: candidate.caption,
-          identity: '$identity|${video!.revision}',
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => _ZimMovieScreen(
+            video: video!,
+            title: candidate.caption,
+            identity: '$identity|${video!.revision}',
+          ),
         ),
-      ));
+      );
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -121,24 +148,34 @@ class _ZimInlineVideosState extends ConsumerState<ZimInlineVideos> {
     builder: (context, snapshot) {
       final items = snapshot.data;
       if (items == null || items.isEmpty) return const SizedBox.shrink();
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const SizedBox(height: 16),
-        Text('فیلم‌های موجود در دانشنامه',
-            style: Theme.of(context).textTheme.titleMedium),
-        for (final item in items)
-          ListTile(
-            leading: const Icon(Icons.play_circle_outline),
-            title: Text(item.caption),
-            subtitle: Text(item.subtitleReference == null
-                ? 'زیرنویس آماده ندارد' : 'زیرنویس محلی موجود است'),
-            enabled: !_opening,
-            onTap: () => _open(item),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Text(
+            'فیلم‌های موجود در دانشنامه',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-        if (_opening) const LinearProgressIndicator(),
-        if (_error != null)
-          Text(_error!, style: TextStyle(
-              color: Theme.of(context).colorScheme.error)),
-      ]);
+          for (final item in items)
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline),
+              title: Text(item.caption),
+              subtitle: Text(
+                item.subtitleReference == null
+                    ? 'زیرنویس آماده ندارد'
+                    : 'زیرنویس محلی موجود است',
+              ),
+              enabled: !_opening,
+              onTap: () => _open(item),
+            ),
+          if (_opening) const LinearProgressIndicator(),
+          if (_error != null)
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+        ],
+      );
     },
   );
 }
@@ -146,7 +183,9 @@ class _ZimInlineVideosState extends ConsumerState<ZimInlineVideos> {
 /// The player owns its scratch copy, which is deleted after native disposal.
 class _ZimMovieScreen extends ConsumerStatefulWidget {
   const _ZimMovieScreen({
-    required this.video, required this.title, required this.identity,
+    required this.video,
+    required this.title,
+    required this.identity,
   });
   final ZimPlayableVideo video;
   final String title, identity;
@@ -190,15 +229,22 @@ class _ZimMovieScreenState extends ConsumerState<_ZimMovieScreen> {
     try {
       final file = await _captionFile();
       if (!await file.exists() ||
-          await file.length() > ZimSubtitles.maxCaptionCharacters) return;
+          await file.length() > ZimSubtitles.maxCaptionCharacters)
+        return;
       final captions = ZimSubtitles.parse(await file.readAsString());
       if (mounted && captions.isNotEmpty) {
-        setState(() { _cues = captions; _translated = true; });
+        setState(() {
+          _cues = captions;
+          _translated = true;
+        });
       }
-    } catch (_) { /* A cache miss never blocks playback. */ }
+    } catch (_) {
+      /* A cache miss never blocks playback. */
+    }
   }
 
-  bool get _persian => _translated ||
+  bool get _persian =>
+      _translated ||
       widget.video.subtitleLanguage?.toLowerCase().startsWith('fa') == true;
 
   Future<void> _convert() async {
@@ -209,21 +255,36 @@ class _ZimMovieScreenState extends ConsumerState<_ZimMovieScreen> {
       return;
     }
     await _player.pause();
-    setState(() { _busy = true; _cancel = false; _parts = 0; _error = null; });
+    setState(() {
+      _busy = true;
+      _cancel = false;
+      _parts = 0;
+      _error = null;
+    });
     try {
       final engine = ref.read(llamaEngineProvider);
       final settings = ref.read(settingsProvider);
       final captions = _cues.isEmpty
           ? await ZimVideoRuntime.transcribeVideo(
-              widget.video.file, ref.read(sherpaVoiceProvider),
-              engine, model.family, settings,
+              widget.video.file,
+              ref.read(sherpaVoiceProvider),
+              engine,
+              model.family,
+              settings,
               cancelled: () => _cancel || !mounted,
-              progress: (i) { if (mounted) setState(() => _parts = i); },
+              progress: (i) {
+                if (mounted) setState(() => _parts = i);
+              },
             )
           : await ZimVideoRuntime.translateCaptions(
-              _cues, engine, model.family, settings,
+              _cues,
+              engine,
+              model.family,
+              settings,
               cancelled: () => _cancel || !mounted,
-              progress: (i, _) { if (mounted) setState(() => _parts = i); },
+              progress: (i, _) {
+                if (mounted) setState(() => _parts = i);
+              },
             );
       if (!mounted) return;
       if (_cancel) {
@@ -234,11 +295,12 @@ class _ZimMovieScreenState extends ConsumerState<_ZimMovieScreen> {
         final file = await _captionFile();
         await file.parent.create(recursive: true);
         await file.writeAsString(ZimSubtitles.srt(captions), flush: true);
-        if (mounted) setState(() {
-          _cues = captions;
-          _translated = true;
-          _fullText = true;
-        });
+        if (mounted)
+          setState(() {
+            _cues = captions;
+            _translated = true;
+            _fullText = true;
+          });
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -251,9 +313,11 @@ class _ZimMovieScreenState extends ConsumerState<_ZimMovieScreen> {
   void dispose() {
     _cancel = true;
     _player.removeListener(_tick);
-    unawaited(_player.dispose().whenComplete(() async {
-      if (await widget.video.file.exists()) await widget.video.file.delete();
-    }));
+    unawaited(
+      _player.dispose().whenComplete(() async {
+        if (await widget.video.file.exists()) await widget.video.file.delete();
+      }),
+    );
     super.dispose();
   }
 
@@ -262,97 +326,130 @@ class _ZimMovieScreenState extends ConsumerState<_ZimMovieScreen> {
     final value = _player.value;
     final current = ZimSubtitles.at(_cues, value.position);
     final maxMillis = value.duration.inMilliseconds <= 0
-        ? 1 : value.duration.inMilliseconds;
+        ? 1
+        : value.duration.inMilliseconds;
     return PopScope(
       canPop: !_busy,
       child: Scaffold(
         appBar: AppBar(title: Text(widget.title)),
-        body: ListView(padding: const EdgeInsets.all(16), children: [
-          FutureBuilder<void>(
-            future: _ready,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError || !value.isInitialized) {
-                return const Text('پخش این قالب روی دستگاه امکان‌پذیر نیست.');
-              }
-              return AspectRatio(
-                aspectRatio: value.aspectRatio > 0 ? value.aspectRatio : 16 / 9,
-                child: Stack(children: [
-                  Positioned.fill(child: VideoPlayer(_player)),
-                  if (current != null) Positioned(
-                    bottom: 6, left: 8, right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.black87,
-                      child: Text(current,
-                          textDirection: TextDirection.rtl,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white)),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            FutureBuilder<void>(
+              future: _ready,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError || !value.isInitialized) {
+                  return const Text('پخش این قالب روی دستگاه امکان‌پذیر نیست.');
+                }
+                return AspectRatio(
+                  aspectRatio: value.aspectRatio > 0
+                      ? value.aspectRatio
+                      : 16 / 9,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(child: VideoPlayer(_player)),
+                      if (current != null)
+                        Positioned(
+                          bottom: 6,
+                          left: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            color: Colors.black87,
+                            child: Text(
+                              current,
+                              textDirection: TextDirection.rtl,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            if (value.isInitialized)
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () =>
+                        value.isPlaying ? _player.pause() : _player.play(),
+                    icon: Icon(
+                      value.isPlaying ? Icons.pause : Icons.play_arrow,
                     ),
                   ),
-                ]),
-              );
-            },
-          ),
-          if (value.isInitialized) Row(children: [
-            IconButton(
-              onPressed: () => value.isPlaying
-                  ? _player.pause() : _player.play(),
-              icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
-            ),
-            Expanded(child: Slider(
-              min: 0,
-              max: maxMillis.toDouble(),
-              value: value.position.inMilliseconds.clamp(0, maxMillis)
-                  .toDouble(),
-              onChanged: (x) =>
-                  _player.seekTo(Duration(milliseconds: x.round())),
-            )),
-            Text(ZimSubtitles.clock(value.position)),
-          ]),
-          const SizedBox(height: 12),
-          Text(_translated
-              ? 'زیرنویس فارسی ماشینی (نیازمند بازبینی)'
-              : _cues.isEmpty
-                  ? 'این فیلم زیرنویس آماده ندارد.'
-                  : 'زیرنویس موجود در آرشیو نمایش داده می‌شود.'),
-          if (_busy) ...[
-            const LinearProgressIndicator(),
-            Text('پردازش آفلاین · بخش $_parts'),
-            TextButton(onPressed: () => setState(() => _cancel = true),
-                child: const Text('توقف پردازش')),
-          ] else if (!_persian) ...[
-            FilledButton.icon(
-              onPressed: _convert,
-              icon: const Icon(Icons.translate),
-              label: Text(_cues.isEmpty
-                  ? 'تبدیل گفتار فیلم به زیرنویس فارسی'
-                  : 'ترجمه زیرنویس به فارسی'),
-            ),
-            const Text('برای فیلم بدون زیرنویس، موتور گفتار محلی لازم است. '
-                'زمان‌ها در بخش‌های تقریبی ۲۰ ثانیه‌ای تنظیم می‌شوند.'),
-          ],
-          if (_error != null) Text(_error!, style: TextStyle(
-              color: Theme.of(context).colorScheme.error)),
-          if (_cues.isNotEmpty) ...[
-            TextButton.icon(
-              onPressed: () => setState(() => _fullText = !_fullText),
-              icon: const Icon(Icons.article_outlined),
-              label: Text(_fullText ? 'بستن متن کامل' : 'متن کامل فیلم'),
-            ),
-            if (_fullText) ...[
-              TextButton.icon(
-                onPressed: () => Clipboard.setData(ClipboardData(
-                    text: ZimSubtitles.fullText(_cues))),
-                icon: const Icon(Icons.copy),
-                label: const Text('کپی متن'),
+                  Expanded(
+                    child: Slider(
+                      min: 0,
+                      max: maxMillis.toDouble(),
+                      value: value.position.inMilliseconds
+                          .clamp(0, maxMillis)
+                          .toDouble(),
+                      onChanged: (x) =>
+                          _player.seekTo(Duration(milliseconds: x.round())),
+                    ),
+                  ),
+                  Text(ZimSubtitles.clock(value.position)),
+                ],
               ),
-              SelectableText(ZimSubtitles.fullText(_cues)),
+            const SizedBox(height: 12),
+            Text(
+              _translated
+                  ? 'زیرنویس فارسی ماشینی (نیازمند بازبینی)'
+                  : _cues.isEmpty
+                  ? 'این فیلم زیرنویس آماده ندارد.'
+                  : 'زیرنویس موجود در آرشیو نمایش داده می‌شود.',
+            ),
+            if (_busy) ...[
+              const LinearProgressIndicator(),
+              Text('پردازش آفلاین · بخش $_parts'),
+              TextButton(
+                onPressed: () => setState(() => _cancel = true),
+                child: const Text('توقف پردازش'),
+              ),
+            ] else if (!_persian) ...[
+              FilledButton.icon(
+                onPressed: _convert,
+                icon: const Icon(Icons.translate),
+                label: Text(
+                  _cues.isEmpty
+                      ? 'تبدیل گفتار فیلم به زیرنویس فارسی'
+                      : 'ترجمه زیرنویس به فارسی',
+                ),
+              ),
+              const Text(
+                'برای فیلم بدون زیرنویس، موتور گفتار محلی لازم است. '
+                'زمان‌ها در بخش‌های تقریبی ۲۰ ثانیه‌ای تنظیم می‌شوند.',
+              ),
+            ],
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            if (_cues.isNotEmpty) ...[
+              TextButton.icon(
+                onPressed: () => setState(() => _fullText = !_fullText),
+                icon: const Icon(Icons.article_outlined),
+                label: Text(_fullText ? 'بستن متن کامل' : 'متن کامل فیلم'),
+              ),
+              if (_fullText) ...[
+                TextButton.icon(
+                  onPressed: () => Clipboard.setData(
+                    ClipboardData(text: ZimSubtitles.fullText(_cues)),
+                  ),
+                  icon: const Icon(Icons.copy),
+                  label: const Text('کپی متن'),
+                ),
+                SelectableText(ZimSubtitles.fullText(_cues)),
+              ],
             ],
           ],
-        ]),
+        ),
       ),
     );
   }
