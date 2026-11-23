@@ -5,3 +5,5 @@ PALA M01-M06 unified one-shot preflight
 - APK BUILD: NO
 - DEVICE INSTALL: NO
 - Existing data, Qwen and owner key: UNTOUCHED
+
+Retry after confirmed SDK-only lockfile guard failure: old package pins unchanged; permitted minimum Dart/Flutter bounds are verified and capped to the CI toolchain.
